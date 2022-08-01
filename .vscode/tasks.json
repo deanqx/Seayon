@@ -1,0 +1,60 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compile: libSeayon",
+            "type": "shell",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/bin/Seayon"
+            },
+            "command": "g++",
+            "args": [
+                "-O3", // Optimization
+                "-c",
+                "${workspaceFolder}/Seayon/src/*.cpp",
+                "-I",
+                "${workspaceFolder}/bin/Seayon/include",
+                ";",
+                "ar",
+                "cr",
+                "./lib/libSeayon.a",
+                "*.o",
+                ";",
+                "Copy-Item",
+                "'${workspaceFolder}/Seayon/include/seayon.h'",
+                "'./include/seayon.h'"
+            ]
+        },
+        {
+            "label": "Compile and Run: SeayonMnist",
+            "type": "shell",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/SeayonMnist"
+            },
+            "command": "g++",
+            "args": [
+                "-O3", // Optimization
+                "./src/main.cpp",
+                "-o",
+                "SeayonMnist",
+                "-l",
+                "Seayon",
+                "-I",
+                "${workspaceFolder}/bin/Seayon/include",
+                "-L",
+                "${workspaceFolder}/bin/Seayon/lib",
+                "-static",
+                ";",
+                "./SeayonMnist.exe",
+            ]
+        }
+    ]
+}
