@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "SeayonDebug",
+            "type": "cppdbg",
+            "request": "launch",
+            "stopAtEntry": false,
+            "program": "${workspaceFolder}/bin/SeayonDebug/SeayonDebug.exe",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -118,7 +118,7 @@ void seayon::printo()
 	size_t l = Layers.size() - 1;
 
 	SetConsoleTextAttribute(cmd, 11);
-	printf("\t  Output Layer:\n");
+	printf("  Output Layer:\n");
 
 	for (size_t n = 0; n < Layers[l].Neurons.size(); ++n)
 	{
@@ -146,7 +146,7 @@ void seayon::printo()
 				printf(")\n");
 			}
 			else
-				printf("\t\t(%0.2f)\n", Layers[l].Biases[n]);
+				printf("\t\t(%0.2f)\n\n", Layers[l].Biases[n]);
 		}
 		else
 			printf("\n\n");

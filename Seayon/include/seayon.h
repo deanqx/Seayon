@@ -18,8 +18,8 @@
 #define dSigmoid(a) a * (1.0f - a)
 
 /// <summary>
-/// <para>An easy implimentation of a Convolutional Neural Network for C++</para>
-/// <para>Copyright by Sawey</para>
+/// <para>Open source Neural Network library in C++ with lots of easy to use features.</para>
+/// <para>Copyright by deanqx and Sawey</para>
 /// </summary>
 struct seayon
 {
@@ -118,5 +118,5 @@ struct seayon
 	/// <param name="writelog">Writes detailed information about the progress.</param>
 	/// <param name="learningRate">Too high numbers can over shoot the right weight.</param>
 	/// <param name="momentum">How much the algorithm is allowed to move.</param>
-	void fit(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs, unsigned runs, bool print = true, float learningRate = 0.5, float momentum = 0.1);
+	void fit(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs, unsigned runs, bool print = true, float learningRate = 0.03f, float momentum = 0.1f);
 };

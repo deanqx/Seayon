@@ -5,94 +5,96 @@
 #include <ctime>
 #include <chrono>
 
-#define PULSESIG(inputs) \
-{ \
-	for (size_t n = 0; n < inputs.size(); ++n) \
-		Layers[0].Neurons[n] = inputs[n]; \
-	\
-	const size_t layer_t = Layers.size() - 1; \
-	for (size_t l1 = 0; l1 < layer_t; ++l1) \
-	{ \
-		const size_t l2 = l1 + 1; \
-		\
-		const size_t n2_t = Layers[l2].Neurons.size(); \
-		for (size_t n2 = 0; n2 < n2_t; ++n2) \
-		{ \
-			float z = 0; \
-			const size_t n1_t = Layers[l1].Neurons.size(); \
-			for (size_t n1 = 0; n1 < n1_t; ++n1) \
-				z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
-			z += Layers[l2].Biases[n2]; \
-			\
-			Layers[l2].Neurons[n2] = Sigmoid(z); \
-		} \
-	} \
-}
-#define PULSERELU(inputs) \
-{ \
-	for (size_t n = 0; n < inputs.size(); ++n) \
-		Layers[0].Neurons[n] = inputs[n]; \
-	\
-	const size_t layer_t = Layers.size() - 1; \
-	for (size_t l1 = 0; l1 < layer_t; ++l1) \
-	{ \
-		const size_t l2 = l1 + 1; \
-		\
-		const size_t n2_t = Layers[l2].Neurons.size(); \
-		for (size_t n2 = 0; n2 < n2_t; ++n2) \
-		{ \
-			float z = 0; \
-			const size_t n1_t = Layers[l1].Neurons.size(); \
-			for (size_t n1 = 0; n1 < n1_t; ++n1) \
-				z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
-			z += Layers[l2].Biases[n2]; \
-			\
-			Layers[l2].Neurons[n2] = ReLu(z); \
-		} \
-	} \
-}
-#define PULSEREMOID(inputs) \
-{ \
-	for (size_t n = 0; n < inputs.size(); ++n) \
-		Layers[0].Neurons[n] = inputs[n]; \
-	\
-	const size_t layer_t = Layers.size() - 2; \
-	for (size_t l1 = 0; l1 < layer_t; ++l1) \
-	{ \
-		const size_t l2 = l1 + 1; \
-		\
-		const size_t n2_t = Layers[l2].Neurons.size(); \
-		for (size_t n2 = 0; n2 < n2_t; ++n2) \
-		{ \
-			float z = 0; \
-			const size_t n1_t = Layers[l1].Neurons.size(); \
-			for (size_t n1 = 0; n1 < n1_t; ++n1) \
-				z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
-			z += Layers[l2].Biases[n2]; \
-			\
-			Layers[l2].Neurons[n2] = ReLu(z); \
-		} \
-	} \
-	\
-	const size_t l1 = layer_t; \
-	const size_t l2 = layer_t + 1; \
-	\
-	const size_t n2_t = Layers[l2].Neurons.size(); \
-	for (size_t n2 = 0; n2 < n2_t; ++n2) \
-	{ \
-		float z = 0; \
-		const size_t n1_t = Layers[l1].Neurons.size(); \
-		for (size_t n1 = 0; n1 < n1_t; ++n1) \
-			z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
-		z += Layers[l2].Biases[n2]; \
-		\
-		Layers[l2].Neurons[n2] = Sigmoid(z); \
-	} \
-}
+#define PULSESIG(inputs)                                                      \
+	{                                                                         \
+		for (size_t n = 0; n < inputs.size(); ++n)                            \
+			Layers[0].Neurons[n] = inputs[n];                                 \
+                                                                              \
+		const size_t layer_t = Layers.size() - 1;                             \
+		for (size_t l1 = 0; l1 < layer_t; ++l1)                               \
+		{                                                                     \
+			const size_t l2 = l1 + 1;                                         \
+                                                                              \
+			const size_t n2_t = Layers[l2].Neurons.size();                    \
+			for (size_t n2 = 0; n2 < n2_t; ++n2)                              \
+			{                                                                 \
+				float z = 0;                                                  \
+				const size_t n1_t = Layers[l1].Neurons.size();                \
+				for (size_t n1 = 0; n1 < n1_t; ++n1)                          \
+					z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
+				z += Layers[l2].Biases[n2];                                   \
+                                                                              \
+				Layers[l2].Neurons[n2] = Sigmoid(z);                          \
+			}                                                                 \
+		}                                                                     \
+	}
+#define PULSERELU(inputs)                                                     \
+	{                                                                         \
+		for (size_t n = 0; n < inputs.size(); ++n)                            \
+			Layers[0].Neurons[n] = inputs[n];                                 \
+                                                                              \
+		const size_t layer_t = Layers.size() - 1;                             \
+		for (size_t l1 = 0; l1 < layer_t; ++l1)                               \
+		{                                                                     \
+			const size_t l2 = l1 + 1;                                         \
+                                                                              \
+			const size_t n2_t = Layers[l2].Neurons.size();                    \
+			for (size_t n2 = 0; n2 < n2_t; ++n2)                              \
+			{                                                                 \
+				float z = 0;                                                  \
+				const size_t n1_t = Layers[l1].Neurons.size();                \
+				for (size_t n1 = 0; n1 < n1_t; ++n1)                          \
+					z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
+				z += Layers[l2].Biases[n2];                                   \
+                                                                              \
+				Layers[l2].Neurons[n2] = ReLu(z);                             \
+			}                                                                 \
+		}                                                                     \
+	}
+#define PULSEREMOID(inputs)                                                   \
+	{                                                                         \
+		for (size_t n = 0; n < inputs.size(); ++n)                            \
+			Layers[0].Neurons[n] = inputs[n];                                 \
+                                                                              \
+		const size_t layer_t = Layers.size() - 2;                             \
+		for (size_t l1 = 0; l1 < layer_t; ++l1)                               \
+		{                                                                     \
+			const size_t l2 = l1 + 1;                                         \
+                                                                              \
+			const size_t n2_t = Layers[l2].Neurons.size();                    \
+			for (size_t n2 = 0; n2 < n2_t; ++n2)                              \
+			{                                                                 \
+				float z = 0;                                                  \
+				const size_t n1_t = Layers[l1].Neurons.size();                \
+				for (size_t n1 = 0; n1 < n1_t; ++n1)                          \
+					z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1]; \
+				z += Layers[l2].Biases[n2];                                   \
+                                                                              \
+				Layers[l2].Neurons[n2] = ReLu(z);                             \
+			}                                                                 \
+		}                                                                     \
+                                                                              \
+		const size_t l1 = layer_t;                                            \
+		const size_t l2 = layer_t + 1;                                        \
+                                                                              \
+		const size_t n2_t = Layers[l2].Neurons.size();                        \
+		for (size_t n2 = 0; n2 < n2_t; ++n2)                                  \
+		{                                                                     \
+			float z = 0;                                                      \
+			const size_t n1_t = Layers[l1].Neurons.size();                    \
+			for (size_t n1 = 0; n1 < n1_t; ++n1)                              \
+				z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1];     \
+			z += Layers[l2].Biases[n2];                                       \
+                                                                              \
+			Layers[l2].Neurons[n2] = Sigmoid(z);                              \
+		}                                                                     \
+	}
 
 // TODO Save and load in Json format
+// TODO Replace vectors with arrays
+// TODO Function Descriptions
 
-void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs, unsigned runs, bool print, float N, float M)
+void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, unsigned runs, bool print, float N, float M)
 {
 	if (inputs.size() != outputs.size() ||
 		inputs[0].size() != Layers[0].Neurons.size() ||
@@ -106,9 +108,7 @@ void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vecto
 	auto start = std::chrono::high_resolution_clock::now();
 	auto last = std::chrono::high_resolution_clock::now();
 	if (print)
-	{
 		printf("\n");
-	}
 
 	const size_t lLast = Layers.size() - 1;
 
@@ -132,15 +132,15 @@ void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vecto
 			lastw[l2][n2].resize(Layers[l2].Weights[n2].size());
 	}
 
+	float mcpsTotal = 0;
 	float cpsCalc = 0;
-	for (size_t l2 = 1; l2 < lLast; ++l2)
-		cpsCalc += Neurons_t[l2 - 1] * Neurons_t[l2];
-	cpsCalc += Neurons_t[lLast] * Neurons_t[lLast];
-
-	float cpsTotal = 0;
-	float cpsCount = 0;
 	if (print)
+	{
+		for (size_t l2 = 1; l2 <= lLast; ++l2)
+			cpsCalc += Neurons_t[l2 - 1] * Neurons_t[l2];
+
 		printf("\r\tTraining 0.0%%      Runtime: 0hours 0min 0sec          0.0 MC/s \tETA: N/A                          ");
+	}
 	if (Activation == ActivFunc::SIGMOID)
 	{
 		for (unsigned run = 1; run <= runs; ++run)
@@ -208,11 +208,10 @@ void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vecto
 				time1 -= 60 * m1;
 				const int s1 = time1;
 
-				const float cps = (float)sample_t * cpsCalc / ((float)runElapsed.count() * 1000000.0f);
-				cpsTotal += cps;
-				++cpsCount;
+				const float mcps = (float)sample_t * cpsCalc / ((float)runElapsed.count() * 1000000.0f);
+				mcpsTotal += mcps;
 
-				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.1fMC/s \tETA: %ihours %imin %isec      ", (float)run * 100.0f / (float)runs, h0, m0, s0, cps, h1, m1, s1);
+				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.1f MC/s \tETA: %ihours %imin %isec      ", (float)run * 100.0f / (float)runs, h0, m0, s0, mcps, h1, m1, s1);
 			}
 		}
 	}
@@ -283,11 +282,10 @@ void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vecto
 				time1 -= 60 * m1;
 				const int s1 = time1;
 
-				const float cps = (float)sample_t * cpsCalc / ((float)runElapsed.count() * 1000000.0f);
-				cpsTotal += cps;
-				++cpsCount;
+				const float mcps = (float)sample_t * cpsCalc / ((float)runElapsed.count() * 1000000.0f);
+				mcpsTotal += mcps;
 
-				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.1fMC/s \tETA: %ihours %imin %isec      ", (float)run * 100.0f / (float)runs, h0, m0, s0, cps, h1, m1, s1);
+				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.1f MC/s \tETA: %ihours %imin %isec      ", (float)run * 100.0f / (float)runs, h0, m0, s0, mcps, h1, m1, s1);
 			}
 		}
 	}
@@ -302,6 +300,6 @@ void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vecto
 		time0 -= 60 * m0;
 		const int s0 = time0;
 
-		printf("\r\tTraining 100.0%%      Runtime: %ihours %imin %isec     avg. %.1fMC/s                                 \n\n", h0, m0, s0, cpsTotal / cpsCount);
+		printf("\r\tTraining 100.0%%      Runtime: %ihours %imin %isec     avg. %.1fMC/s                                 \n\n", h0, m0, s0, mcpsTotal / runs);
 	}
 }
