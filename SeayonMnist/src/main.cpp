@@ -129,7 +129,8 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 }
 int main()
 {
-	bool load = false;
+	const std::string workspaceFolder = "C:/Stack/Projects/Workspace";
+	const bool load = false;
 
 
 	std::vector<std::vector<std::vector<float>>> inputs;
@@ -141,13 +142,13 @@ int main()
 
 	if (load)
 	{
-		std::ifstream file("C:\\Stack\\Projects\\Workspace\\Seayon\\SeayonMnist\\res\\test.nn");
+		std::ifstream file(workspaceFolder + "/Seayon/SeayonMnist/res/test.nn");
 		nn->load(file, false);
 		file.close();
 	}
 	else
 	{
-		ImportMnist(inputs, outputs, 60000, 60000, "C:\\Stack\\Projects\\Workspace\\Seayon\\SeayonMnist\\res\\mnist\\mnist_train.csv");
+		ImportMnist(inputs, outputs, 60000, 60000, workspaceFolder + "/Seayon/SeayonMnist/res/mnist/mnist_train.csv");
 
 		nn->pulse(inputs[0][1]);
 		nn->printo(inputs[0], outputs[0]);
@@ -158,14 +159,14 @@ int main()
 		nn->printo(inputs[0], outputs[0]);
 	}
 
-	ImportMnist(inputs, outputs, 10000, 10000, "C:\\Stack\\Projects\\Workspace\\Seayon\\SeayonMnist\\res\\mnist\\mnist_test.csv");
+	ImportMnist(inputs, outputs, 10000, 10000, workspaceFolder + "/Seayon/SeayonMnist/res/mnist/mnist_test.csv");
 
 	nn->pulse(inputs[0][1]);
 	nn->printo(inputs[0], outputs[0]);
 	
 	if (!load)
 	{
-		std::ofstream file("C:\\Stack\\Projects\\Workspace\\Seayon\\SeayonMnist\\res\\test.nn");
+		std::ofstream file(workspaceFolder + "/Seayon/SeayonMnist/res/test.nn");
 		nn->save(file, false);
 		file.close();
 	}

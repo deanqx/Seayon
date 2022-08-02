@@ -6,7 +6,7 @@
             "type": "shell",
             "group": "build",
             "options": {
-                "cwd": "${workspaceFolder}/bin/Seayon"
+                "cwd": "${workspaceFolder}/bin/Seayon",
             },
             "command": "g++",
             "args": [
