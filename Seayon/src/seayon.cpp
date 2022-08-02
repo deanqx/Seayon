@@ -92,7 +92,7 @@
 
 // TODO Save and load in Json format
 // TODO Replace vectors with arrays
-// TODO Function Descriptions
+// TODO Do something with remoid
 
 void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, unsigned runs, bool print, float N, float M)
 {
