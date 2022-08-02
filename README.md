@@ -24,6 +24,11 @@ Open source Neural Network library in C++ with lots of easy to use features.
 
 :x: Only **Sigmoid** and **ReLu** as activation functions.
 
+# TODO-List
+- Save and load in Json format
+- Replace vectors with arrays
+- Do something with remoid
+
 # How to include the library
 1. Copy `./bin/Seayon/include/` and `./bin/Seayon/lib/` to your workspace folder.
 2. `#include "seayon.h"`
