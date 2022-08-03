@@ -90,8 +90,6 @@
 		}                                                                     \
 	}
 
-// test
-
 void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, unsigned runs, bool print, float N, float M)
 {
 	if (inputs.size() != outputs.size() ||
