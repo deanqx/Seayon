@@ -1,5 +1,5 @@
 # Seayon
-Open source Neural Network library in C++ with lots of easy to use features.
+Open source Convolutional Neural Network library in C++ with lots of easy to use features.
 
 # Features
 :heavy_check_mark: **Mostly performance optimized**
