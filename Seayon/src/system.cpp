@@ -1,7 +1,7 @@
 #include "seayon.h"
 
 #define randf(MIN, MAX) MIN + (float)rand() / (float)(RAND_MAX / (MAX - MIN))
-void seayon::generate(const std::vector<unsigned>& layerCounts, const ActivFunc a, const unsigned seed)
+void seayon::generate(const std::vector<int>& layerCounts, const ActivFunc a, const int seed)
 {
 	Activation = a;
 
@@ -140,7 +140,7 @@ void seayon::load(std::string& stream, const bool readFormat)
 	/// <para>2: Neuron</para>
 	/// </summary>
 	size_t p = 0;
-	unsigned depth = 0;
+	int depth = 0;
 	int l1 = -1;
 	int n1{};
 
@@ -152,7 +152,7 @@ void seayon::load(std::string& stream, const bool readFormat)
 		sizeNumber << stream[p];
 	++p;
 
-	unsigned a = std::stoul(sizeNumber.str());
+	int a = std::stoul(sizeNumber.str());
 	std::stringstream().swap(sizeNumber);
 
 	Activation = (ActivFunc)a;
@@ -168,14 +168,14 @@ void seayon::load(std::string& stream, const bool readFormat)
 			{
 				if (depth == 0)
 				{
-					unsigned layerCount = std::stoul(sizeNumber.str());
+					int layerCount = std::stoul(sizeNumber.str());
 					std::stringstream().swap(sizeNumber);
 
 					Layers.resize(layerCount);
 				}
 				else if (depth == 1)
 				{
-					unsigned neuronCount = std::stoul(sizeNumber.str());
+					int neuronCount = std::stoul(sizeNumber.str());
 					std::stringstream().swap(sizeNumber);
 
 					++l1;
@@ -191,10 +191,10 @@ void seayon::load(std::string& stream, const bool readFormat)
 						++n1;
 					++depth;
 
-					unsigned weightCount = std::stoul(sizeNumber.str());
+					int weightCount = std::stoul(sizeNumber.str());
 					std::stringstream().swap(sizeNumber);
 
-					unsigned l2 = l1 + 1;
+					int l2 = l1 + 1;
 
 					Layers[l2].Weights.resize(weightCount);
 					for (size_t n2 = 0; n2 < weightCount; ++n2)
@@ -248,14 +248,14 @@ void seayon::load(std::string& stream, const bool readFormat)
 			{
 				if (depth == 0)
 				{
-					unsigned layerCount = std::stoul(sizeNumber.str());
+					int layerCount = std::stoul(sizeNumber.str());
 					std::stringstream().swap(sizeNumber);
 
 					Layers.resize(layerCount);
 				}
 				else if (depth == 1)
 				{
-					unsigned neuronCount = std::stoul(sizeNumber.str());
+					int neuronCount = std::stoul(sizeNumber.str());
 					std::stringstream().swap(sizeNumber);
 
 					++l1;
@@ -271,10 +271,10 @@ void seayon::load(std::string& stream, const bool readFormat)
 						++n1;
 					++depth;
 
-					unsigned weightCount = std::stoul(sizeNumber.str());
+					int weightCount = std::stoul(sizeNumber.str());
 					std::stringstream().swap(sizeNumber);
 
-					unsigned l2 = l1 + 1;
+					int l2 = l1 + 1;
 
 					Layers[l2].Weights.resize(weightCount);
 					for (size_t n2 = 0; n2 < weightCount; ++n2)
