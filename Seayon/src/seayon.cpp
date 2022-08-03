@@ -90,7 +90,7 @@
 		}                                                                     \
 	}
 
-void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, unsigned runs, bool print, float N, float M)
+void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, int runs, bool print, float N, float M)
 {
 	if (inputs.size() != outputs.size() ||
 		inputs[0].size() != Layers[0].Neurons.size() ||
@@ -139,7 +139,7 @@ void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vecto
 	}
 	if (Activation == ActivFunc::SIGMOID)
 	{
-		for (unsigned run = 1; run <= runs; ++run)
+		for (int run = 1; run <= runs; ++run)
 		{
 			for (size_t sample = 0; sample < sample_t; ++sample)
 			{
@@ -213,7 +213,7 @@ void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vecto
 	}
 	else if (Activation == ActivFunc::RELU)
 	{
-		for (unsigned run = 1; run <= runs; ++run)
+		for (int run = 1; run <= runs; ++run)
 		{
 			for (size_t sample = 0; sample < sample_t; ++sample)
 			{

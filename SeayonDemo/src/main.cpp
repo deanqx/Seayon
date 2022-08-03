@@ -16,7 +16,7 @@ int main()
 	// 1. Hidden layer size: 3
 	// 2. Hidden layer size: 4
 	// Output layer size: 2
-	nn->generate(std::vector<unsigned>{2, 3, 4, 2}, seayon::ActivFunc::SIGMOID, 1472); // Randomization seed: 1472
+	nn->generate(std::vector<int>{2, 3, 4, 2}, seayon::ActivFunc::SIGMOID, 1472); // Randomization seed: 1472
 
 	nn->pulse(inputs[0]); // Calculates the network with first input set
 	nn->print();  // Prints the whole network to the console
