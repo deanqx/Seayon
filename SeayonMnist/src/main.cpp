@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "seayon.h"
 
-void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs, unsigned batchSize, unsigned totalLenght, std::string csvPath)
+void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs, int batchSize, int totalLenght, std::string csvPath)
 {
 	std::vector<std::vector<std::vector<float>>> flash_inputs;
 	std::vector<std::vector<std::vector<float>>> flash_outputs;
@@ -30,7 +30,7 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 	std::getline(csv, line);
 
 	int batch = -1;
-	for (unsigned package = 0; std::getline(csv, line); ++package)
+	for (int package = 0; std::getline(csv, line); ++package)
 	{
 		if (package % batchSize == 0)
 		{
@@ -120,9 +120,9 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 			std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 			start = std::chrono::high_resolution_clock::now();
 
-			unsigned progress = package * 100 / totalLenght;
+			int progress = package * 100 / totalLenght;
 			float eta = (float)elapsed.count() / 100.f * (float)(totalLenght - package);
-			std::cout << "\t" << progress << "%\tETA: " << (unsigned)eta << "sec\t" << (int)totalelapsed.count() << "sec\t\t\t\r";
+			std::cout << "\t" << progress << "%\tETA: " << (int)eta << "sec\t" << (int)totalelapsed.count() << "sec\t\t\t\r";
 		}
 	}
 	std::cout << "\t100%\t\t\t\t\r" << std::endl << std::endl;
@@ -138,7 +138,7 @@ int main()
 
 	seayon* nn = new seayon;
 
-	nn->generate(std::vector<unsigned>{ 784, 16, 16, 10 }, seayon::ActivFunc::SIGMOID, 1472);
+	nn->generate(std::vector<int>{ 784, 16, 16, 10 }, seayon::ActivFunc::SIGMOID, 1472);
 
 	if (load)
 	{

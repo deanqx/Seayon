@@ -34,7 +34,8 @@ struct seayon
 	enum class ActivFunc
 	{
 		SIGMOID,
-		RELU
+		RELU, 
+		REMOID
 	} Activation = ActivFunc::SIGMOID;
 	long Writing = -1;
 
@@ -43,7 +44,7 @@ struct seayon
 	 * @param layerCount Starts with the input layer (Minimum 2 layers)
 	 * @param ActivFunc Activation function for every neuron.
 	 */
-	void generate(const std::vector<unsigned> &layerCounts, const ActivFunc a = ActivFunc::SIGMOID, const unsigned seed = 0);
+	void generate(const std::vector<int> &layerCounts, const ActivFunc a = ActivFunc::SIGMOID, const int seed = 0);
 	// Saves network to a .nn file
 	void save(std::ofstream &stream, const bool readFormat = false);
 	// Copys network to a std::string
@@ -146,5 +147,5 @@ struct seayon
 	 * @param learningRate Large numbers will take less runs but can "over shoot" the right value. 
 	 * @param momentum Large numbers will take less runs but can "over shoot" the right value. 
 	 */
-	void fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, unsigned runs, bool print = true, float learningRate = 0.03f, float momentum = 0.1f);
+	void fit(std::vector<std::vector<float>> &inputs, std::vector<std::vector<float>> &outputs, int runs, bool print = true, float learningRate = 0.03f, float momentum = 0.1f);
 };

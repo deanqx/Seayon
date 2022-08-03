@@ -180,6 +180,3 @@ void seayon::printo(std::vector<std::vector<std::vector<float>>>& inputs, std::v
 	printf("\t\tAccruacy\t%.1f%%\n", accruacy(inputs, outputs) * 100.0f);
 	printf("\t-----------------------------------------------\n\n");
 }
-void seayon::printheat(std::ofstream& csv)
-{
-}
