@@ -142,7 +142,7 @@ int main()
 
 	if (load)
 	{
-		std::ifstream file(workspaceFolder + "/Seayon/SeayonMnist/res/test.nn");
+		std::ifstream file(workspaceFolder + "/Seayon/SeayonMnist/res/mnist.nn");
 		nn->load(file, false);
 		file.close();
 	}
@@ -157,19 +157,16 @@ int main()
 
 		nn->pulse(inputs[0][1]);
 		nn->printo(inputs[0], outputs[0]);
+
+		std::ofstream file(workspaceFolder + "/Seayon/SeayonMnist/res/mnist.nn");
+		nn->save(file, false);
+		file.close();
 	}
 
 	ImportMnist(inputs, outputs, 10000, 10000, workspaceFolder + "/Seayon/SeayonMnist/res/mnist/mnist_test.csv");
 
 	nn->pulse(inputs[0][1]);
 	nn->printo(inputs[0], outputs[0]);
-	
-	if (!load)
-	{
-		std::ofstream file(workspaceFolder + "/Seayon/SeayonMnist/res/test.nn");
-		nn->save(file, false);
-		file.close();
-	}
 
 	delete nn;
 
