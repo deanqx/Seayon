@@ -2,7 +2,17 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Compile: libSeayon",
+            "label": "Rebuild all",
+            "group": "build",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build: libSeayon",
+                "Build: SeayonDemo",
+                "Build: SeayonMnist"
+            ]
+        },
+        {
+            "label": "Build: libSeayon",
             "type": "shell",
             "group": "build",
             "options": {
@@ -28,7 +38,7 @@
             ]
         },
         {
-            "label": "Compile and Run: SeayonDemo",
+            "label": "Build: SeayonDemo",
             "type": "shell",
             "group": "build",
             "options": {
@@ -40,7 +50,7 @@
                 "-g",
                 "../SeayonDemo/src/main.cpp",
                 "-o",
-                "./SeayonDemo/SeayonDemo",
+                "./SeayonDemo/SeayonDemo.exe",
                 "-l",
                 "Seayon",
                 "-I",
@@ -48,12 +58,20 @@
                 "-L",
                 "./Seayon/lib",
                 "-static",
-                ";",
-                "./SeayonDemo/SeayonDemo.exe"
             ]
         },
         {
-            "label": "Compile: SeayonMnist",
+            "label": "Build and Run: SeayonDemo",
+            "type": "shell",
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/bin/"
+            },
+            "dependsOn": "Build: SeayonDemo",
+            "command": "./SeayonDemo/SeayonDemo.exe",
+        },
+        {
+            "label": "Build: SeayonMnist",
             "type": "shell",
             "group": "build",
             "options": {
@@ -62,9 +80,9 @@
             "command": "g++",
             "args": [
                 "-O3", // Optimization
-                "../SeayonDemo/src/main.cpp",
+                "../SeayonMnist/src/main.cpp",
                 "-o",
-                "./SeayonMnist/SeayonMnist",
+                "./SeayonMnist/SeayonMnist.exe",
                 "-l",
                 "Seayon",
                 "-I",
@@ -75,28 +93,14 @@
             ]
         },
         {
-            "label": "Compile and Run: SeayonMnist",
+            "label": "Build and Run: SeayonMnist",
             "type": "shell",
             "group": "build",
             "options": {
                 "cwd": "${workspaceFolder}/bin"
             },
-            "command": "g++",
-            "args": [
-                "-O3", // Optimization
-                "../SeayonMnist/src/main.cpp",
-                "-o",
-                "./SeayonMnist/SeayonMnist",
-                "-l",
-                "Seayon",
-                "-I",
-                "./Seayon/include",
-                "-L",
-                "./Seayon/lib",
-                "-static",
-                ";",
-                "./SeayonMnist/SeayonMnist.exe"
-            ]
+            "dependsOn": "Build: SeayonMnist",
+            "command": "./SeayonMnist/SeayonMnist.exe",
         }
     ]
 }

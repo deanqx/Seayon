@@ -1,12 +1,14 @@
 # Seayon
 Open source Convolutional Neural Network library in C++ with lots of easy to use features.
+The **master branch** contains the newest stable version.
+You can find the work-in-progress version in the **test branch**.
 
 # Features
 :heavy_check_mark: **Mostly performance optimized**
 
 :heavy_check_mark: Generate a network with a **custom amount of layers and neurons**.
 
-:heavy_check_mark: **Save and load** networks from a Json or Seayon's compact file format.
+:heavy_check_mark: **Save and load** networks from a Json or Seayon's compact and fast file format.
 
 :heavy_check_mark: **Compare** networks with eachother.
 
@@ -24,10 +26,13 @@ Open source Convolutional Neural Network library in C++ with lots of easy to use
 
 :x: Only **Sigmoid** and **ReLu** as activation functions.
 
+![Console Screenshot](https://github.com/deanqx/Seayon/blob/master/image.png?raw=true)
+
 # TODO-List
-- Save and load in Json format
+1. Save and load in Json format
+- Continue SeayonTrading
 - Replace vectors with arrays
-- Do something with remoid
+- Implement remoid
 
 # How to include the library
 1. Copy `./bin/Seayon/include/` and `./bin/Seayon/lib/` to your workspace folder.
@@ -42,6 +47,8 @@ Open source Convolutional Neural Network library in C++ with lots of easy to use
 
 # Be aware of
 The **Sigmoid** activation function is **strongly recommended**: **ReLu** can result in memory overflows.
+
+The current code is made for **Windows**.
 
 ### :warning: Seayon is an open source project and can used in your applications, but
 - **please don't rename Seayon when using in other projects.**
