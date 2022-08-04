@@ -26,13 +26,13 @@ You can find the work-in-progress version in the **test branch**.
 
 :x: Only **Sigmoid** and **ReLu** as activation functions.
 
+![Console Screenshot](https://github.com/deanqx/Seayon/blob/master/image.png?raw=true)
+
 # TODO-List
-- Save and load in Json format
+1. Save and load in Json format
 - Continue SeayonTrading
 - Replace vectors with arrays
-- Do something with remoid
-- Add picture of console output to readme
-- Samples per second
+- Implement remoid
 
 # How to include the library
 1. Copy `./bin/Seayon/include/` and `./bin/Seayon/lib/` to your workspace folder.
@@ -47,6 +47,8 @@ You can find the work-in-progress version in the **test branch**.
 
 # Be aware of
 The **Sigmoid** activation function is **strongly recommended**: **ReLu** can result in memory overflows.
+
+The current code is made for **Windows**.
 
 ### :warning: Seayon is an open source project and can used in your applications, but
 - **please don't rename Seayon when using in other projects.**
