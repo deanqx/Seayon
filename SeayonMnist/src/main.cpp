@@ -23,7 +23,7 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 
 	if (!csv.is_open())
 	{
-		std::cerr << "Cannot open csv file" << std::endl;
+		printf("Cannot open csv file\n");
 		return;
 	}
 
@@ -114,18 +114,18 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 	Break:
 		inputs[batch].push_back(std::vector<float>(pixelImage, pixelImage + pixelImage_t));
 
-		if (package % 100 == 0)
+		if (package % 500 == 0)
 		{
 			std::chrono::duration<double> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
 			std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 			start = std::chrono::high_resolution_clock::now();
 
 			int progress = package * 100 / totalLenght;
-			float eta = (float)elapsed.count() / 100.f * (float)(totalLenght - package);
-			std::cout << "\t" << progress << "%\tETA: " << (int)eta << "sec\t" << (int)totalelapsed.count() << "sec\t\t\t\r";
+			float eta = (float)elapsed.count() * (float)(totalLenght - package) / 500.0f;
+			printf("\t%i%%\tETA: %isec\t%isec\t\t\t\r", progress, (int)eta, (int)totalelapsed.count());
 		}
 	}
-	std::cout << "\t100%\t\t\t\t\r" << std::endl << std::endl;
+	printf("\t100%\t\t\t\t\n\n");
 }
 int main()
 {
@@ -153,7 +153,7 @@ int main()
 		nn->pulse(inputs[0][1]);
 		nn->printo(inputs[0], outputs[0]);
 
-		nn->fit(inputs[0], outputs[0], 5, true, 0.03f, 0.1f);
+		nn->fit(inputs[0], outputs[0], 50, true, 0.03f, 0.1f);
 
 		nn->pulse(inputs[0][1]);
 		nn->printo(inputs[0], outputs[0]);
