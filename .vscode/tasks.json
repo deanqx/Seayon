@@ -80,7 +80,7 @@
             "command": "g++",
             "args": [
                 "-O3", // Optimization
-                "../SeayonDemo/src/main.cpp",
+                "../SeayonMnist/src/main.cpp",
                 "-o",
                 "./SeayonMnist/SeayonMnist.exe",
                 "-l",
