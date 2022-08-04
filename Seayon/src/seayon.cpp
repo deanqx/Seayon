@@ -128,13 +128,9 @@ void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vecto
 			lastw[l2][n2].resize(Layers[l2].Weights[n2].size());
 	}
 
-	float mcpsTotal = 0;
-	float cpsCalc = 0;
+	float spsTotal = 0.0f;
 	if (print)
 	{
-		for (size_t l2 = 1; l2 <= lLast; ++l2)
-			cpsCalc += Neurons_t[l2 - 1] * Neurons_t[l2];
-
 		printf("\r\tTraining 0.0%%      Runtime: 0hours 0min 0sec          0.0 MC/s \tETA: N/A                          ");
 	}
 	if (Activation == ActivFunc::SIGMOID)
@@ -204,10 +200,10 @@ void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vecto
 				time1 -= 60 * m1;
 				const int s1 = time1;
 
-				const float mcps = (float)sample_t * cpsCalc / ((float)runElapsed.count() * 1000000.0f);
-				mcpsTotal += mcps;
+				const float sps = (float)sample_t / (float)runElapsed.count();
+				spsTotal += sps;
 
-				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.1f MC/s \tETA: %ihours %imin %isec      ", (float)run * 100.0f / (float)runs, h0, m0, s0, mcps, h1, m1, s1);
+				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.0f Samples/s \tETA: %ihours %imin %isec            ", (float)run * 100.0f / (float)runs, h0, m0, s0, sps, h1, m1, s1);
 			}
 		}
 	}
@@ -278,10 +274,10 @@ void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vecto
 				time1 -= 60 * m1;
 				const int s1 = time1;
 
-				const float mcps = (float)sample_t * cpsCalc / ((float)runElapsed.count() * 1000000.0f);
-				mcpsTotal += mcps;
+				const float sps = (float)sample_t / (float)runElapsed.count();
+				spsTotal += sps;
 
-				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.1f MC/s \tETA: %ihours %imin %isec      ", (float)run * 100.0f / (float)runs, h0, m0, s0, mcps, h1, m1, s1);
+				printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.0f Samples/s \tETA: %ihours %imin %isec            ", (float)run * 100.0f / (float)runs, h0, m0, s0, sps, h1, m1, s1);
 			}
 		}
 	}
@@ -296,6 +292,6 @@ void seayon::fit(std::vector<std::vector<float>> &inputs, std::vector<std::vecto
 		time0 -= 60 * m0;
 		const int s0 = time0;
 
-		printf("\r\tTraining 100.0%%      Runtime: %ihours %imin %isec     avg. %.1fMC/s                                 \n\n", h0, m0, s0, mcpsTotal / runs);
+		printf("\r\tTraining 100.0%%      Runtime: %ihours %imin %isec     avg. %.0f Samples/s                                         \n\n", h0, m0, s0, spsTotal / runs);
 	}
 }
