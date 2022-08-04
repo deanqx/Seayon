@@ -26,8 +26,6 @@ You can find the work-in-progress version in the **test branch**.
 
 :x: Only **Sigmoid** and **ReLu** as activation functions.
 
-![Console Screenshot](https://github.com/deanqx/Seayon/blob/master/image.png?raw=true)
-
 # TODO-List
 1. Save and load in Json format
 - Continue SeayonTrading
@@ -57,6 +55,7 @@ The current code is made for **Windows**.
 # How to start
 ### 1. Demo program
 You can find the following code in `./SeayonDemo/main.cpp`. Everything is explained in the code.
+
 ````C++
 #include <vector>
 #include "seayon.h"
@@ -101,6 +100,9 @@ int main()
 	return 0;
 }
 ````
+Screenshot of the console with training in progress:
+
+![Console Screenshot](https://github.com/deanqx/Seayon/blob/master/image.png?raw=true)
 
 ### 2. Recognise handwritten digits
 You can find a second example project in `./SeayonMnist` this one is able to learn how to recognise handwritten digits.
