@@ -31,6 +31,7 @@ You can find the work-in-progress version in the **test branch**.
 - Continue SeayonTrading
 - Replace vectors with arrays
 - Implement remoid
+- Add SeayonNative version with only c++ native functions
 
 # How to include the library
 1. Copy `./bin/Seayon/include/` and `./bin/Seayon/lib/` to your workspace folder.
