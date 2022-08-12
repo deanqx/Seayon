@@ -27,11 +27,12 @@ You can find the work-in-progress version in the **test branch**.
 :x: Only **Sigmoid** and **ReLu** as activation functions.
 
 # TODO-List
-1. Save and load in Json format
-- Continue SeayonTrading
-- Replace vectors with arrays
-- Implement remoid
+- Save and load in Json format
 - Add SeayonNative version with only c++ native functions
+- Add SeayonCuda version with GPU support
+- Replace vectors with arrays
+- Continue SeayonTrading
+- Implement remoid
 
 # How to include the library
 1. Copy `./bin/Seayon/include/` and `./bin/Seayon/lib/` to your workspace folder.
