@@ -2,12 +2,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "SeayonDebug",
+            "name": "SeayonDemo",
             "type": "cppdbg",
+            "MIMode": "gdb",
+            "miDebuggerPath": "gdb",
             "request": "launch",
             "stopAtEntry": false,
-            "program": "${workspaceFolder}/bin/SeayonDebug/SeayonDebug.exe",
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build: SeayonDemo",
+            "program": "${workspaceFolder}/bin/SeayonDemo/SeayonDemo.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
         }
     ]
 }

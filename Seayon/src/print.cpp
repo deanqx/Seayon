@@ -1,5 +1,8 @@
 #include "seayon.h"
 
+#include <iostream>
+#include <windows.h>
+
 void seayon::print()
 {
 	HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);

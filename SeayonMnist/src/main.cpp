@@ -129,7 +129,7 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 }
 int main()
 {
-	const std::string workspaceFolder = "C:/Stack/Projects/Workspace";
+	const std::string workspaceFolder = "C:/Workspace/Git";
 	const bool load = false;
 
 
