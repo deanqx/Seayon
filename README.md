@@ -1,7 +1,7 @@
 # Seayon
 Open source Convolutional Neural Network library in C++ with lots of easy to use features.
-The **master branch** contains the newest stable version.
-You can find the work-in-progress version in the **test branch**.
+The **main branch** contains the newest stable version.
+You can find the work-in-progress version in the **beta branch**.
 
 # Features
 :heavy_check_mark: **Mostly performance optimized**
@@ -28,9 +28,6 @@ You can find the work-in-progress version in the **test branch**.
 
 # TODO-List
 - Save and load in Json format
-- Add SeayonNative version with only c++ native functions
-- Add SeayonCuda version with GPU support
-- Replace vectors with arrays
 - Continue SeayonTrading
 - Implement remoid
 

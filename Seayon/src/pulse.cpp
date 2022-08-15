@@ -1,5 +1,8 @@
 #include "seayon.h"
 
+#include <iostream>
+#include <algorithm>
+
 void seayon::pulse()
 {
 	if (Activation == ActivFunc::SIGMOID)
@@ -40,41 +43,6 @@ void seayon::pulse()
 
 				Layers[l2].Neurons[n2] = ReLu(z);
 			}
-		}
-	}
-	else if (Activation == ActivFunc::REMOID)
-	{
-		const size_t layer_t = Layers.size() - 2;
-		for (size_t l1 = 0; l1 < layer_t; ++l1)
-		{
-			const size_t l2 = l1 + 1;
-
-			const size_t n2_t = Layers[l2].Neurons.size();
-			for (size_t n2 = 0; n2 < n2_t; ++n2)
-			{
-				float z = 0;
-				const size_t n1_t = Layers[l1].Neurons.size();
-				for (size_t n1 = 0; n1 < n1_t; ++n1)
-					z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1];
-				z += Layers[l2].Biases[n2];
-
-				Layers[l2].Neurons[n2] = ReLu(z);
-			}
-		}
-
-		const size_t l1 = layer_t;
-		const size_t l2 = layer_t + 1;
-
-		const size_t n2_t = Layers[l2].Neurons.size();
-		for (size_t n2 = 0; n2 < n2_t; ++n2)
-		{
-			float z = 0;
-			const size_t n1_t = Layers[l1].Neurons.size();
-			for (size_t n1 = 0; n1 < n1_t; ++n1)
-				z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1];
-			z += Layers[l2].Biases[n2];
-
-			Layers[l2].Neurons[n2] = Sigmoid(z);
 		}
 	}
 }

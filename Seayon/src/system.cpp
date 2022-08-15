@@ -1,5 +1,9 @@
 #include "seayon.h"
 
+#include <string>
+#include <sstream>
+#include <thread>
+
 #define randf(MIN, MAX) MIN + (float)rand() / (float)(RAND_MAX / (MAX - MIN))
 void seayon::generate(const std::vector<int>& layerCounts, const ActivFunc a, const int seed)
 {
