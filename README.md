@@ -101,7 +101,7 @@ int main()
 ````
 Screenshot of the console with training in progress:
 
-![Console Screenshot](https://github.com/deanqx/Seayon/blob/master/image.png?raw=true)
+![Console Screenshot](https://raw.githubusercontent.com/deanqx/Seayon/main/image.png)
 
 ### 2. Recognise handwritten digits
 You can find a second example project in `./SeayonMnist` this one is able to learn how to recognise handwritten digits.
