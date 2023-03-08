@@ -37,7 +37,7 @@ inline void seayon::backpropagate(F activation, F derivative, std::vector<std::v
 
 	if (print)
 	{
-		printf("\r\tTraining 0.0%%      Runtime: 0hours 0min 0sec          0.0 MC/s \tETA: N/A                          ");
+		printf("\r\tTraining 0.0%%      Runtime: 0hours 0min 0sec          0.0 Samples/s \tETA: N/A                          ");
 	}
 
 	for (int run = 1; run <= runs; ++run)

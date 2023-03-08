@@ -129,9 +129,7 @@ void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vect
 }
 int main()
 {
-	const std::string workspaceFolder = "C:/Workspace/Git";
 	const bool load = false;
-
 
 	std::vector<std::vector<std::vector<float>>> inputs;
 	std::vector<std::vector<std::vector<float>>> outputs;
@@ -142,13 +140,19 @@ int main()
 
 	if (load)
 	{
-		std::ifstream file(workspaceFolder + "/Seayon/SeayonMnist/res/mnist.nn");
+		std::ifstream file("../SeayonMnist/res/mnist.nn");
 		nn->load(file, false);
 		file.close();
 	}
 	else
 	{
-		ImportMnist(inputs, outputs, 60000, 60000, workspaceFolder + "/Seayon/SeayonMnist/res/mnist/mnist_train.csv");
+		// !!! You should download the full mnist-set !!!
+		// 1. Download mnist_train.csv (from for example https://yann.lecun.com)
+		// 2. Copy the header(first line) from mnist_test.csv
+		// 3. Put mnist_train.csv in the "../SeayonMnist/res/mnist/" folder
+		// 4. Replace with: ImportMnist(inputs, outputs, 60000, 60000, "../SeayonMnist/res/mnist/mnist_train.csv");
+
+		ImportMnist(inputs, outputs, 10000, 10000, "../SeayonMnist/res/mnist/mnist_test.csv");
 
 		nn->pulse(inputs[0][1]);
 		nn->printo(inputs[0], outputs[0]);
@@ -158,12 +162,12 @@ int main()
 		nn->pulse(inputs[0][1]);
 		nn->printo(inputs[0], outputs[0]);
 
-		std::ofstream file(workspaceFolder + "/Seayon/SeayonMnist/res/mnist.nn");
+		std::ofstream file("../SeayonMnist/res/mnist.nn");
 		nn->save(file, false);
 		file.close();
 	}
 
-	ImportMnist(inputs, outputs, 10000, 10000, workspaceFolder + "/Seayon/SeayonMnist/res/mnist/mnist_test.csv");
+	ImportMnist(inputs, outputs, 10000, 10000, "../SeayonMnist/res/mnist/mnist_test.csv");
 
 	nn->pulse(inputs[0][1]);
 	nn->printo(inputs[0], outputs[0]);
