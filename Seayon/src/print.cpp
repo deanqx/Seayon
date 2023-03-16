@@ -85,30 +85,12 @@ void seayon::print()
 	SetConsoleTextAttribute(cmd, 7);
 	printf("\t-----------------------------------------------\n\n");
 }
-void seayon::print(std::vector<float>& outputs)
+void seayon::print(trainingdata& data, int sample)
 {
+	pulse(data.samples[sample]);
 	print();
-	printf("\t\tCost\t\t%.3f\n", cost(outputs));
-	printf("\t-----------------------------------------------\n\n");
-}
-void seayon::print(std::vector<float>& inputs, std::vector<float>& outputs)
-{
-	print();
-	printf("\t\tCost\t\t%.3f\n", cost(inputs, outputs));
-	printf("\t-----------------------------------------------\n\n");
-}
-void seayon::print(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs)
-{
-	print();
-	printf("\t\tCost\t\t%.3f\n", cost(inputs, outputs));
-	printf("\t\tAccruacy\t%.1f%%\n", accruacy(inputs, outputs) * 100.0f);
-	printf("\t-----------------------------------------------\n\n");
-}
-void seayon::print(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs)
-{
-	print();
-	printf("\t\tCost\t\t%.3f\n", cost(inputs, outputs));
-	printf("\t\tAccruacy\t%.1f%%\n", accruacy(inputs, outputs) * 100.0f);
+	printf("\t\tCost\t\t%.3f\n", cost(data));
+	printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 	printf("\t-----------------------------------------------\n\n");
 }
 
@@ -157,29 +139,11 @@ void seayon::printo()
 	SetConsoleTextAttribute(cmd, 7);
 	printf("\t-----------------------------------------------\n\n");
 }
-void seayon::printo(std::vector<float>& outputs)
+void seayon::printo(trainingdata& data, int sample)
 {
+	pulse(data.samples[sample]);
 	printo();
-	printf("\t\tCost\t\t%.3f\n", cost(outputs));
-	printf("\t-----------------------------------------------\n\n");
-}
-void seayon::printo(std::vector<float>& inputs, std::vector<float>& outputs)
-{
-	printo();
-	printf("\t\tCost\t\t%.3f\n", cost(inputs, outputs));
-	printf("\t-----------------------------------------------\n\n");
-}
-void seayon::printo(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs)
-{
-	printo();
-	printf("\t\tCost\t\t%.3f\n", cost(inputs, outputs));
-	printf("\t\tAccruacy\t%.1f%%\n", accruacy(inputs, outputs) * 100.0f);
-	printf("\t-----------------------------------------------\n\n");
-}
-void seayon::printo(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs)
-{
-	printo();
-	printf("\t\tCost\t\t%.3f\n", cost(inputs, outputs));
-	printf("\t\tAccruacy\t%.1f%%\n", accruacy(inputs, outputs) * 100.0f);
+	printf("\t\tCost\t\t%.3f\n", cost(data));
+	printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 	printf("\t-----------------------------------------------\n\n");
 }

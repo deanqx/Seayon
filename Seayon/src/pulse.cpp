@@ -3,176 +3,99 @@
 #include <iostream>
 #include <algorithm>
 
-void seayon::pulse()
+template <typename F>
+inline void _pulse(seayon& s, F func)
 {
+	const size_t layer_t = s.Layers.size() - 1;
+	for (size_t l1 = 0; l1 < layer_t; ++l1)
+	{
+		const size_t l2 = l1 + 1;
+
+		const size_t n2_t = s.Layers[l2].Neurons.size();
+		for (size_t n2 = 0; n2 < n2_t; ++n2)
+		{
+			float z = 0;
+			const size_t n1_t = s.Layers[l1].Neurons.size();
+			for (size_t n1 = 0; n1 < n1_t; ++n1)
+				z += s.Layers[l2].Weights[n2][n1] * s.Layers[l1].Neurons[n1];
+			z += s.Layers[l2].Biases[n2];
+
+			s.Layers[l2].Neurons[n2] = func(z);
+		}
+	}
+}
+
+void seayon::pulse(trainingdata::sample& sample)
+{
+	for (size_t n = 0; n < sample.inputs.size(); ++n)
+		Layers[0].Neurons[n] = sample.inputs[n];
+
 	if (Activation == ActivFunc::SIGMOID)
 	{
-		const size_t layer_t = Layers.size() - 1;
-		for (size_t l1 = 0; l1 < layer_t; ++l1)
-		{
-			const size_t l2 = l1 + 1;
-
-			const size_t n2_t = Layers[l2].Neurons.size();
-			for (size_t n2 = 0; n2 < n2_t; ++n2)
-			{
-				float z = 0;
-				const size_t n1_t = Layers[l1].Neurons.size();
-				for (size_t n1 = 0; n1 < n1_t; ++n1)
-					z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1];
-				z += Layers[l2].Biases[n2];
-
-				Layers[l2].Neurons[n2] = Sigmoid(z);
-			}
-		}
+		_pulse(*this, Sigmoid);
 	}
 	else if (Activation == ActivFunc::RELU)
 	{
-		const size_t layer_t = Layers.size() - 1;
-		for (size_t l1 = 0; l1 < layer_t; ++l1)
-		{
-			const size_t l2 = l1 + 1;
-
-			const size_t n2_t = Layers[l2].Neurons.size();
-			for (size_t n2 = 0; n2 < n2_t; ++n2)
-			{
-				float z = 0;
-				const size_t n1_t = Layers[l1].Neurons.size();
-				for (size_t n1 = 0; n1 < n1_t; ++n1)
-					z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1];
-				z += Layers[l2].Biases[n2];
-
-				Layers[l2].Neurons[n2] = ReLu(z);
-			}
-		}
+		_pulse(*this, ReLu);
 	}
 }
-void seayon::pulse(std::vector<float>& inputs)
-{
-	for (size_t n = 0; n < inputs.size(); ++n)
-		Layers[0].Neurons[n] = inputs[n];
 
-	pulse();
-}
-
-float seayon::cost(std::vector<float>& outputs)
+float seayon::cost(trainingdata::sample& sample)
 {
-	pulse();
+	pulse(sample);
 
 	const size_t lLast = Layers.size() - 1;
 
 	float c = 0;
-	for (size_t n = 0; n < outputs.size(); ++n)
+	for (size_t n = 0; n < sample.outputs.size(); ++n)
 	{
-		float x = Layers[lLast].Neurons[n] - outputs[n];
+		float x = Layers[lLast].Neurons[n] - sample.outputs[n];
 		c += x * x;
 	}
 
-	return c / (float)outputs.size();
+	return c / (float)sample.outputs.size();
 }
-float seayon::cost(std::vector<float>& inputs, std::vector<float>& outputs)
-{
-	pulse(inputs);
-
-	const size_t lLast = Layers.size() - 1;
-
-	float x = 0;
-	float c = 0;
-	for (size_t n = 0; n < outputs.size(); ++n)
-	{
-		x = Layers[lLast].Neurons[n] - outputs[n];
-		c += x * x;
-	}
-
-	return c / (float)outputs.size();
-}
-float seayon::cost(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs)
+float seayon::cost(trainingdata& data)
 {
 	const size_t lLast = Layers.size() - 1;
 
-	if (inputs.size() != outputs.size() ||
-		inputs[0].size() != Layers[0].Neurons.size() ||
-		outputs[0].size() != Layers[lLast].Neurons.size())
+	if (!data.check(*this))
 	{
 		printf("\tCurrupt training data!\n");
 		return .0f;
 	}
 
 	float acc = 0;
-	for (size_t sample = 0; sample < outputs.size(); ++sample)
+	for (size_t i = 0; i < data.samples.size(); ++i)
 	{
-		acc += cost(inputs[sample], outputs[sample]);
+		acc += cost(data.samples[i]);
 	}
 
-	return acc / (float)outputs.size();
-}
-float seayon::cost(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs)
-{
-	const size_t lLast = Layers.size() - 1;
-
-	if (inputs.size() != outputs.size() ||
-		inputs[0].size() != Layers[0].Neurons.size() ||
-		outputs[0].size() != Layers[lLast].Neurons.size())
-	{
-		printf("\tCurrupt training data!\n");
-		return .0f;
-	}
-
-	float acc = 0;
-	for (size_t batch = 0; batch < outputs.size(); ++batch)
-		for (size_t sample = 0; sample < outputs[batch].size(); ++sample)
-		{
-			acc += cost(inputs[batch][sample], outputs[batch][sample]);
-		}
-
-	return acc / (float)outputs.size() / (float)outputs[0].size();
+	return acc / (float)data.samples.size();
 }
 
-float seayon::accruacy(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs)
+float seayon::accruacy(trainingdata& data)
 {
 	const size_t lLast = Layers.size() - 1;
-	const size_t no_t = outputs[0].size();
-	const size_t sample_t = inputs.size();
+	const size_t no_t = data.samples[0].outputs.size();
 
-	if (inputs.size() != outputs.size() ||
-		inputs[0].size() != Layers[0].Neurons.size() ||
-		outputs[0].size() != Layers[lLast].Neurons.size())
+	if (!data.check(*this))
 	{
 		printf("\tCurrupt training data!\n");
 		return .0f;
 	}
 
 	float a = 0;
-
-	for (size_t i = 0; i < sample_t; ++i)
+	for (size_t i = 0; i < data.samples.size(); ++i)
 	{
-		pulse(inputs[i]);
+		pulse(data.samples[i]);
 
 		if (std::max_element(Layers[lLast].Neurons.begin(), Layers[lLast].Neurons.end()) - Layers[lLast].Neurons.begin() ==
-			std::max_element(outputs[i].begin(), outputs[i].end()) - outputs[i].begin())
+			std::max_element(data.samples[i].outputs.begin(), data.samples[i].outputs.end()) - data.samples[i].outputs.begin())
 		{
 			++a;
 		}
 	}
 
-	return a / (float)sample_t;
-}
-float seayon::accruacy(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs)
-{
-	const size_t lLast = Layers.size() - 1;
-
-	if (inputs.size() != outputs.size() ||
-		inputs[0].size() != Layers[0].Neurons.size() ||
-		outputs[0].size() != Layers[lLast].Neurons.size())
-	{
-		printf("\tCurrupt training data!\n");
-		return .0f;
-	}
-
-	float a = 0;
-	for (size_t batch = 0; batch < inputs.size(); ++batch)
-	{
-		a += accruacy(inputs[batch], outputs[batch]);
-	}
-
-	return a / (float)inputs.size();
+	return a / (float)data.samples.size();
 }

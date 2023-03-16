@@ -1,73 +1,146 @@
 #include "seayon.h"
 
 #include <iostream>
+#include <iomanip>
 #include <chrono>
 
-template <typename F>
-inline void seayon::backpropagate(F activation, F derivative, std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs, int& runs, bool& print, float& N, float& M)
+bool seayon::trainingdata::check(seayon& s)
 {
-	auto start = std::chrono::high_resolution_clock::now();
+	return s.Layers[0].Neurons.size() == samples[0].inputs.size()
+		&& s.Layers[s.Layers.size() - 1].Neurons.size() == samples[0].outputs.size();
+}
+
+#define randf(MIN, MAX) MIN + (float)rand() / (float)(RAND_MAX / (MAX - MIN))
+void seayon::generate(const std::vector<int> layerCounts, const ActivFunc a, const int seed)
+{
+	Activation = a;
+
+	if (seed < 0)
+		srand(seed);
+
+	std::vector<Layer> flashVector;
+	Layers.swap(flashVector);
+
+	Layers.resize(layerCounts.size());
+	Layers[0].Neurons.resize(layerCounts[0]);
+
+	for (size_t l2 = 1; l2 < layerCounts.size(); ++l2)
+	{
+		const size_t l1 = l2 - 1;
+
+		Layers[l2].Neurons.resize(layerCounts[l2]);
+		Layers[l2].Biases.resize(layerCounts[l2]);
+
+		if (l2 < layerCounts.size())
+		{
+			Layers[l2].Weights.resize(layerCounts[l2]);
+			for (size_t n2 = 0; n2 < layerCounts[l2]; ++n2)
+			{
+				Layers[l2].Weights[n2].resize(layerCounts[l1]);
+				for (size_t n1 = 0; n1 < layerCounts[l1]; ++n1)
+				{
+					Layers[l2].Weights[n2][n1] = randf(-2.0f, 2.0f);
+				}
+			}
+		}
+	}
+}
+
+void resolveTime(int seconds, int* resolved)
+{
+	resolved[0] = seconds / 3600;
+	seconds -= 3600 * resolved[0];
+	resolved[1] = seconds / 60;
+	seconds -= 60 * resolved[1];
+	resolved[2] = seconds;
+}
+
+void log(std::ofstream* file, int run, const int runCount, const int sampleCount, int runtime, float elapsed)
+{
+	float progress = (float)run * 100.0f / (float)runCount;
+
+	int runtimeResolved[3];
+	resolveTime(runtime, runtimeResolved);
+
+	int eta[3];
+	resolveTime((int)(elapsed * (float)(runCount - run)), eta);
+
+	float samplesPerSecond = (float)sampleCount / (float)elapsed;
+
+	std::ostringstream message;
+	message << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
+		<< (int)samplesPerSecond << " Samples/s " << std::setw(13)
+		<< "Runtime: " << runtimeResolved[0] << "hours " << runtimeResolved[1] << "min " << runtimeResolved[2] << "sec " << std::setw(9)
+		<< "ETA: " << eta[0] << "hours " << eta[1] << "min " << eta[2] << "sec                ";
+
+	std::cout << message.str() << std::flush;
+	if (file)
+		*file << message.str() << std::endl;
+}
+
+template <typename F>
+void backpropagate(seayon& s, F activation, F derivative, seayon::trainingdata data, const int runCount, bool print, std::ofstream* file, float N, float M)
+{
+	auto overall = std::chrono::high_resolution_clock::now();
 	auto last = std::chrono::high_resolution_clock::now();
 	if (print)
 		printf("\n");
 
-	const size_t lLast = Layers.size() - 1;
+	const size_t lLast = s.Layers.size() - 1;
 
-	const size_t sample_t = inputs.size();
-	std::vector<size_t> Neurons_t(Layers.size());
-	const size_t l1_t = Layers.size();
+	const size_t sampleCount = data.samples.size();
+	std::vector<size_t> Neurons_t(s.Layers.size());
+	const size_t l1_t = s.Layers.size();
 	for (size_t l1 = 0; l1 < l1_t; ++l1)
 	{
-		Neurons_t[l1] = Layers[l1].Neurons.size();
+		Neurons_t[l1] = s.Layers[l1].Neurons.size();
 	}
 
-	std::vector<std::vector<float>> dn(Layers.size());
-	std::vector<std::vector<std::vector<float>>> lastw(Layers.size());
-	std::vector<std::vector<float>> lastb(Layers.size());
-	for (size_t l2 = 1; l2 < Layers.size(); ++l2)
+	std::vector<std::vector<float>> dn(s.Layers.size());
+	std::vector<std::vector<std::vector<float>>> lastw(s.Layers.size());
+	std::vector<std::vector<float>> lastb(s.Layers.size());
+	for (size_t l2 = 1; l2 < s.Layers.size(); ++l2)
 	{
-		dn[l2].resize(Layers[l2].Neurons.size());
-		lastw[l2].resize(Layers[l2].Neurons.size());
-		lastb[l2].resize(Layers[l2].Biases.size());
-		for (size_t n2 = 0; n2 < Layers[l2].Neurons.size(); ++n2)
-			lastw[l2][n2].resize(Layers[l2].Weights[n2].size());
+		dn[l2].resize(s.Layers[l2].Neurons.size());
+		lastw[l2].resize(s.Layers[l2].Neurons.size());
+		lastb[l2].resize(s.Layers[l2].Biases.size());
+		for (size_t n2 = 0; n2 < s.Layers[l2].Neurons.size(); ++n2)
+			lastw[l2][n2].resize(s.Layers[l2].Weights[n2].size());
 	}
-
-	float spsTotal = 0.0f;
 
 	if (print)
 	{
-		printf("\r\tTraining 0.0%%      Runtime: 0hours 0min 0sec          0.0 Samples/s \tETA: N/A                          ");
+		log(file, 0, runCount, sampleCount, 0, 0);
 	}
 
-	for (int run = 1; run <= runs; ++run)
+	for (int run = 1; run <= runCount; ++run)
 	{
-		for (size_t sample = 0; sample < sample_t; ++sample)
+		for (size_t sample = 0; sample < sampleCount; ++sample)
 		{
-			for (size_t n = 0; n < inputs[sample].size(); ++n)
-				Layers[0].Neurons[n] = inputs[sample][n];
+			for (size_t n = 0; n < data.samples[sample].inputs.size(); ++n)
+				s.Layers[0].Neurons[n] = data.samples[sample].inputs[n];
 
-			const size_t layer_t = Layers.size() - 1;
+			const size_t layer_t = s.Layers.size() - 1;
 			for (size_t l1 = 0; l1 < layer_t; ++l1)
 			{
 				const size_t l2 = l1 + 1;
 
-				const size_t n2_t = Layers[l2].Neurons.size();
+				const size_t n2_t = s.Layers[l2].Neurons.size();
 				for (size_t n2 = 0; n2 < n2_t; ++n2)
 				{
 					float z = 0;
-					const size_t n1_t = Layers[l1].Neurons.size();
+					const size_t n1_t = s.Layers[l1].Neurons.size();
 					for (size_t n1 = 0; n1 < n1_t; ++n1)
-						z += Layers[l2].Weights[n2][n1] * Layers[l1].Neurons[n1];
-					z += Layers[l2].Biases[n2];
+						z += s.Layers[l2].Weights[n2][n1] * s.Layers[l1].Neurons[n1];
+					z += s.Layers[l2].Biases[n2];
 
-					Layers[l2].Neurons[n2] = activation(z);
+					s.Layers[l2].Neurons[n2] = activation(z);
 				}
 			}
 
 			for (size_t n2 = 0; n2 < Neurons_t[lLast]; ++n2)
 			{
-				dn[lLast][n2] = derivative(Layers[lLast].Neurons[n2]) * 2 * (Layers[lLast].Neurons[n2] - outputs[sample][n2]);
+				dn[lLast][n2] = derivative(s.Layers[lLast].Neurons[n2]) * 2 * (s.Layers[lLast].Neurons[n2] - data.samples[sample].outputs[n2]);
 			}
 
 			size_t l1;
@@ -79,9 +152,9 @@ inline void seayon::backpropagate(F activation, F derivative, std::vector<std::v
 				{
 					float error = 0;
 					for (size_t n2 = 0; n2 < Neurons_t[l2]; ++n2)
-						error += dn[l2][n2] * Layers[l2].Weights[n2][n1];
+						error += dn[l2][n2] * s.Layers[l2].Weights[n2][n1];
 
-					dn[l1][n1] = derivative(Layers[l1].Neurons[n1]) * error;
+					dn[l1][n1] = derivative(s.Layers[l1].Neurons[n1]) * error;
 				}
 			}
 
@@ -92,13 +165,13 @@ inline void seayon::backpropagate(F activation, F derivative, std::vector<std::v
 				for (size_t n2 = 0; n2 < Neurons_t[l2]; ++n2)
 				{
 					const float db = -dn[l2][n2];
-					Layers[l2].Biases[n2] += N * db + M * lastb[l2][n2];
+					s.Layers[l2].Biases[n2] += N * db + M * lastb[l2][n2];
 					lastb[l2][n2] = db;
 
 					for (size_t n1 = 0; n1 < Neurons_t[l1]; ++n1)
 					{
-						const float dw = Layers[l1].Neurons[n1] * -dn[l2][n2];
-						Layers[l2].Weights[n2][n1] += N * dw + M * lastw[l2][n2][n1];
+						const float dw = s.Layers[l1].Neurons[n1] * -dn[l2][n2];
+						s.Layers[l2].Weights[n2][n1] += N * dw + M * lastw[l2][n2][n1];
 						lastw[l2][n2][n1] = dw;
 					}
 				}
@@ -106,49 +179,22 @@ inline void seayon::backpropagate(F activation, F derivative, std::vector<std::v
 		}
 		if (print)
 		{
-			std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-			int time0 = (int)elapsed.count();
-			const int h0 = time0 / 3600;
-			time0 -= 3600 * h0;
-			const int m0 = time0 / 60;
-			time0 -= 60 * m0;
-			const int s0 = time0;
-
-			std::chrono::duration<double> runElapsed = std::chrono::high_resolution_clock::now() - last;
+			std::chrono::duration<float> runtime = std::chrono::high_resolution_clock::now() - overall;
+			std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - last;
 			last = std::chrono::high_resolution_clock::now();
 
-			int time1 = (int)runElapsed.count() * (runs - run);
-			const int h1 = time1 / 3600;
-			time1 -= 3600 * h1;
-			const int m1 = time1 / 60;
-			time1 -= 60 * m1;
-			const int s1 = time1;
-
-			const float sps = (float)sample_t / (float)runElapsed.count();
-			spsTotal += sps;
-
-			printf("\r\tTraining %.1f%%      Runtime: %ihours %imin %isec          %.0f Samples/s \tETA: %ihours %imin %isec            ", (float)run * 100.0f / (float)runs, h0, m0, s0, sps, h1, m1, s1);
+			log(file, run, runCount, sampleCount, runtime.count(), elapsed.count());
 		}
 	}
 
 	if (print)
 	{
-		std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-		int time0 = (int)elapsed.count();
-		const int h0 = time0 / 3600;
-		time0 -= 3600 * h0;
-		const int m0 = time0 / 60;
-		time0 -= 60 * m0;
-		const int s0 = time0;
-
-		printf("\r\tTraining 100.0%%      Runtime: %ihours %imin %isec     avg. %.0f Samples/s                                         \n\n", h0, m0, s0, spsTotal / runs);
+		std::cout << std::endl << std::endl;
 	}
 }
-void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs, int runs, bool print, float N, float M)
+void seayon::fit(trainingdata& data, const int runCount, const bool print, std::ofstream* logfile, float N, float M)
 {
-	if (inputs.size() != outputs.size() ||
-		inputs[0].size() != Layers[0].Neurons.size() ||
-		outputs[0].size() != Layers[Layers.size() - 1].Neurons.size())
+	if (!data.check(*this))
 	{
 		if (print)
 			printf("\tCurrupt training data!\n");
@@ -157,10 +203,10 @@ void seayon::fit(std::vector<std::vector<float>>& inputs, std::vector<std::vecto
 
 	if (Activation == ActivFunc::SIGMOID)
 	{
-		backpropagate(Sigmoid, dSigmoid, inputs, outputs, runs, print, N, M);
+		backpropagate(*this, Sigmoid, dSigmoid, data, runCount, print, logfile, N, M);
 	}
 	else if (Activation == ActivFunc::RELU)
 	{
-		backpropagate(ReLu, dReLu, inputs, outputs, runs, print, N, M);
+		backpropagate(*this, ReLu, dReLu, data, runCount, print, logfile, N, M);
 	}
 }
