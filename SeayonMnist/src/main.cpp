@@ -7,141 +7,138 @@
 #include <stdio.h>
 #include "seayon.h"
 
-void ImportMnist(std::vector<std::vector<std::vector<float>>>& inputs, std::vector<std::vector<std::vector<float>>>& outputs, int batchSize, int totalLenght, std::string csvPath)
+seayon::trainingdata* ImportMnist(int batchCount, int sampleCount, std::ifstream& csv)
 {
-	std::vector<std::vector<std::vector<float>>> flash_inputs;
-	std::vector<std::vector<std::vector<float>>> flash_outputs;
+	sampleCount /= batchCount;
 
-	inputs.swap(flash_inputs);
-	outputs.swap(flash_outputs);
+	seayon::trainingdata* data = new seayon::trainingdata[batchCount]();
+	for (int batch = 0; batch < batchCount; ++batch)
+	{
+		data[batch].samples = std::vector<seayon::trainingdata::sample>(sampleCount);
+	}
 
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto start = std::chrono::high_resolution_clock::now();
 
-	std::ifstream csv(csvPath);
-	std::string line;
-
 	if (!csv.is_open())
 	{
 		printf("Cannot open csv file\n");
-		return;
+		return nullptr;
 	}
 
+	std::string line;
 	std::getline(csv, line);
 
-	int batch = -1;
-	for (int package = 0; std::getline(csv, line); ++package)
+	for (int batch = 0; batch < batchCount; ++batch)
 	{
-		if (package % batchSize == 0)
+		for (int i = 0; i < sampleCount; ++i)
 		{
-			++batch;
+			std::getline(csv, line);
+			auto& sample = data[batch].samples[i];
 
-			std::vector<std::vector<float>> temp0;
-			std::vector<std::vector<float>> temp1;
-
-			inputs.push_back(temp0);
-			outputs.push_back(temp1);
-		}
-
-		size_t pos = 0;
-		std::stringstream label_s;
-		for (; pos < line.size(); ++pos)
-		{
-			if (line[pos] == ',')
-				break;
-
-			label_s << line[pos];
-		}
-		++pos;
-
-		std::vector<float> label(10);
-		switch (stoi(label_s.str()))
-		{
-		case 0:
-			label = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 1:
-			label = { 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 2:
-			label = { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 3:
-			label = { 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 4:
-			label = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 5:
-			label = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 6:
-			label = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f };
-			break;
-		case 7:
-			label = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
-			break;
-		case 8:
-			label = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f };
-			break;
-		case 9:
-			label = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
-			break;
-		}
-		outputs[batch].push_back(label);
-
-		const size_t pixelImage_t = 784;
-		float pixelImage[pixelImage_t];
-		for (int pixelPos = 0; ; ++pixelPos)
-		{
-			std::stringstream pixel;
-			for (; ; ++pos)
+			int pos = 0;
+			std::stringstream label_s;
+			for (; pos < line.size(); ++pos)
 			{
-				if (pos >= line.size())
-				{
-					pixelImage[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
-					goto Break;
-				}
 				if (line[pos] == ',')
 					break;
 
-				pixel << line[pos];
+				label_s << line[pos];
 			}
 			++pos;
 
-			pixelImage[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
-		}
-	Break:
-		inputs[batch].push_back(std::vector<float>(pixelImage, pixelImage + pixelImage_t));
+			switch (stoi(label_s.str()))
+			{
+			case 0:
+				sample.outputs = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 1:
+				sample.outputs = { 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 2:
+				sample.outputs = { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 3:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 4:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 5:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 6:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f };
+				break;
+			case 7:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
+				break;
+			case 8:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+				break;
+			case 9:
+				sample.outputs = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+				break;
+			}
 
-		if (package % 500 == 0)
-		{
-			std::chrono::duration<double> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
-			std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-			start = std::chrono::high_resolution_clock::now();
+			const size_t pixelImage_t = 784;
+			float pixelImage[pixelImage_t];
+			for (int pixelPos = 0; pixelPos < pixelImage_t; ++pixelPos)
+			{
+				std::stringstream pixel;
+				for (;; ++pos)
+				{
+					if (pos >= line.size())
+					{
+						pixelImage[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
+						goto Break;
+					}
+					if (line[pos] == ',')
+						break;
 
-			int progress = package * 100 / totalLenght;
-			float eta = (float)elapsed.count() * (float)(totalLenght - package) / 500.0f;
-			printf("\t%i%%\tETA: %isec\t%isec\t\t\t\r", progress, (int)eta, (int)totalelapsed.count());
+					pixel << line[pos];
+				}
+				++pos;
+
+				pixelImage[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
+			}
+		Break:
+			sample.inputs = std::vector<float>(pixelImage, pixelImage + pixelImage_t);
+
+			int total = batch * batchCount + i;
+			if (total % 500 == 0)
+			{
+				std::chrono::duration<float> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
+				std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - start;
+				start = std::chrono::high_resolution_clock::now();
+
+				int totalNeeded = batch * batchCount + sampleCount;
+
+				int progress = total * 100 / totalNeeded;
+				float eta = elapsed.count() * (float)(totalNeeded - total) / 500.0f;
+				printf("\t%i%%\tETA: %.0fsec     \tTime: %.0fsec     \t\t\t\r", progress, eta, totalelapsed.count());
+			}
 		}
 	}
-	printf("\t100%\t\t\t\t\n\n");
+
+	std::chrono::duration<float> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
+	printf("\t100%%\t\t\tTime: %.0fsec     \n\n", totalelapsed.count());
+
+	return data;
 }
 int main()
 {
 	const bool load = false;
 
-	std::vector<std::vector<std::vector<float>>> inputs;
-	std::vector<std::vector<std::vector<float>>> outputs;
-
+	seayon::trainingdata* data; // data[0]: First batch
 	seayon* nn = new seayon;
 
-	nn->generate(std::vector<int>{ 784, 16, 16, 10 }, seayon::ActivFunc::SIGMOID, 1472);
+	nn->generate(std::vector<int>{784, 16, 16, 10}, seayon::ActivFunc::SIGMOID, 1472);
 
 	if (load)
 	{
-		std::ifstream file("../SeayonMnist/res/mnist.nn");
-		nn->load(file, false);
+		std::ifstream file("res/mnist.nn");
+		nn->load(file);
 		file.close();
 	}
 	else
@@ -149,28 +146,38 @@ int main()
 		// !!! You should download the full mnist-set !!!
 		// 1. Download mnist_train.csv (from for example https://yann.lecun.com)
 		// 2. Copy the header(first line) from mnist_test.csv
-		// 3. Put mnist_train.csv in the "../SeayonMnist/res/mnist/" folder
-		// 4. Replace with: ImportMnist(inputs, outputs, 60000, 60000, "../SeayonMnist/res/mnist/mnist_train.csv");
+		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
-		ImportMnist(inputs, outputs, 10000, 10000, "../SeayonMnist/res/mnist/mnist_test.csv");
+		std::ifstream train("res/mnist/mnist_train.csv");
+		if (train.is_open())
+		{
+			data = ImportMnist(1, 60000, train);
+		}
+		else
+		{
+			train.close();
+			train.clear();
+			train.open("res/mnist/mnist_test.csv");
+			data = ImportMnist(1, 10000, train);
+		}
+		train.close();
 
-		nn->pulse(inputs[0][1]);
-		nn->printo(inputs[0], outputs[0]);
+		nn->printo(data[0], 0);
 
-		nn->fit(inputs[0], outputs[0], 50, true, 0.03f, 0.1f);
+		nn->fit(data[0], 50, true, nullptr, 0.03f, 0.1f);
 
-		nn->pulse(inputs[0][1]);
-		nn->printo(inputs[0], outputs[0]);
+		nn->printo(data[0], 0);
 
-		std::ofstream file("../SeayonMnist/res/mnist.nn");
-		nn->save(file, false);
+		std::ofstream file("res/mnist.nn");
+		nn->save(file);
 		file.close();
 	}
 
-	ImportMnist(inputs, outputs, 10000, 10000, "../SeayonMnist/res/mnist/mnist_test.csv");
+	std::ifstream test("res/mnist/mnist_test.csv");
+	data = ImportMnist(1, 10000, test);
+	test.close();
 
-	nn->pulse(inputs[0][1]);
-	nn->printo(inputs[0], outputs[0]);
+	nn->printo(data[0], 0);
 
 	delete nn;
 
