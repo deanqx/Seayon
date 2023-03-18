@@ -1,4 +1,5 @@
 #pragma once
+#define RELEASE
 
 #include <iostream>
 #include <string>

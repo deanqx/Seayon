@@ -6,6 +6,8 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
+#include <vector>
+#include <array>
 #include <iostream>
 // TODO Add linux support
 #include <windows.h>
@@ -34,7 +36,6 @@ inline float randf(float min, float max)
 	return min + (float)rand() / (float)(RAND_MAX / (max - min));
 }
 
-// TODO template alternative: create each struct with largest size
 struct layer
 {
 	int nCount;
@@ -44,17 +45,17 @@ struct layer
 	 * Goes from second to first
 	 * @tparam layers[l2].weights[n2 + n1 * n2Count]
 	 */
-	float* weights; // TODO try change into vector or std::array
-	float* neurons;
-	float* biases;
+	std::vector<float> weights;
+	std::vector<float> neurons;
+	std::vector<float> biases;
 
 	void create(const int PREVIOUS, const int LAYERS)
 	{
 		nCount = LAYERS;
 		wCount = LAYERS * PREVIOUS;
-		weights = new float[wCount];
-		neurons = new float[LAYERS]();
-		biases = new float[LAYERS]();
+		weights.resize(wCount);
+		neurons.resize(LAYERS);
+		biases.resize(LAYERS);
 
 		for (int i = 0; i < wCount; ++i)
 		{
@@ -64,9 +65,9 @@ struct layer
 
 	void clean()
 	{
-		delete neurons;
-		delete biases;
-		delete weights;
+		neurons.clear();
+		biases.clear();
+		weights.clear();
 	}
 };
 
@@ -75,10 +76,10 @@ struct trainingdata
 {
 	struct sample
 	{
-		float inputs[INPUTS]{}; // TOTO try std::array
-		float outputs[OUTPUTS]{};
+		std::array<float, INPUTS> inputs{}; // TOTO try std::array
+		std::array<float, OUTPUTS> outputs{};
 	};
-	sample samples[SAMPLES]{};
+	std::array<sample, SAMPLES> samples{};
 
 	// Returns false if training data is currupt (quickcheck)
 	bool check(layer* layers, int N)
@@ -112,7 +113,7 @@ class seayon
 	}
 
 	ActivFunc Activation = ActivFunc::SIGMOID;
-	layer layers[LAYERS];
+	std::array<layer, LAYERS> layers;
 
 	template<int SAMPLES, int INPUTS, int OUTPUTS, typename F>
 	void _pulse(typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample& sample, F func)
@@ -150,6 +151,7 @@ class seayon
 	{
 		float progress = (float)run * 100.0f / (float)runCount;
 
+		// TODO check
 		float samplesPerSecond = (float)sampleCount / elapsed;
 		if (elapsed < 0.0f)
 		{
@@ -182,8 +184,6 @@ class seayon
 	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS, typename F0, typename F1>
 	void backpropagate(trainingdata<SAMPLES, INPUTS, OUTPUTS>& data, trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata, const int runCount, bool print, float n, float m, std::ofstream* file, const bool printcost, F0 activation, F1 derivative)
 	{
-		timez::init();
-
 		const int lastl = LAYERS - 1;
 
 		auto overall = std::chrono::high_resolution_clock::now();
@@ -209,6 +209,7 @@ class seayon
 			lastdb[l] = new float[layers[l].nCount]();
 			lastdw[l] = new float[layers[l].wCount]();
 		}
+
 		int l1;
 		float error;
 		int row;
@@ -216,109 +217,61 @@ class seayon
 		float db;
 		float dw;
 
+		// PERF Speed becomes slower overtime
 		for (int run = 1; run <= runCount; ++run)
 		{
-			// timez::perf b("run");
 			for (int i = 0; i < SAMPLES; ++i)
 			{
-				// timez::perf c("sample");
+				_pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i], activation);
+
+				for (int n2 = 0; n2 < layers[lastl].nCount; ++n2)
 				{
-					timez::perf e("pulse");
-					_pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i], activation);
+					dn[lastl][n2] = derivative(layers[lastl].neurons[n2]) * 2 * (layers[lastl].neurons[n2] - data.samples[i].outputs[n2]);
 				}
+
+				for (int l2 = lastl; l2 >= 2; --l2)
 				{
-					// timez::perf f("backpropage");
-					for (int n2 = 0; n2 < layers[lastl].nCount; ++n2)
+					l1 = l2 - 1;
+					const int& ncount = layers[l2].nCount;
+
+					for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 					{
-						timez::perf f("part A");
-						dn[lastl][n2] = derivative(layers[lastl].neurons[n2]) * 2 * (layers[lastl].neurons[n2] - data.samples[i].outputs[n2]);
+						error = 0;
+						row = n1 * ncount;
+						for (int n2 = 0; n2 < ncount; ++n2)
+							error += dn[l2][n2] * layers[l2].weights[row + n2];
+
+						dn[l1][n1] = derivative(layers[l1].neurons[n1]) * error;
+					}
+				}
+
+				for (int l2 = lastl; l2 >= 1; --l2)
+				{
+					l1 = l2 - 1;
+
+					const int& ncount = layers[l2].nCount;
+					for (int n2 = 0; n2 < ncount; ++n2)
+					{
+						db = -dn[l2][n2];
+						layers[l2].biases[n2] += n * db + m * lastdb[l2][n2];
+						lastdb[l2][n2] = db;
 					}
 
-					for (int l2 = lastl; l2 >= 2; --l2)
+					for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 					{
-						timez::perf f("part B");
-						l1 = l2 - 1;
-						const int& ncount = layers[l2].nCount;
-
-						for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-						{
-							error = 0;
-							row = n1 * ncount;
-							for (int n2 = 0; n2 < ncount; ++n2)
-								error += dn[l2][n2] * layers[l2].weights[row + n2];
-
-							dn[l1][n1] = derivative(layers[l1].neurons[n1]) * error;
-						}
-					}
-
-					for (int l2 = lastl; l2 >= 1; --l2)
-					{
-						timez::perf f("part C");
-						l1 = l2 - 1;
-
-						const int& ncount = layers[l2].nCount;
-						{
-							timez::perf h("biases");
-							for (int n2 = 0; n2 < ncount; ++n2)
-							{
-
-								db = -dn[l2][n2];
-								layers[l2].biases[n2] += n * db + m * lastdb[l2][n2];
-								lastdb[l2][n2] = db;
-							}
-						}
-
-						{
-							timez::perf h("weights");
-							for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-							{
-								row = n1 * ncount;
-								for (int n2 = 0; n2 < ncount; ++n2)
-								{
-									windex = row + n2;
-									dw = layers[l1].neurons[n1] * -dn[l2][n2];
-									layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
-									lastdw[l2][windex] = dw;
-								}
-							}
-						}
-
-						/*timez::perf f("part C");
-						l1 = l2 - 1;
-
-						ncount = layers[l2].nCount;
+						row = n1 * ncount;
 						for (int n2 = 0; n2 < ncount; ++n2)
 						{
-							{
-								timez::perf h("biases");
-
-								db = -dn[l2][n2];
-								layers[l2].biases[n2] += n * db + m * lastdb[l2][n2];
-								lastdb[l2][n2] = db;
-							}
+							windex = row + n2;
+							dw = layers[l1].neurons[n1] * -dn[l2][n2];
+							layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
+							lastdw[l2][windex] = dw;
 						}
-
-						{
-							timez::perf h("weights");
-							for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-							{
-								wxindex = n1 * ncount;
-								for (int n2 = 0; n2 < ncount; ++n2)
-								{
-									windex = n2 + wxindex;
-									dw = layers[l1].neurons[n1] * -dn[l2][n2];
-
-									layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
-									lastdw[l2][windex] = dw;
-								}
-							}
-						}*/
 					}
 				}
 			}
-			if (print)
+			if (print) // TODO (Optional) Move printing into sample loop
 			{
-				timez::perf d("print");
 				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - overall);
 				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - last);
 				last = std::chrono::high_resolution_clock::now();
@@ -327,16 +280,14 @@ class seayon
 				if (printcost)
 					c = cost(testdata);
 
-				log(file, run, runCount, SAMPLES, runtime.count(), (float)elapsed.count() * 1e-6f, c); // TODO Demo has the same samle speed as Mnist
+				log(file, run, runCount, SAMPLES, runtime.count(), (float)elapsed.count() * 1e-6f, c);
 			}
 		}
 
 		if (print)
 		{
-			std::cout << std::endl << std::endl; // TODO Add average speed
+			std::cout << std::endl << std::endl;
 		}
-
-		timez::printp(true, std::vector<std::string>{"print"});
 
 		for (int l = 0; l < LAYERS; ++l)
 		{
@@ -413,11 +364,11 @@ public:
 			*pointer = layers[i].wCount;
 			pointer += sizeof(int);
 
-			memcpy(pointer, layers[i].neurons, nSize);
+			memcpy(pointer, &layers[i].neurons[0], nSize);
 			pointer += nSize;
-			memcpy(pointer, layers[i].biases, nSize);
+			memcpy(pointer, &layers[i].biases[0], nSize);
 			pointer += nSize;
-			memcpy(pointer, layers[i].weights, wSize);
+			memcpy(pointer, &layers[i].weights[0], wSize); // WARN &layers[i].weights[0]
 			pointer += wSize;
 		}
 
@@ -462,11 +413,11 @@ public:
 			*pointer = layers[i].wCount;
 			pointer += sizeof(int);
 
-			memcpy(layers[i].neurons, pointer, nSize);
+			memcpy(&layers[i].neurons[0], pointer, nSize);
 			pointer += nSize;
-			memcpy(layers[i].biases, pointer, nSize);
+			memcpy(&layers[i].biases[0], pointer, nSize);
 			pointer += nSize;
-			memcpy(layers[i].weights, pointer, wSize);
+			memcpy(&layers[i].weights[0], pointer, wSize);
 			pointer += wSize;
 		}
 	}
@@ -704,7 +655,7 @@ public:
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
 	float cost(trainingdata<SAMPLES, INPUTS, OUTPUTS>& data)
 	{
-		if (!data.check(layers, LAYERS))
+		if (!data.check(layers.begin(), LAYERS))
 		{
 			printf("\tCurrupt training data!\n");
 			return .0f;
@@ -729,7 +680,7 @@ public:
 	{
 		const int lastl = LAYERS - 1;
 
-		if (!data.check(layers, LAYERS))
+		if (!data.check(layers.begin(), LAYERS))
 		{
 			printf("\tCurrupt training data!\n");
 			return .0f;
@@ -740,7 +691,7 @@ public:
 		{
 			pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i]);
 
-			if (max(layers[lastl].neurons, layers[lastl].nCount) == max(data.samples[i].outputs, OUTPUTS))
+			if (max(&layers[lastl].neurons[0], layers[lastl].nCount) == max(&data.samples[i].outputs[0], OUTPUTS))
 			{
 				++a;
 			}
@@ -759,7 +710,7 @@ public:
 	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
 	void fit(trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata, int runCount, const bool print, float learningRate = 0.03f, float momentum = 0.1f, std::ofstream* logfile = nullptr, const bool printcost = false)
 	{
-		if (!traindata.check(layers, LAYERS) || !testdata.check(layers, LAYERS))
+		if (!traindata.check(layers.begin(), LAYERS) || !testdata.check(layers.begin(), LAYERS))
 		{
 			if (print)
 				printf("\tCurrupt training data!\n");

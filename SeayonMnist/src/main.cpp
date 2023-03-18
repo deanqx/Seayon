@@ -99,13 +99,13 @@ int main()
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
 		std::ifstream train("res/mnist/mnist_train.csv");
-		if (train.is_open() && false)
+		if (train.is_open())
 		{
 			auto& traindata = *new trainingdata<60000, 784, 10>();
 			ImportMnist(traindata, train);
 
 			nn.printo(traindata, 0);
-			nn.fit(traindata, testdata, 1, true, 0.03f, 0.1f, nullptr, true);
+			nn.fit(traindata, testdata, 50, true, 0.03f, 0.1f, nullptr, false);
 			nn.printo(traindata, 0);
 
 			delete& traindata;
@@ -113,7 +113,7 @@ int main()
 		else
 		{
 			nn.printo(testdata, 0);
-			nn.fit(testdata, testdata, 1, true, 0.03f, 0.1f, nullptr, true);
+			nn.fit(testdata, testdata, 50, true, 0.03f, 0.1f, nullptr, false);
 			nn.printo(testdata, 0);
 		}
 		train.close();
