@@ -26,14 +26,12 @@ You can find the work-in-progress version in the **beta branch**.
 
 :x: Only **Sigmoid** or **ReLu** as activation functions.
 
-:x: No
-
 # TODO-List
 
-- Save and load in Json format
 - Continue SeayonTrading
 - Add multi threading support
 - Add more activation functions
+- Add cmake file
 
 # How to include the library
 
