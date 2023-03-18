@@ -48,18 +48,13 @@
             },
             "command": "g++",
             "args": [
-                "-O3", // Optimization
+                // "-O3", // Optimization
                 "-g",
                 "../../SeayonDemo/src/*.cpp",
                 "-o",
                 "./SeayonDemo.exe",
-                "-l",
-                "Seayon",
                 "-I",
-                "../Seayon/include",
-                "-L",
-                "../Seayon/lib",
-                "-static",
+                "../../Seayon/src",
             ]
         },
         {
@@ -78,17 +73,13 @@
             },
             "command": "g++",
             "args": [
-                "-O3", // Optimization
-                "../../SeayonMnist/src/*.cpp",
+                "-O2", // Optimization
+                "-g",
+                "../../SeayonMnist/src/*",
                 "-o",
                 "./SeayonMnist.exe",
-                "-l",
-                "Seayon",
                 "-I",
-                "../Seayon/include",
-                "-L",
-                "../Seayon/lib",
-                "-static"
+                "../../Seayon/include",
             ]
         },
         {
@@ -97,16 +88,6 @@
             "group": "build",
             "dependsOn": "Build: SeayonMnist",
             "command": "./bin/SeayonMnist/SeayonMnist.exe",
-        },
-        {
-            "label": "Rebuild and Run: SeayonMnist",
-            "type": "shell",
-            "group": "build",
-            "dependsOrder": "sequence",
-            "dependsOn": [
-                "Build: libSeayon",
-                "Build and Run: SeayonMnist"
-            ]
         }
     ]
 }
