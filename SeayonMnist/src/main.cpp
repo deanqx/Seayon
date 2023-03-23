@@ -3,8 +3,8 @@
 #include <chrono>
 #include "seayon.hpp"
 
-template<int SAMPLES>
-void ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
+template <int SAMPLES>
+bool ImportMnist(trainingdata<SAMPLES, 784, 10> &data, std::ifstream &csv)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto start = std::chrono::high_resolution_clock::now();
@@ -12,7 +12,7 @@ void ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
 	if (!csv.is_open())
 	{
 		printf("Cannot open csv file\n");
-		return;
+		return 1;
 	}
 
 	std::string line;
@@ -21,7 +21,7 @@ void ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
 	for (int i = 0; i < SAMPLES; ++i)
 	{
 		std::getline(csv, line);
-		auto& sample = data.samples[i];
+		auto &sample = data.samples[i];
 
 		int pos = 0;
 		std::stringstream label_s;
@@ -71,23 +71,32 @@ void ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
 
 	std::chrono::duration<float> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
 	printf("\t100%%\t\t\tTime: %.0fsec     \n\n", totalelapsed.count());
+
+	return 0;
 }
 int main()
 {
-	const bool load = false;
+	constexpr bool load = false;
+	constexpr bool print = true;
+	constexpr bool printcost = true; // Takes a bit of performance
 
-	int layerNeurons[]{ 784, 16, 16, 10 };
-	seayon<4> nn(layerNeurons, ActivFunc::SIGMOID, 1472);
+	constexpr int runCount = 500;
+	constexpr float learningRate = 0.01f;
+	constexpr float momentum = 1.0f;
 
-	auto& testdata = *new trainingdata<10000, 784, 10>();
+	int layerNeurons[]{784, 16, 16, 10};
+	seayon<4> nn(layerNeurons, ActivFunc::SIGMOID, print, printcost, 1472, "../../../../SeayonMnist/res/");
 
-	std::ifstream test("res/mnist/mnist_test.csv");
-	ImportMnist(testdata, test);
+	auto &testdata = *new trainingdata<10000, 784, 10>;
+
+	std::ifstream test("../../../../SeayonMnist/res/mnist/mnist_test.csv");
+	if (ImportMnist(testdata, test))
+		return 1;
 	test.close();
 
 	if (load)
 	{
-		std::ifstream file("res/mnist.bin");
+		std::ifstream file("../../../../SeayonMnist/res/mnist.bin");
 		nn.load(file);
 		file.close();
 	}
@@ -98,27 +107,28 @@ int main()
 		// 2. Copy the header(first line) from mnist_test.csv
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
-		std::ifstream train("res/mnist/mnist_train.csv");
+		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
 		if (train.is_open())
 		{
-			auto& traindata = *new trainingdata<60000, 784, 10>();
-			ImportMnist(traindata, train);
+			auto &traindata = *new trainingdata<60000, 784, 10>;
+			if (ImportMnist(traindata, train))
+				return 1;
 
 			nn.printo(traindata, 0);
-			nn.fit(traindata, testdata, 50, true, 0.03f, 0.1f, nullptr, false);
+			nn.fit(runCount, traindata, testdata, learningRate, momentum);
 			nn.printo(traindata, 0);
 
-			delete& traindata;
+			delete &traindata;
 		}
 		else
 		{
 			nn.printo(testdata, 0);
-			nn.fit(testdata, testdata, 50, true, 0.03f, 0.1f, nullptr, false);
+			nn.fit(runCount, testdata, testdata, learningRate, momentum);
 			nn.printo(testdata, 0);
 		}
 		train.close();
 
-		std::ofstream file("res/mnist.bin");
+		std::ofstream file("../../../../SeayonMnist/res/mnist.bin");
 		nn.save(file);
 		file.close();
 	}
@@ -126,7 +136,7 @@ int main()
 	nn.printo(testdata, 0);
 
 	nn.clean();
-	delete& testdata;
+	delete &testdata;
 
 	return 0;
 }

@@ -75,6 +75,7 @@
         "xtr1common": "cpp",
         "xutility": "cpp",
         "numbers": "cpp",
-        "semaphore": "cpp"
+        "semaphore": "cpp",
+        "condition_variable": "cpp"
     }
 }

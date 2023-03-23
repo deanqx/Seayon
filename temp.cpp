@@ -1,72 +1,67 @@
-#define LAYERS 3
+#include <math.h>
+#include <vector>
+
+inline float Sigmoid(const float& z)
+{
+    return 1.0f / (1.0f + exp(-z));
+}
+
+inline float randf(float min, float max)
+{
+    return min + (float)rand() / (float)(RAND_MAX / (max - min));
+}
 
 struct layer
 {
-    const static int nCount = 10;
-    const static int wCount = 20;
-    float neurons[nCount]{};
-    float weights[wCount]{};
-};
+    int nCount;
+    int wCount;
 
-inline float dSigmoid(float a)
-{
-    return a * (1.0f - a);
-}
+    std::vector<float> weights;
+    std::vector<float> neurons;
+    std::vector<float> biases;
+
+    layer(const int PREVIOUS, const int LAYERS)
+    {
+        nCount = LAYERS;
+        wCount = LAYERS * PREVIOUS;
+        weights.resize(wCount);
+        neurons.resize(LAYERS);
+        biases.resize(LAYERS);
+
+        for (int i = 0; i < wCount; ++i)
+        {
+            weights[i] = randf(-2.0f, 2.0f);
+        }
+    }
+};
 
 int main()
 {
-    layer layers[LAYERS];
+    constexpr int LAYERS = 4;
+    constexpr int INPUTS = 784;
+    float inputs[INPUTS]{};
 
-    const int lastl = LAYERS - 1;
+    layer layers[LAYERS]{ {0, 784}, {784, 16}, {16, 16}, {16, 10} };
 
-    float* dn[LAYERS];
-    float* lastdb[LAYERS];
-    float* lastdw[LAYERS];
+    for (int n = 0; n < INPUTS; ++n)
+        layers[0].neurons[n] = inputs[n];
 
-    for (int l = 0; l < LAYERS; ++l)
+    const int layerCount = LAYERS - 1;
+    for (int l1 = 0; l1 < layerCount; ++l1)
     {
-        dn[l] = new float[layers[l].nCount];
-        lastdb[l] = new float[layers[l].nCount]();
-        lastdw[l] = new float[layers[l].wCount]();
-    }
-
-    for (int n2 = 0; n2 < layers[lastl].nCount; ++n2)
-    {
-        dn[lastl][n2] = dSigmoid(layers[lastl].neurons[n2]) * 2 * (layers[lastl].neurons[n2] - 1);
-    }
-
-    for (int l2 = lastl; l2 >= 2; --l2)
-    {
-        const int l1 = l2 - 1;
-        const int ncount = layers[l2].nCount;
-
-        for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-        {
-            const int rowindex = n1 * ncount;
-
-            float error = 0;
-            for (int n2 = 0; n2 < ncount; ++n2)
-                error += dn[l2][n2] * layers[l2].weights[n2 + rowindex];
-
-            dn[l1][n1] = dSigmoid(layers[l1].neurons[n1]) * error;
-        }
-    }
-
-    for (int l2 = lastl; l2 >= 1; --l2)
-    {
-        const int l1 = l2 - 1;
+        const int l2 = l1 + 1;
         const int& ncount = layers[l2].nCount;
 
-        for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
+        for (int n2 = 0; n2 < ncount; ++n2)
         {
-            const int rowindex = n1 * ncount;
-            for (int n2 = 0; n2 < ncount; ++n2)
-            {
-                const int windex = n2 + rowindex;
-                const float dw = layers[l1].neurons[n1] * -dn[l2][n2];
-                layers[l2].weights[windex] += dw + lastdw[l2][windex];
-                lastdw[l2][windex] = dw;
-            }
+            float z = 0;
+            for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
+                z += layers[l2].weights[n2 + n1 * ncount] * layers[l1].neurons[n1];
+            z += layers[l2].biases[n2];
+
+            layers[l2].neurons[n2] = Sigmoid(z);
         }
     }
+
+    return 0;
 }
