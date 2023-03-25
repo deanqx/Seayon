@@ -85,7 +85,7 @@ int main()
 	constexpr float momentum = 1.0f;
 
 	int layerNeurons[]{784, 16, 16, 10};
-	seayon<4> nn(layerNeurons, ActivFunc::SIGMOID, print, printcost, 1472, "../../../../SeayonMnist/res/");
+	seayon<4> nn(layerNeurons, ActivFunc::SIGMOID, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
 
 	auto &testdata = *new trainingdata<10000, 784, 10>;
 

@@ -50,6 +50,7 @@ struct layer
 	std::vector<float> weights; // PERF compare contigues arrays
 	std::vector<float> neurons;
 	std::vector<float> biases;
+	// PERF maybe Align contiues
 
 	void create(const int PREVIOUS, const int LAYERS)
 	{
@@ -140,7 +141,7 @@ class seayon
 		resolved[2] = seconds;
 	}
 
-	void log(std::ofstream *file, const int &run, const int &runCount, const int &sampleCount, const int &runtime, float elapsed, const float &c)
+	void log(std::ofstream *file, const int &run, const int &runCount, const int &sampleCount, const int &runtime, float elapsed, float sampleTime, const float &c)
 	{
 		float progress = (float)run * 100.0f / (float)runCount;
 
@@ -148,7 +149,7 @@ class seayon
 		if (elapsed < 0.0f)
 			elapsed = 0.0f;
 		else
-			samplesPerSecond = (float)sampleCount / elapsed;
+			samplesPerSecond = (float)sampleCount / sampleTime;
 
 		int runtimeResolved[3];
 		resolveTime(runtime, runtimeResolved);
@@ -201,7 +202,7 @@ class seayon
 			}
 
 			printf("\n");
-			log(logfile, 0, runCount, SAMPLES, 0, -1.0f, c);
+			log(logfile, 0, runCount, SAMPLES, 0, -1.0f, -1.0f, c);
 		}
 
 		float *dn[LAYERS]; // TODO Try std::vector on long run
@@ -217,6 +218,7 @@ class seayon
 
 		auto overall = std::chrono::high_resolution_clock::now();
 		auto last = std::chrono::high_resolution_clock::now();
+		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
 
 		// PERF Check for chache misses
 		// PERF Not faster than vectors
@@ -277,15 +279,19 @@ class seayon
 			}
 			if (printEnabled)
 			{
-				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - overall);
-				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - last);
-				last = std::chrono::high_resolution_clock::now();
+				auto now = std::chrono::high_resolution_clock::now();
+				std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
+				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
+				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
+				last = now;
 
 				float c = -1.0f;
 				if (printcost)
 					c = cost(testdata);
 
-				log(logfile, run, runCount, SAMPLES, runtime.count(), (float)elapsed.count() * 1e-6f, c);
+				log(logfile, run, runCount, SAMPLES, runtime.count(), (float)elapsed.count() * 1e-6f, (float)sampleTime.count() * 1e-6f, c);
+
+				sampleTimeLast = std::chrono::high_resolution_clock::now();
 			}
 		}
 
