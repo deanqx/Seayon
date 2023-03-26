@@ -43,15 +43,13 @@ struct layer
 	int nCount;
 	int wCount;
 #if true
-	// PERF compare contigues arrays
 	/**
 	 * Goes from second to first
 	 * @tparam layers[l2].weights[n2 * n1Count + n1]
 	 */
 	std::vector<float> weights;
 	std::vector<float> neurons;
-	std::vector<float> biases; // PERF First element never used
-	// PERF maybe Align contiues
+	std::vector<float> biases;
 
 	void create(const int PREVIOUS, const int NEURONS)
 	{
@@ -74,15 +72,13 @@ struct layer
 		weights.clear();
 	}
 #else
-	// PERF compare contigues arrays
 	/**
 	 * Goes from second to first
 	 * @tparam layers[l2].weights[n2 * n1Count + n1]
 	 */
 	float *weights;
 	float *neurons;
-	float *biases; // PERF First element never used
-	// PERF maybe Align contiues
+	float *biases;
 
 	void create(const int PREVIOUS, const int NEURONS)
 	{
@@ -281,7 +277,6 @@ class seayon
 		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
 
 		// PERF Check for chache misses
-		// PERF Not faster than vectors
 		// PERF Speed becomes slower overtime
 		for (int run = 1; run <= runCount; ++run)
 		{
@@ -405,7 +400,6 @@ public:
 		}
 	}
 
-	// TODO Test
 	// Saves network to a .nn file
 	bool save(std::ofstream &file)
 	{
@@ -500,7 +494,18 @@ public:
 			pointer += wSize;
 		}
 	}
-	// TODO void copy(seayon<LAYERS>& to);
+	void copy(seayon<LAYERS> &to)
+	{
+		for (int l = 0; l < LAYERS; ++l)
+		{
+			layers[l].nCount = to[l].nCount;
+			layers[l].wCount = to[l].wCount;
+			to[l].biases.reserve(to[l].wCount);
+			to[l].weights.reserve(to[l].nCount);
+			std::copy(&layers[l].biases[0], &layers[l].biases[0] + layers[l].nCount, &to[l].biases[0]);
+			std::copy(&layers[l].weights[0], &layers[l].weights[0] + layers[l].wCount, &to[l].weights[0]);
+		}
+	}
 	/**
 	 * Combines two networks with the average values.
 	 * @param with List of networks
@@ -522,11 +527,11 @@ public:
 
 				for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 				{
-					float aw = layers[l2].weights[n2][n1]; // TODO combine
+					float aw = layers[l2].weights[n2 * layers[l1].nCount + n1];
 					for (int i = 0; i < count; ++i)
-						aw += with[i].layers[l2].weights[n2][n1];
+						aw += with[i].layers[l2].weights[n2 * layers[l1].nCount + n1];
 
-					layers[l2].weights[n2][n1] = aw / count;
+					layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / count;
 				}
 			}
 		}
@@ -539,7 +544,30 @@ public:
 			layers[0].neurons[n1] = an / count;
 		}
 	}
-	// TODO bool equals(seayon<LAYERS>& second);
+	bool equals(seayon<LAYERS> &second)
+	{
+		bool equal = false;
+
+		char *bufferA;
+		char *bufferB;
+
+		size_t size = save(bufferA);
+		if (size == save(bufferB))
+		{
+			for (size_t i = 0; i < size; ++i)
+			{
+				if (bufferA[i] != bufferB[i])
+					goto Break;
+			}
+			equal = true;
+		}
+
+	Break:
+		delete[] bufferA;
+		delete[] bufferB;
+
+		return equal;
+	}
 
 	// Calculates network outputs
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
