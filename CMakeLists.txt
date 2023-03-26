@@ -2,7 +2,9 @@ project("Seayon")
 cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+# set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")
+set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 
 include_directories(BEFORE "include" "include/timez")
 
