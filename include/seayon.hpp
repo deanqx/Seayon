@@ -103,31 +103,6 @@ struct layer
 #endif
 };
 
-// template <int SAMPLES, int INPUTS, int OUTPUTS>
-// struct trainingdata
-// {
-// 	struct sample
-// 	{
-// 		std::vector<float> inputs;
-// 		std::vector<float> outputs;
-// 		sample()
-// 		{
-// 			inputs.resize(INPUTS);
-// 			outputs.resize(OUTPUTS);
-// 		}
-// 	};
-// 	std::vector<sample> samples;
-// 	trainingdata()
-// 	{
-// 		samples.resize(SAMPLES);
-// 	}
-// 	// Returns false if training data is currupt (quickcheck)
-// 	bool check(layer *layers, int N) const
-// 	{
-// 		return layers[0].nCount == INPUTS && layers[N - 1].nCount == OUTPUTS;
-// 	}
-// };
-
 template <int SAMPLES, int INPUTS, int OUTPUTS>
 struct trainingdata
 {
