@@ -16,20 +16,30 @@ int main()
 	// 1. Hidden layer size: 3
 	// 2. Hidden layer size: 4
 	// Output layer size: 2
-	// int layout[]{ 2, 3, 4, 2 };
-	int layout[]{ 2, 2 };
-	seayon<2> nn(layout, ActivFunc::SIGMOID, 1472); // nn = neural network
+	// <4 layers> | 2-3-4-2 neurons | Activation function: Sigmoid | print current state: true | printing cost after every run: false | seed: 1472 | no logfile
+	int layout[]{2, 3, 4, 2};
+	seayon<4> nn(layout, ActivFunc::SIGMOID, true, false, 1472, "");
 
-	nn.print(); // Prints the whole network to the console
+	nn.print(); // Prints all values to the console
 
 	// ### Before training ###
-	nn.printo(data, 0); // Prints only the output layer to the console
 
-	// 50 iterations | 0.5f learning rate | 0.5f momentum
-	nn.fit(data, data, 50, true, 0.5f, 0.5f, nullptr, true);
+	// <testdata template> | sample
+	nn.pulse<2, 2, 2>(data.samples[0]);
+	nn.printo();
+	// testdata | sample (printo: Prints only the output layer to the console)
+	nn.printo(data, 1);
+
+	// 50 iterations | training and test data | 0.5f learning rate | 0.5f momentum
+	nn.fit(50, data, data, 0.5f, 0.5f);
 
 	// ### After training ###
-	nn.printo(data, 0);
+
+	// <testdata template> | sample
+	nn.pulse<2, 2, 2>(data.samples[0]);
+	nn.printo();
+	// testdata | sample (printo: Prints only the output layer to the console)
+	nn.printo(data, 1);
 
 	return 0;
 }
