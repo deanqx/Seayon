@@ -42,23 +42,24 @@ struct layer
 {
 	int nCount;
 	int wCount;
-
+#if true
+	// PERF compare contigues arrays
 	/**
 	 * Goes from second to first
-	 * @tparam layers[l2].weights[n2 + n1 * n2Count]
+	 * @tparam layers[l2].weights[n2 * n1Count + n1]
 	 */
-	std::vector<float> weights; // PERF compare contigues arrays
+	std::vector<float> weights;
 	std::vector<float> neurons;
-	std::vector<float> biases;
+	std::vector<float> biases; // PERF First element never used
 	// PERF maybe Align contiues
 
-	void create(const int PREVIOUS, const int LAYERS)
+	void create(const int PREVIOUS, const int NEURONS)
 	{
-		nCount = LAYERS;
-		wCount = LAYERS * PREVIOUS;
-		weights.resize(wCount);
-		neurons.resize(LAYERS);
-		biases.resize(LAYERS);
+		nCount = NEURONS;
+		wCount = NEURONS * PREVIOUS;
+		neurons.resize(NEURONS);
+		biases.resize(NEURONS);
+		weights.reserve(wCount);
 
 		for (int i = 0; i < wCount; ++i)
 		{
@@ -72,14 +73,71 @@ struct layer
 		biases.clear();
 		weights.clear();
 	}
+#else
+	// PERF compare contigues arrays
+	/**
+	 * Goes from second to first
+	 * @tparam layers[l2].weights[n2 * n1Count + n1]
+	 */
+	float *weights;
+	float *neurons;
+	float *biases; // PERF First element never used
+	// PERF maybe Align contiues
+
+	void create(const int PREVIOUS, const int NEURONS)
+	{
+		nCount = NEURONS;
+		wCount = NEURONS * PREVIOUS;
+		neurons = new float[NEURONS]();
+		biases = new float[NEURONS]();
+		weights = new float[wCount];
+
+		for (int i = 0; i < wCount; ++i)
+		{
+			weights[i] = randf(-2.0f, 2.0f);
+		}
+	}
+
+	void clean()
+	{
+		delete[] neurons;
+		delete[] biases;
+		delete[] weights;
+	}
+#endif
 };
+
+// template <int SAMPLES, int INPUTS, int OUTPUTS>
+// struct trainingdata
+// {
+// 	struct sample
+// 	{
+// 		std::vector<float> inputs;
+// 		std::vector<float> outputs;
+// 		sample()
+// 		{
+// 			inputs.resize(INPUTS);
+// 			outputs.resize(OUTPUTS);
+// 		}
+// 	};
+// 	std::vector<sample> samples;
+// 	trainingdata()
+// 	{
+// 		samples.resize(SAMPLES);
+// 	}
+// 	// Returns false if training data is currupt (quickcheck)
+// 	bool check(layer *layers, int N) const
+// 	{
+// 		return layers[0].nCount == INPUTS && layers[N - 1].nCount == OUTPUTS;
+// 	}
+// };
 
 template <int SAMPLES, int INPUTS, int OUTPUTS>
 struct trainingdata
 {
 	struct sample
 	{
-		float inputs[INPUTS]{}; // TODO try std::array
+		float inputs[INPUTS]{};
 		float outputs[OUTPUTS]{};
 	};
 	sample samples[SAMPLES]{};
@@ -107,25 +165,25 @@ class seayon
 	const std::string logfolder;
 
 	ActivFunc Activation = ActivFunc::SIGMOID;
-	std::array<layer, LAYERS> layers;
+	layer layers[LAYERS];
 
 	template <int SAMPLES, int INPUTS, int OUTPUTS, typename F>
-	void _pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample, F func)
+	inline void _pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample, F func)
 	{
 		for (int n = 0; n < INPUTS; ++n)
 			layers[0].neurons[n] = sample.inputs[n];
 
-		const int layerCount = LAYERS - 1;
-		for (int l1 = 0; l1 < layerCount; ++l1)
+		for (int l2 = 1; l2 < LAYERS; ++l2)
 		{
-			const int l2 = l1 + 1;
-			const int &ncount = layers[l2].nCount;
+			const int l1 = l2 - 1;
+			const int &n1count = layers[l1].nCount;
+			const int &n2count = layers[l2].nCount;
 
-			for (int n2 = 0; n2 < ncount; ++n2)
+			for (int n2 = 0; n2 < n2count; ++n2)
 			{
 				float z = 0;
-				for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-					z += layers[l2].weights[n2 + n1 * ncount] * layers[l1].neurons[n1];
+				for (int n1 = 0; n1 < n1count; ++n1)
+					z += layers[l2].weights[n2 * n1count + n1] * layers[l1].neurons[n1];
 				z += layers[l2].biases[n2];
 
 				layers[l2].neurons[n2] = func(z);
@@ -148,6 +206,8 @@ class seayon
 		float samplesPerSecond = 0.0f;
 		if (elapsed < 0.0f)
 			elapsed = 0.0f;
+		else if (sampleTime < 1e-6f)
+			samplesPerSecond = (float)sampleCount / 1e-6f;
 		else
 			samplesPerSecond = (float)sampleCount / sampleTime;
 
@@ -205,7 +265,7 @@ class seayon
 			log(logfile, 0, runCount, SAMPLES, 0, -1.0f, -1.0f, c);
 		}
 
-		float *dn[LAYERS]; // TODO Try std::vector on long run
+		float *dn[LAYERS];
 		float *lastdb[LAYERS];
 		float *lastdw[LAYERS];
 
@@ -232,21 +292,20 @@ class seayon
 
 				for (int n2 = 0; n2 < layers[lastl].nCount; ++n2)
 				{
-					dn[lastl][n2] = derivative(layers[lastl].neurons[n2]) * 2 * (layers[lastl].neurons[n2] - data.samples[i].outputs[n2]);
+					dn[lastl][n2] = derivative(layers[lastl].neurons[n2]) * 2.0f * (layers[lastl].neurons[n2] - data.samples[i].outputs[n2]);
 				}
 
 				for (int l2 = lastl; l2 >= 2; --l2)
 				{
 					const int l1 = l2 - 1;
-					const int &ncount = layers[l2].nCount;
+					const int &n1count = layers[l1].nCount;
+					const int &n2count = layers[l2].nCount;
 
-					for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
+					for (int n1 = 0; n1 < n1count; ++n1)
 					{
-						const int row = n1 * ncount;
-
 						float error = 0;
-						for (int n2 = 0; n2 < ncount; ++n2)
-							error += dn[l2][n2] * layers[l2].weights[row + n2];
+						for (int n2 = 0; n2 < n2count; ++n2)
+							error += dn[l2][n2] * layers[l2].weights[n2 * n1count + n1];
 
 						dn[l1][n1] = derivative(layers[l1].neurons[n1]) * error;
 					}
@@ -255,21 +314,20 @@ class seayon
 				for (int l2 = lastl; l2 >= 1; --l2)
 				{
 					const int l1 = l2 - 1;
-					const int &ncount = layers[l2].nCount;
+					const int &n1count = layers[l1].nCount;
+					const int &n2count = layers[l2].nCount;
 
-					for (int n2 = 0; n2 < ncount; ++n2)
+					for (int n2 = 0; n2 < n2count; ++n2)
 					{
+						const int row = n2 * n1count;
+
 						const float db = -dn[l2][n2];
 						layers[l2].biases[n2] += n * db + m * lastdb[l2][n2];
 						lastdb[l2][n2] = db;
-					}
 
-					for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-					{
-						const int row = n1 * ncount;
-						for (int n2 = 0; n2 < ncount; ++n2)
+						for (int n1 = 0; n1 < n1count; ++n1)
 						{
-							const int windex = row + n2;
+							const int windex = row + n1;
 							const float dw = layers[l1].neurons[n1] * -dn[l2][n2];
 							layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
 							lastdw[l2][windex] = dw;
@@ -301,8 +359,11 @@ class seayon
 					  << std::endl;
 		}
 
-		logfile->close();
-		delete logfile;
+		if (logfile != nullptr)
+		{
+			logfile->close();
+			delete logfile;
+		}
 		for (int l = 0; l < LAYERS; ++l)
 		{
 			delete[] dn[l];
@@ -461,7 +522,7 @@ public:
 
 				for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 				{
-					float aw = layers[l2].weights[n2][n1];
+					float aw = layers[l2].weights[n2][n1]; // TODO combine
 					for (int i = 0; i < count; ++i)
 						aw += with[i].layers[l2].weights[n2][n1];
 
@@ -482,7 +543,7 @@ public:
 
 	// Calculates network outputs
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	void pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample)
+	void pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample) // TODO Try without typename
 	{
 		if (Activation == ActivFunc::SIGMOID)
 		{
@@ -512,7 +573,7 @@ public:
 
 				printf("\n  Input Layer:\n");
 			}
-			else if (l1 == LAYERS - 1)
+			else if (l1 == LAYERS - 1) // TODO Use printo instead
 			{
 				normalColor = 11;
 				SetConsoleTextAttribute(cmd, 11);
@@ -527,12 +588,13 @@ public:
 				printf("  Hidden Layer[%i]:\n", l1 - 1);
 			}
 
+			int largest = std::max_element(&layers[l1].neurons[0], &layers[l1].neurons[0] + layers[l1].nCount) - &layers[l1].neurons[0];
 			for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 			{
 				printf("\t\tNeuron[%02i]   ", n1);
 				if (l1 == LAYERS - 1)
 				{
-					if (layers[l1].neurons[n1] > 0.50f)
+					if (n1 == largest)
 						SetConsoleTextAttribute(cmd, 95);
 					else
 						SetConsoleTextAttribute(cmd, 7);
@@ -558,18 +620,20 @@ public:
 				else
 					printf("\n");
 
-				if (l1 < LAYERS - 1)
+				if (l2 < LAYERS)
 					for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
 					{
 						printf("\t\t  Weight[%02i] ", n2);
-						if (layers[l2].weights[n2 + n1 * layers[l2].nCount] <= 0.0f)
+						float &w = layers[l2].weights[n2 * layers[l1].nCount + n1];
+
+						if (w <= 0.0f)
 						{
 							SetConsoleTextAttribute(cmd, 12);
-							printf("%.2f\n", layers[l2].weights[n2 + n1 * layers[l2].nCount]);
+							printf("%.2f\n", w);
 							SetConsoleTextAttribute(cmd, normalColor);
 						}
 						else
-							printf("%.2f\n", layers[l2].weights[n2 + n1 * layers[l2].nCount]);
+							printf("%.2f\n", w);
 					}
 				printf("\n");
 			}
@@ -599,12 +663,13 @@ public:
 		SetConsoleTextAttribute(cmd, 11);
 		printf("  Output Layer:\n");
 
+		int largest = std::max_element(&layers[l].neurons[0], &layers[l].neurons[0] + layers[l].nCount) - &layers[l].neurons[0];
 		for (int n = 0; n < layers[l].nCount; ++n)
 		{
 			printf("\t\tNeuron[%02i]   ", n);
 			if (l == LAYERS - 1)
 			{
-				if (layers[l].neurons[n] > 0.50f)
+				if (n == largest)
 					SetConsoleTextAttribute(cmd, 95);
 				else
 					SetConsoleTextAttribute(cmd, 7);

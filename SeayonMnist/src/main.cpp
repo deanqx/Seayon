@@ -15,22 +15,25 @@ bool ImportMnist(trainingdata<SAMPLES, 784, 10> &data, std::ifstream &csv)
 		return 1;
 	}
 
-	std::string line;
-	std::getline(csv, line);
+	std::stringstream buffer;
+	buffer << csv.rdbuf();
+	std::string file = buffer.str();
+
+	int pos = 0;
+
+	for (; pos < file.size(); ++pos)
+		if (file[pos] == '\n')
+			break;
+	++pos;
 
 	for (int i = 0; i < SAMPLES; ++i)
 	{
-		std::getline(csv, line);
 		auto &sample = data.samples[i];
 
-		int pos = 0;
 		std::stringstream label_s;
-		for (; pos < line.size(); ++pos)
+		for (; pos < file.size() && file[pos] != ','; ++pos)
 		{
-			if (line[pos] == ',')
-				break;
-
-			label_s << line[pos];
+			label_s << file[pos];
 		}
 		++pos;
 
@@ -39,17 +42,15 @@ bool ImportMnist(trainingdata<SAMPLES, 784, 10> &data, std::ifstream &csv)
 		for (int pixelPos = 0; pixelPos < 784; ++pixelPos)
 		{
 			std::stringstream pixel;
-			for (;; ++pos)
+			for (; file[pos] != ','; ++pos)
 			{
-				if (pos >= line.size())
+				if (file[pos] == '\n')
 				{
 					sample.inputs[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
 					goto Break;
 				}
-				if (line[pos] == ',')
-					break;
 
-				pixel << line[pos];
+				pixel << file[pos];
 			}
 			++pos;
 
@@ -80,9 +81,9 @@ int main()
 	constexpr bool print = true;
 	constexpr bool printcost = true; // Takes a bit of performance
 
-	constexpr int runCount = 500;
-	constexpr float learningRate = 0.01f;
-	constexpr float momentum = 1.0f;
+	constexpr int runCount = 50;
+	constexpr float learningRate = 0.03f;
+	constexpr float momentum = 0.1f;
 
 	int layerNeurons[]{784, 16, 16, 10};
 	seayon<4> nn(layerNeurons, ActivFunc::SIGMOID, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
