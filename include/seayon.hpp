@@ -16,21 +16,41 @@
 #include "timez.hpp"
 #endif
 
-inline float ReLu(const float &z)
+float Sigmoid(const float &z)
+{
+	return 1.0f / (1.0f + exp(-z));
+}
+float dSigmoid(const float &a)
+{
+	return a * (1.0f - a);
+}
+float Tanh(const float &z)
+{
+	float x0 = exp(z);
+	float x1 = exp(-z);
+	return (x0 - x1) / (x0 + x1);
+}
+float dTanh(const float &a)
+{
+	float t = Tanh(a);
+	return 1 - t * t;
+}
+float ReLu(const float &z)
 {
 	return (z < 0.0f ? 0.0f : z);
 }
-inline float dReLu(const float &a)
+float dReLu(const float &a)
 {
 	return (a < 0.0f ? 0.0f : 1.0f);
 }
-inline float Sigmoid(const float &z)
+float LeakyReLu(const float &z)
 {
-	return 1.0f / (1.0f + exp(-z)); // PERF exp could be approximated
+	float x = 0.1f * z;
+	return (x > z ? x : z);
 }
-inline float dSigmoid(const float &a)
+float dLeakyReLu(const float &a)
 {
-	return a * (1.0f - a);
+	return (a > 0.0f ? 1.0f : 0.01f);
 }
 
 inline float randf(float min, float max)
@@ -38,11 +58,22 @@ inline float randf(float min, float max)
 	return min + (float)rand() / (float)(RAND_MAX / (max - min));
 }
 
+enum class ActivFunc
+{
+	SIGMOID,
+	TANH,
+	RELU,
+	LEAKYRELU
+};
+
 struct layer
 {
 	int nCount;
 	int wCount;
-#if true
+
+	float (*activation)(const float &z);
+	float (*derivative)(const float &a);
+
 	/**
 	 * Goes from second to first
 	 * @tparam layers[l2].weights[n2 * n1Count + n1]
@@ -51,10 +82,11 @@ struct layer
 	std::vector<float> neurons;
 	std::vector<float> biases;
 
-	void create(const int PREVIOUS, const int NEURONS)
+	void create(const int PREVIOUS, const int NEURONS, const ActivFunc func)
 	{
 		nCount = NEURONS;
 		wCount = NEURONS * PREVIOUS;
+
 		neurons.resize(NEURONS);
 		biases.resize(NEURONS);
 		weights.reserve(wCount);
@@ -62,6 +94,27 @@ struct layer
 		for (int i = 0; i < wCount; ++i)
 		{
 			weights[i] = randf(-2.0f, 2.0f);
+		}
+
+		if (func == ActivFunc::SIGMOID)
+		{
+			activation = Sigmoid;
+			derivative = dSigmoid;
+		}
+		else if (func == ActivFunc::TANH)
+		{
+			activation = Tanh;
+			derivative = dTanh;
+		}
+		else if (func == ActivFunc::RELU)
+		{
+			activation = ReLu;
+			derivative = dReLu;
+		}
+		else if (func == ActivFunc::LEAKYRELU)
+		{
+			activation = LeakyReLu;
+			derivative = dLeakyReLu;
 		}
 	}
 
@@ -71,36 +124,6 @@ struct layer
 		biases.clear();
 		weights.clear();
 	}
-#else
-	/**
-	 * Goes from second to first
-	 * @tparam layers[l2].weights[n2 * n1Count + n1]
-	 */
-	float *weights;
-	float *neurons;
-	float *biases;
-
-	void create(const int PREVIOUS, const int NEURONS)
-	{
-		nCount = NEURONS;
-		wCount = NEURONS * PREVIOUS;
-		neurons = new float[NEURONS]();
-		biases = new float[NEURONS]();
-		weights = new float[wCount];
-
-		for (int i = 0; i < wCount; ++i)
-		{
-			weights[i] = randf(-2.0f, 2.0f);
-		}
-	}
-
-	void clean()
-	{
-		delete[] neurons;
-		delete[] biases;
-		delete[] weights;
-	}
-#endif
 };
 
 template <int SAMPLES, int INPUTS, int OUTPUTS>
@@ -120,12 +143,6 @@ struct trainingdata
 	}
 };
 
-enum class ActivFunc
-{
-	SIGMOID,
-	RELU
-};
-
 // TODO Rewrite Discriptions
 // Open source Neural Network library in C++ with lots of easy to use features. Copyright by Dean Schneider (deanqx, Sawey)
 template <int LAYERS>
@@ -135,212 +152,7 @@ class seayon
 	const bool printcost;
 	const std::string logfolder;
 
-	ActivFunc Activation = ActivFunc::SIGMOID;
 	layer layers[LAYERS];
-
-	template <int SAMPLES, int INPUTS, int OUTPUTS, typename F>
-	inline void _pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample, F func)
-	{
-		for (int n = 0; n < INPUTS; ++n)
-			layers[0].neurons[n] = sample.inputs[n];
-
-		for (int l2 = 1; l2 < LAYERS; ++l2)
-		{
-			const int l1 = l2 - 1;
-			const int &n1count = layers[l1].nCount;
-			const int &n2count = layers[l2].nCount;
-
-			for (int n2 = 0; n2 < n2count; ++n2)
-			{
-				float z = 0;
-				for (int n1 = 0; n1 < n1count; ++n1)
-					z += layers[l2].weights[n2 * n1count + n1] * layers[l1].neurons[n1];
-				z += layers[l2].biases[n2];
-
-				layers[l2].neurons[n2] = func(z);
-			}
-		}
-	}
-	void resolveTime(int seconds, int *resolved)
-	{
-		resolved[0] = seconds / 3600;
-		seconds -= 3600 * resolved[0];
-		resolved[1] = seconds / 60;
-		seconds -= 60 * resolved[1];
-		resolved[2] = seconds;
-	}
-
-	void log(std::ofstream *file, const int &run, const int &runCount, const int &sampleCount, const int &runtime, float elapsed, float sampleTime, const float &c)
-	{
-		float progress = (float)run * 100.0f / (float)runCount;
-
-		float samplesPerSecond = 0.0f;
-		if (elapsed < 0.0f)
-			elapsed = 0.0f;
-		else if (sampleTime < 1e-6f)
-			samplesPerSecond = (float)sampleCount / 1e-6f;
-		else
-			samplesPerSecond = (float)sampleCount / sampleTime;
-
-		int runtimeResolved[3];
-		resolveTime(runtime, runtimeResolved);
-
-		int eta = (int)(elapsed * (float)(runCount - run));
-		int etaResolved[3];
-		resolveTime(eta, etaResolved);
-
-		std::cout << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
-				  << (int)samplesPerSecond << " Samples/s " << std::setw(13)
-				  << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
-				  << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
-		if (c > -1.0f)
-			std::cout << "Cost: " << std::fixed << std::setprecision(4) << c;
-		std::cout << "                " << std::flush;
-
-		if (file)
-			*file << progress << "," << samplesPerSecond << "," << runtime << "," << eta << "," << c << std::endl;
-	}
-
-	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS, typename F0, typename F1>
-	void backpropagate(const int &runCount, const float &n, const float &m, const trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS> &testdata, F0 activation, F1 derivative)
-	{
-		const int lastl = LAYERS - 1;
-		std::ofstream *logfile = nullptr;
-
-		if (printEnabled)
-		{
-			float c = -1.0f;
-			if (printcost)
-				c = cost(testdata);
-
-			if (!logfolder.empty())
-			{
-				std::string path(logfolder + "log.csv");
-				std::ifstream exists(path);
-				for (int i = 1; i < 16; ++i)
-				{
-					if (!exists.good())
-					{
-						break;
-					}
-					exists.close();
-					path = logfolder + "log(" + std::to_string(i) + ").csv";
-					exists.open(path);
-				}
-
-				logfile = new std::ofstream(path);
-				*logfile << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
-			}
-
-			printf("\n");
-			log(logfile, 0, runCount, SAMPLES, 0, -1.0f, -1.0f, c);
-		}
-
-		float *dn[LAYERS];
-		float *lastdb[LAYERS];
-		float *lastdw[LAYERS];
-
-		for (int l = 0; l < LAYERS; ++l)
-		{
-			dn[l] = new float[layers[l].nCount];
-			lastdb[l] = new float[layers[l].nCount]();
-			lastdw[l] = new float[layers[l].wCount]();
-		}
-
-		auto overall = std::chrono::high_resolution_clock::now();
-		auto last = std::chrono::high_resolution_clock::now();
-		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
-
-		// PERF Check for chache misses
-		// PERF Speed becomes slower overtime
-		for (int run = 1; run <= runCount; ++run)
-		{
-			// PERF Could add multithreading here or vectorization
-			for (int i = 0; i < SAMPLES; ++i)
-			{
-				_pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i], activation);
-
-				for (int n2 = 0; n2 < layers[lastl].nCount; ++n2)
-				{
-					dn[lastl][n2] = derivative(layers[lastl].neurons[n2]) * 2.0f * (layers[lastl].neurons[n2] - data.samples[i].outputs[n2]);
-				}
-
-				for (int l2 = lastl; l2 >= 2; --l2)
-				{
-					const int l1 = l2 - 1;
-					const int &n1count = layers[l1].nCount;
-					const int &n2count = layers[l2].nCount;
-
-					for (int n1 = 0; n1 < n1count; ++n1)
-					{
-						float error = 0;
-						for (int n2 = 0; n2 < n2count; ++n2)
-							error += dn[l2][n2] * layers[l2].weights[n2 * n1count + n1];
-
-						dn[l1][n1] = derivative(layers[l1].neurons[n1]) * error;
-					}
-				}
-
-				for (int l2 = lastl; l2 >= 1; --l2)
-				{
-					const int l1 = l2 - 1;
-					const int &n1count = layers[l1].nCount;
-					const int &n2count = layers[l2].nCount;
-
-					for (int n2 = 0; n2 < n2count; ++n2)
-					{
-						const int row = n2 * n1count;
-
-						const float db = -dn[l2][n2];
-						layers[l2].biases[n2] += n * db + m * lastdb[l2][n2];
-						lastdb[l2][n2] = db;
-
-						for (int n1 = 0; n1 < n1count; ++n1)
-						{
-							const int windex = row + n1;
-							const float dw = layers[l1].neurons[n1] * -dn[l2][n2];
-							layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
-							lastdw[l2][windex] = dw;
-						}
-					}
-				}
-			}
-			if (printEnabled)
-			{
-				auto now = std::chrono::high_resolution_clock::now();
-				std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
-				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
-				last = now;
-
-				float c = -1.0f;
-				if (printcost)
-					c = cost(testdata);
-
-				log(logfile, run, runCount, SAMPLES, runtime.count(), (float)elapsed.count() * 1e-6f, (float)sampleTime.count() * 1e-6f, c);
-
-				sampleTimeLast = std::chrono::high_resolution_clock::now();
-			}
-		}
-
-		if (printEnabled)
-		{
-			std::cout << std::endl
-					  << std::endl;
-		}
-
-		if (logfile != nullptr)
-		{
-			logfile->close();
-			delete logfile;
-		}
-		for (int l = 0; l < LAYERS; ++l)
-		{
-			delete[] dn[l];
-			delete[] lastdb[l];
-			delete[] lastdw[l];
-		}
-	}
 
 public:
 	/**
@@ -348,23 +160,21 @@ public:
 	 * @param layerCount Starts with the input layer (Minimum 2 layers)
 	 * @param ActivFunc Activation function for all neurons.
 	 */
-	seayon(const int *layout, const ActivFunc a, const bool enablePrinting, const bool printcost, const int seed = -1, std::string logfolder = std::string())
+	seayon(const int *layout, const ActivFunc *a, const bool enablePrinting, const bool printcost, const int seed = -1, std::string logfolder = std::string())
 		: printEnabled(enablePrinting), printcost(printcost),
 		  logfolder(logfolder[logfolder.back()] == '\\' || logfolder[logfolder.back()] == '/' ? logfolder : logfolder.append("/"))
 	{
-		Activation = a;
-
 		if (seed < 0)
 			srand(rand());
 		else
 			srand(seed);
 
-		layers[0].create(0, layout[0]);
+		layers[0].create(0, layout[0], a[0]);
 		for (int l2 = 1; l2 < LAYERS; ++l2)
 		{
 			const int l1 = l2 - 1;
 
-			layers[l2].create(layout[l1], layout[l2]);
+			layers[l2].create(layout[l1], layout[l2], a[l2]);
 		}
 	}
 	void clean()
@@ -416,7 +226,7 @@ public:
 			pointer += nSize;
 			memcpy(pointer, &layers[i].biases[0], nSize);
 			pointer += nSize;
-			memcpy(pointer, &layers[i].weights[0], wSize); // WARN &layers[i].weights[0]
+			memcpy(pointer, &layers[i].weights[0], wSize);
 			pointer += wSize;
 		}
 
@@ -546,15 +356,27 @@ public:
 
 	// Calculates network outputs
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	void pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample) // TODO Try without typename
+	inline void pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample &sample)
 	{
-		if (Activation == ActivFunc::SIGMOID)
+		for (int n = 0; n < INPUTS; ++n)
+			layers[0].neurons[n] = sample.inputs[n];
+
+		for (int l2 = 1; l2 < LAYERS; ++l2)
 		{
-			_pulse<SAMPLES, INPUTS, OUTPUTS>(sample, Sigmoid);
-		}
-		else if (Activation == ActivFunc::RELU)
-		{
-			_pulse<SAMPLES, INPUTS, OUTPUTS>(sample, ReLu);
+			const int l1 = l2 - 1;
+			const int &n1count = layers[l1].nCount;
+			const int &n2count = layers[l2].nCount;
+			const auto &func = layers[l2].activation;
+
+			for (int n2 = 0; n2 < n2count; ++n2)
+			{
+				float z = 0;
+				for (int n1 = 0; n1 < n1count; ++n1)
+					z += layers[l2].weights[n2 * n1count + n1] * layers[l1].neurons[n1];
+				z += layers[l2].biases[n2];
+
+				layers[l2].neurons[n2] = func(z);
+			}
 		}
 	}
 
@@ -648,7 +470,7 @@ public:
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
 	void print(trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, int sample)
 	{
-		_pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[sample]);
+		pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[sample]);
 		print();
 		printf("\t\tCost\t\t%.3f\n", cost(data));
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
@@ -803,13 +625,191 @@ public:
 			return;
 		}
 
-		if (Activation == ActivFunc::SIGMOID)
+		// TODO Add Autofit
+		backpropagate(runCount, learningRate, momentum, traindata, testdata);
+	}
+
+private:
+	void resolveTime(int seconds, int *resolved)
+	{
+		resolved[0] = seconds / 3600;
+		seconds -= 3600 * resolved[0];
+		resolved[1] = seconds / 60;
+		seconds -= 60 * resolved[1];
+		resolved[2] = seconds;
+	}
+
+	void log(std::ofstream *file, const int &run, const int &runCount, const int &sampleCount, const int &runtime, float elapsed, float sampleTime, const float &c)
+	{
+		float progress = (float)run * 100.0f / (float)runCount;
+
+		float samplesPerSecond = 0.0f;
+		if (elapsed < 0.0f)
+			elapsed = 0.0f;
+		else if (sampleTime < 1e-6f)
+			samplesPerSecond = (float)sampleCount / 1e-6f;
+		else
+			samplesPerSecond = (float)sampleCount / sampleTime;
+
+		int runtimeResolved[3];
+		resolveTime(runtime, runtimeResolved);
+
+		int eta = (int)(elapsed * (float)(runCount - run));
+		int etaResolved[3];
+		resolveTime(eta, etaResolved);
+
+		std::cout << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
+				  << (int)samplesPerSecond << " Samples/s " << std::setw(13)
+				  << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
+				  << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
+		if (c > -1.0f)
+			std::cout << "Cost: " << std::fixed << std::setprecision(4) << c;
+		std::cout << "                " << std::flush;
+
+		if (file)
+			*file << progress << "," << samplesPerSecond << "," << runtime << "," << eta << "," << c << std::endl;
+	}
+
+	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
+	void backpropagate(const int &runCount, const float &n, const float &m, const trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS> &testdata)
+	{
+		const int lastl = LAYERS - 1;
+		std::ofstream *logfile = nullptr;
+
+		if (printEnabled)
 		{
-			backpropagate(runCount, learningRate, momentum, traindata, testdata, Sigmoid, dSigmoid);
+			float c = -1.0f;
+			if (printcost)
+				c = cost(testdata);
+
+			if (!logfolder.empty())
+			{
+				std::string path(logfolder + "log.csv");
+				std::ifstream exists(path);
+				for (int i = 1; i < 16; ++i)
+				{
+					if (!exists.good())
+					{
+						break;
+					}
+					exists.close();
+					path = logfolder + "log(" + std::to_string(i) + ").csv";
+					exists.open(path);
+				}
+
+				logfile = new std::ofstream(path);
+				*logfile << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
+			}
+
+			printf("\n");
+			log(logfile, 0, runCount, SAMPLES, 0, -1.0f, -1.0f, c);
 		}
-		else if (Activation == ActivFunc::RELU)
+
+		float *dn[LAYERS];
+		float *lastdb[LAYERS];
+		float *lastdw[LAYERS];
+
+		for (int l = 0; l < LAYERS; ++l)
 		{
-			backpropagate(runCount, learningRate, momentum, traindata, testdata, ReLu, dReLu);
+			dn[l] = new float[layers[l].nCount];
+			lastdb[l] = new float[layers[l].nCount]();
+			lastdw[l] = new float[layers[l].wCount]();
+		}
+
+		auto overall = std::chrono::high_resolution_clock::now();
+		auto last = std::chrono::high_resolution_clock::now();
+		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
+
+		// PERF Check for chache misses
+		// PERF Speed becomes slower overtime (could be because floats get more complex)
+		for (int run = 1; run <= runCount; ++run)
+		{
+			// PERF Could add multithreading here or vectorization
+			for (int i = 0; i < SAMPLES; ++i)
+			{
+				pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i]);
+
+				for (int n2 = 0; n2 < layers[lastl].nCount; ++n2)
+				{
+					dn[lastl][n2] = layers[lastl].derivative(layers[lastl].neurons[n2]) * 2.0f * (layers[lastl].neurons[n2] - data.samples[i].outputs[n2]);
+				}
+
+				for (int l2 = lastl; l2 >= 2; --l2)
+				{
+					const int l1 = l2 - 1;
+					const int &n1count = layers[l1].nCount;
+					const int &n2count = layers[l2].nCount;
+					const auto &deri = layers[l1].derivative;
+
+					for (int n1 = 0; n1 < n1count; ++n1)
+					{
+						float error = 0;
+						for (int n2 = 0; n2 < n2count; ++n2)
+							error += dn[l2][n2] * layers[l2].weights[n2 * n1count + n1];
+
+						dn[l1][n1] = deri(layers[l1].neurons[n1]) * error;
+					}
+				}
+
+				// TODO Try to apply changes outside of loop
+				for (int l2 = lastl; l2 >= 1; --l2)
+				{
+					const int l1 = l2 - 1;
+					const int &n1count = layers[l1].nCount;
+					const int &n2count = layers[l2].nCount;
+
+					for (int n2 = 0; n2 < n2count; ++n2)
+					{
+						const int row = n2 * n1count;
+
+						const float db = -dn[l2][n2];
+						layers[l2].biases[n2] += n * db + m * lastdb[l2][n2];
+						lastdb[l2][n2] = db;
+
+						for (int n1 = 0; n1 < n1count; ++n1)
+						{
+							const int windex = row + n1;
+							const float dw = layers[l1].neurons[n1] * -dn[l2][n2];
+							layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
+							lastdw[l2][windex] = dw;
+						}
+					}
+				}
+			}
+			if (printEnabled)
+			{
+				auto now = std::chrono::high_resolution_clock::now();
+				std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
+				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
+				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
+				last = now;
+
+				float c = -1.0f;
+				if (printcost)
+					c = cost(testdata);
+
+				log(logfile, run, runCount, SAMPLES, runtime.count(), (float)elapsed.count() * 1e-6f, (float)sampleTime.count() * 1e-6f, c);
+
+				sampleTimeLast = std::chrono::high_resolution_clock::now();
+			}
+		}
+
+		if (printEnabled)
+		{
+			std::cout << std::endl
+					  << std::endl;
+		}
+
+		if (logfile != nullptr)
+		{
+			logfile->close();
+			delete logfile;
+		}
+		for (int l = 0; l < LAYERS; ++l)
+		{
+			delete[] dn[l];
+			delete[] lastdb[l];
+			delete[] lastdw[l];
 		}
 	}
 };

@@ -79,14 +79,15 @@ int main()
 {
 	constexpr bool load = false;
 	constexpr bool print = true;
-	constexpr bool printcost = true; // Takes a bit of performance
+	constexpr bool printcost = true;
 
 	constexpr int runCount = 50;
 	constexpr float learningRate = 0.03f;
 	constexpr float momentum = 0.1f;
 
-	int layerNeurons[]{784, 16, 16, 10};
-	seayon<4> nn(layerNeurons, ActivFunc::SIGMOID, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
+	int layout[]{784, 16, 16, 10};
+	ActivFunc funcs[]{ActivFunc::RELU, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID};
+	seayon<4> nn(layout, funcs, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
 
 	auto &testdata = *new trainingdata<10000, 784, 10>;
 
