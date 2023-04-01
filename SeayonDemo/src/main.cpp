@@ -2,15 +2,9 @@
 
 int main()
 {
-	trainingdata<2, 2, 2> data;
-	data.samples[0].inputs[0] = 1.0f;
-	data.samples[0].inputs[1] = 0.0f;
-	data.samples[0].outputs[0] = 0.0f;
-	data.samples[0].outputs[1] = 1.0f;
-	data.samples[1].inputs[0] = 0.0f;
-	data.samples[1].inputs[1] = 1.0f;
-	data.samples[1].outputs[0] = 1.0f;
-	data.samples[1].outputs[1] = 0.0f;
+	trainingdata<2, 2, 2> data = {
+		{{{1.0f, 0.0f}, {0.0f, 1.0f}},
+		 {{0.0f, 1.0f}, {1.0f, 0.0f}}}};
 
 	// Input layer size: 2
 	// 1. Hidden layer size: 3

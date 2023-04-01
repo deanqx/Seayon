@@ -152,9 +152,9 @@ class seayon
 	const bool printcost;
 	const std::string logfolder;
 
+public:
 	layer layers[LAYERS];
 
-public:
 	/**
 	 * Creates network where every neuron is connected to each neuron in the next layer.
 	 * @param layerCount Starts with the input layer (Minimum 2 layers)
@@ -274,12 +274,12 @@ public:
 	{
 		for (int l = 0; l < LAYERS; ++l)
 		{
-			layers[l].nCount = to[l].nCount;
-			layers[l].wCount = to[l].wCount;
-			to[l].biases.reserve(to[l].wCount);
-			to[l].weights.reserve(to[l].nCount);
-			std::copy(&layers[l].biases[0], &layers[l].biases[0] + layers[l].nCount, &to[l].biases[0]);
-			std::copy(&layers[l].weights[0], &layers[l].weights[0] + layers[l].wCount, &to[l].weights[0]);
+			layers[l].nCount = to.layers[l].nCount;
+			layers[l].wCount = to.layers[l].wCount;
+			to.layers[l].biases.reserve(to.layers[l].wCount);
+			to.layers[l].weights.reserve(to.layers[l].nCount);
+			std::copy(&layers[l].biases[0], &layers[l].biases[0] + layers[l].nCount, &to.layers[l].biases[0]);
+			std::copy(&layers[l].weights[0], &layers[l].weights[0] + layers[l].wCount, &to.layers[l].weights[0]);
 		}
 	}
 	/**
@@ -299,7 +299,7 @@ public:
 				for (int i = 0; i < count; ++i)
 					an += with[i].layers[l2].neurons[n2];
 
-				layers[l2].neurons[n2] = an / count;
+				layers[l2].neurons[n2] = an / (count + 1);
 
 				for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 				{
@@ -307,7 +307,7 @@ public:
 					for (int i = 0; i < count; ++i)
 						aw += with[i].layers[l2].weights[n2 * layers[l1].nCount + n1];
 
-					layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / count;
+					layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / (count + 1);
 				}
 			}
 		}
@@ -317,7 +317,7 @@ public:
 			for (int i = 0; i < count; ++i)
 				an += with[i].layers[0].neurons[n1];
 
-			layers[0].neurons[n1] = an / count;
+			layers[0].neurons[n1] = an / (count + 1);
 		}
 	}
 	bool equals(seayon<LAYERS> &second)
@@ -606,7 +606,7 @@ public:
 	 * @param momentum Large numbers will take less runs but can "over shoot" the right value.
 	 */
 	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void fit(int runCount, trainingdata<SAMPLES, INPUTS, OUTPUTS> &traindata, trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS> &testdata, float learningRate = 0.03f, float momentum = 0.1f)
+	void fit(int runCount, const trainingdata<SAMPLES, INPUTS, OUTPUTS> &traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS> &testdata, float learningRate = 0.03f, float momentum = 0.1f)
 	{
 		if (!traindata.check(&layers[0], LAYERS) || !testdata.check(&layers[0], LAYERS))
 		{

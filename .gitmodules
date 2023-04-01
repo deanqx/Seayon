@@ -1,3 +1,6 @@
-[submodule "include/timez"]
-	path = include/timez
+[submodule "external/timez"]
+	path = external/timez
 	url = https://github.com/deanqx/timez
+[submodule "external/googletest"]
+	path = external/googletest
+	url = https://github.com/google/googletest
