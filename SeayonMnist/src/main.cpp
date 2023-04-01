@@ -98,9 +98,8 @@ int main()
 
 	if (load)
 	{
-		std::ifstream file("../../../../SeayonMnist/res/mnist.bin");
+		std::ifstream file("../../../../SeayonMnist/res/mnist.bin", std::ios::binary);
 		nn.load(file);
-		file.close();
 	}
 	else
 	{
@@ -128,14 +127,15 @@ int main()
 			nn.fit(runCount, testdata, testdata, learningRate, momentum);
 			nn.printo(testdata, 0);
 		}
-		train.close();
 
-		std::ofstream file("../../../../SeayonMnist/res/mnist.bin");
+		std::ofstream file("../../../../SeayonMnist/res/mnist.bin", std::ios::binary);
 		nn.save(file);
-		file.close();
 	}
 
-	nn.printo(testdata, 0);
+	float acc = nn.printo(testdata, 0);
+
+	if (acc < 0.5f) // (unit test) Has it learned slightly // TODO Add unit test
+		return 2;
 
 	nn.clean();
 	delete &testdata;
