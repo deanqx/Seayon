@@ -93,7 +93,7 @@ struct layer
 
 		for (int i = 0; i < wCount; ++i)
 		{
-			weights[i] = randf(-2.0f, 2.0f);
+			weights[i] = randf(-1.0f, 1.0f);
 		}
 
 		if (func == ActivFunc::SIGMOID)
@@ -186,48 +186,41 @@ public:
 	}
 
 	// Saves network to a .nn file
-	bool save(std::ofstream &file)
+	size_t save(std::ofstream &file)
 	{
-		bool successful = false;
-
 		char *buffer;
-		size_t N = save(buffer);
+		size_t buffersize = save(buffer);
 
-		file.write(buffer, N);
-		if (file)
-			successful = true;
+		file.write(buffer, buffersize);
+		if (file.fail())
+			buffersize = 0;
 
 		file.flush();
 
-		return successful;
+		delete buffer;
+		return buffersize;
 	}
 	// Copys network to a allocated buffer and returns size of the buffer
 	size_t save(char *&buffer)
 	{
-		size_t buffersize = sizeof(layers);
+		size_t buffersize = 0;
+		size_t nSize[LAYERS];
+		size_t wSize[LAYERS];
 		for (int i = 0; i < LAYERS; ++i)
 		{
-			buffersize += 2 * sizeof(float) * layers[i].nCount + sizeof(float) * layers[i].wCount;
+			nSize[i] = sizeof(float) * layers[i].nCount;
+			wSize[i] = sizeof(float) * layers[i].wCount;
+			buffersize += nSize[i] + wSize[i];
 		}
 		buffer = (char *)malloc(buffersize);
 
 		char *pointer = buffer;
 		for (int i = 0; i < LAYERS; ++i)
 		{
-			size_t nSize = sizeof(float) * layers[i].nCount;
-			size_t wSize = sizeof(float) * layers[i].wCount;
-
-			*pointer = layers[i].nCount;
-			pointer += sizeof(int);
-			*pointer = layers[i].wCount;
-			pointer += sizeof(int);
-
-			memcpy(pointer, &layers[i].neurons[0], nSize);
-			pointer += nSize;
-			memcpy(pointer, &layers[i].biases[0], nSize);
-			pointer += nSize;
-			memcpy(pointer, &layers[i].weights[0], wSize);
-			pointer += wSize;
+			memcpy(pointer, &layers[i].weights[0], wSize[i]);
+			pointer += wSize[i];
+			memcpy(pointer, &layers[i].biases[0], nSize[i]);
+			pointer += nSize[i];
 		}
 
 		return buffersize;
@@ -238,21 +231,21 @@ public:
 	 */
 	bool load(std::ifstream &file)
 	{
-		bool successful = false;
-
-		file.seekg(0, file.end);
-		int N = (int)file.tellg();
-		file.seekg(0, file.beg);
-
-		char *buffer = new char[N];
-		if (file.read(buffer, N))
+		if (file.is_open())
 		{
-			successful = true;
+			file.seekg(0, file.end);
+			int N = (int)file.tellg();
+			file.seekg(0, file.beg);
+
+			char *buffer = new char[N];
+			file.read(buffer, N);
+			load(buffer);
+
+			delete[] buffer;
+			return true;
 		}
 
-		load(buffer);
-
-		return successful;
+		return false;
 	}
 	/**
 	 * Loads network from a std::string
@@ -260,23 +253,21 @@ public:
 	 */
 	void load(char *buffer)
 	{
+		size_t nSize[LAYERS];
+		size_t wSize[LAYERS];
+		for (int i = 0; i < LAYERS; ++i)
+		{
+			nSize[i] = sizeof(float) * layers[i].nCount;
+			wSize[i] = sizeof(float) * layers[i].wCount;
+		}
+
 		char *pointer = buffer;
 		for (int i = 0; i < LAYERS; ++i)
 		{
-			size_t nSize = sizeof(float) * layers[i].nCount;
-			size_t wSize = sizeof(float) * layers[i].wCount;
-
-			*pointer = layers[i].nCount;
-			pointer += sizeof(int);
-			*pointer = layers[i].wCount;
-			pointer += sizeof(int);
-
-			memcpy(&layers[i].neurons[0], pointer, nSize);
-			pointer += nSize;
-			memcpy(&layers[i].biases[0], pointer, nSize);
-			pointer += nSize;
-			memcpy(&layers[i].weights[0], pointer, wSize);
-			pointer += wSize;
+			memcpy(&layers[i].weights[0], pointer, wSize[i]);
+			pointer += wSize[i];
+			memcpy(&layers[i].biases[0], pointer, nSize[i]);
+			pointer += nSize[i];
 		}
 	}
 	void copy(seayon<LAYERS> &to)
@@ -331,25 +322,16 @@ public:
 	}
 	bool equals(seayon<LAYERS> &second)
 	{
-		bool equal = false;
+		bool equal = true;
 
-		char *bufferA;
-		char *bufferB;
-
-		size_t size = save(bufferA);
-		if (size == save(bufferB))
+		for (int i = 0; equal && i < LAYERS; ++i)
 		{
-			for (size_t i = 0; i < size; ++i)
-			{
-				if (bufferA[i] != bufferB[i])
-					goto Break;
-			}
-			equal = true;
-		}
+			for (int w = 0; equal && w < layers[i].wCount; ++w)
+				equal = (layers[i].weights[w] == second.layers[i].weights[w]);
 
-	Break:
-		delete[] bufferA;
-		delete[] bufferB;
+			for (int n = 0; equal && n < layers[i].nCount; ++n)
+				equal = (layers[i].biases[n] == second.layers[i].biases[n]);
+		}
 
 		return equal;
 	}
@@ -468,13 +450,17 @@ public:
 	}
 	// Prints all values with the cost() and the accruacy().
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	void print(trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, int sample)
+	float print(trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, int sample)
 	{
 		pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[sample]);
 		print();
+
+		float a = accruacy(data);
 		printf("\t\tCost\t\t%.3f\n", cost(data));
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 		printf("\t-----------------------------------------------\n\n");
+
+		return a;
 	}
 	// Prints out the output layer. pulse() should be called before
 	void printo()
@@ -525,13 +511,17 @@ public:
 	}
 	// Prints out the output layer with the cost() and the accruacy().
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	void printo(const trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, const int sample)
+	float printo(const trainingdata<SAMPLES, INPUTS, OUTPUTS> &data, const int sample)
 	{
 		pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[sample]);
 		printo();
+
+		float a = accruacy(data);
 		printf("\t\tCost\t\t%.3f\n", cost(data));
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 		printf("\t-----------------------------------------------\n\n");
+
+		return a;
 	}
 	/**
 	 * Describes how far apart the optimal outputs from the outputs are.

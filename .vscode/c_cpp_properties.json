@@ -2,9 +2,6 @@
     "configurations": [
         {
             "name": "GCC",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
