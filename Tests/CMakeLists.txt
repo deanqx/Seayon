@@ -5,8 +5,6 @@ if(BUILD_TESTING)
 
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}/${PROJECT_NAME}")
     add_executable(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/unit_test.cpp")
-
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${INSTALL_DIR})
     
     target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gtest_main)
     include(GoogleTest)
