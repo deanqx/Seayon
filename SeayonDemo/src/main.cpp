@@ -4,16 +4,16 @@ int main()
 {
 	trainingdata<2, 2, 2> data = {
 		{{{1.0f, 0.0f}, {0.0f, 1.0f}},
-		 {{0.0f, 1.0f}, {1.0f, 0.0f}}}};
+		 {{0.0f, 1.0f}, {1.0f, 0.0f}}} };
 
 	// Input layer size: 2
 	// 1. Hidden layer size: 3
 	// 2. Hidden layer size: 4
 	// Output layer size: 2
 	// <4 layers> | 2-3-4-2 neurons | Hidden layer: Leaky ReLu - Output layer: Sigmoid | print current state: true | printing cost after every run: false | seed: 1472 | no logfile
-	int layout[]{2, 3, 4, 2};
-	ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
-	seayon<4> nn(layout, funcs, true, false, 1472, "");
+	int layout[]{ 2, 3, 4, 2 };
+	ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
+	seayon nn(layout, funcs, true, false, 1472, "");
 
 	// ### Before training ###
 

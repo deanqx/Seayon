@@ -76,6 +76,12 @@
         "xutility": "cpp",
         "numbers": "cpp",
         "semaphore": "cpp",
-        "condition_variable": "cpp"
+        "condition_variable": "cpp",
+        "any": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "unordered_set": "cpp",
+        "cinttypes": "cpp",
+        "variant": "cpp"
     }
 }

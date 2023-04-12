@@ -4,7 +4,7 @@
 #include "seayon.hpp"
 
 template <int SAMPLES>
-bool ImportMnist(trainingdata<SAMPLES, 784, 10> &data, std::ifstream &csv)
+bool ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto start = std::chrono::high_resolution_clock::now();
@@ -28,7 +28,7 @@ bool ImportMnist(trainingdata<SAMPLES, 784, 10> &data, std::ifstream &csv)
 
 	for (int i = 0; i < SAMPLES; ++i)
 	{
-		auto &sample = data.samples[i];
+		auto& sample = data.samples[i];
 
 		std::stringstream label_s;
 		for (; pos < file.size() && file[pos] != ','; ++pos)
@@ -81,15 +81,15 @@ int main()
 	constexpr bool print = true;
 	constexpr bool printcost = true;
 
-	constexpr int runCount = 50;
-	constexpr float learningRate = 0.03f;
-	constexpr float momentum = 0.1f;
+	constexpr int runCount = 1;
+	constexpr float learningRate = 0.0003f;
+	constexpr float momentum = 0.0001f;
 
-	int layout[]{784, 16, 16, 10};
-	ActivFunc funcs[]{ActivFunc::RELU, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID};
-	seayon<4> nn(layout, funcs, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
+	int layout[]{ 784, 16, 16, 10 };
+	ActivFunc funcs[]{ ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
+	seayon nn(layout, funcs, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
 
-	auto &testdata = *new trainingdata<10000, 784, 10>;
+	auto& testdata = *new trainingdata<10000, 784, 10>;
 
 	std::ifstream test("../../../../SeayonMnist/res/mnist/mnist_test.csv");
 	if (ImportMnist(testdata, test))
@@ -109,22 +109,22 @@ int main()
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
 		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-		if (train.is_open())
+		if (train.is_open() && false)
 		{
-			auto &traindata = *new trainingdata<60000, 784, 10>;
+			auto& traindata = *new trainingdata<60000, 784, 10>;
 			if (ImportMnist(traindata, train))
 				return 1;
 
 			nn.printo(traindata, 0);
-			nn.fit(runCount, traindata, testdata, learningRate, momentum);
+			nn.fit(runCount, traindata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, 50);
 			nn.printo(traindata, 0);
 
-			delete &traindata;
+			delete& traindata;
 		}
 		else
 		{
 			nn.printo(testdata, 0);
-			nn.fit(runCount, testdata, testdata, learningRate, momentum);
+			nn.fit(runCount, testdata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, 50);
 			nn.printo(testdata, 0);
 		}
 
@@ -134,11 +134,11 @@ int main()
 
 	float acc = nn.printo(testdata, 0);
 
-	if (acc < 0.5f) // (unit test) Has it learned slightly // TODO Add unit test
+	if (acc < 0.5f) // (unit test) Has it learned slightly
 		return 2;
 
 	nn.clean();
-	delete &testdata;
+	delete& testdata;
 
 	return 0;
 }
