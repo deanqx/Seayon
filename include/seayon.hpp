@@ -337,7 +337,7 @@ public:
 	{
 		bool equal = true;
 
-		for (int i = 0; equal && i < LAYERS; ++i)
+		for (int i = 1; equal && i < LAYERS; ++i)
 		{
 			for (int w = 0; equal && w < layers[i].wCount; ++w)
 				equal = (layers[i].weights[w] == second.layers[i].weights[w]);
