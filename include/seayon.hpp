@@ -102,12 +102,15 @@ struct layer
 		wCount = NEURONS * PREVIOUS;
 
 		neurons.resize(nCount);
-		biases.resize(nCount);
-		weights.resize(wCount);
-
-		for (int i = 0; i < wCount; ++i)
+		if (wCount > 0)
 		{
-			weights[i] = randf(-1.0f, 1.0f);
+			biases.resize(nCount);
+			weights.resize(wCount);
+
+			for (int i = 0; i < wCount; ++i)
+			{
+				weights[i] = randf(-1.0f, 1.0f);
+			}
 		}
 
 		if (func == ActivFunc::SIGMOID)
@@ -218,12 +221,10 @@ public:
 	// warning: use free()
 	size_t save(char*& buffer)
 	{
-		// TODO Saving unnecessary empty space at beginning(alignas)
-
 		size_t buffersize = 0;
 		size_t nSize[LAYERS];
 		size_t wSize[LAYERS];
-		for (int i = 0; i < LAYERS; ++i)
+		for (int i = 1; i < LAYERS; ++i)
 		{
 			nSize[i] = sizeof(float) * layers[i].nCount;
 			wSize[i] = sizeof(float) * layers[i].wCount;
@@ -232,7 +233,7 @@ public:
 		buffer = (char*)malloc(buffersize);
 
 		char* pointer = buffer;
-		for (int i = 0; i < LAYERS; ++i)
+		for (int i = 1; i < LAYERS; ++i)
 		{
 			memcpy(pointer, &layers[i].weights[0], wSize[i]);
 			pointer += wSize[i];
@@ -271,14 +272,14 @@ public:
 	{
 		size_t nSize[LAYERS];
 		size_t wSize[LAYERS];
-		for (int i = 0; i < LAYERS; ++i)
+		for (int i = 1; i < LAYERS; ++i)
 		{
 			nSize[i] = sizeof(float) * layers[i].nCount;
 			wSize[i] = sizeof(float) * layers[i].wCount;
 		}
 
 		char* pointer = buffer;
-		for (int i = 0; i < LAYERS; ++i)
+		for (int i = 1; i < LAYERS; ++i)
 		{
 			memcpy(&layers[i].weights[0], pointer, wSize[i]);
 			pointer += wSize[i];
@@ -288,7 +289,7 @@ public:
 	}
 	inline void copy(seayon<LAYERS>& to)
 	{
-		for (int l = 0; l < LAYERS; ++l)
+		for (int l = 1; l < LAYERS; ++l)
 		{
 			memcpy(&to.layers[l].biases[0], &layers[l].biases[0], layers[l].nCount * sizeof(float));
 			memcpy(&to.layers[l].weights[0], &layers[l].weights[0], layers[l].wCount * sizeof(float));
@@ -637,6 +638,9 @@ public:
 		}
 		else if (optimizer == Optimizer::MINI_BATCH)
 		{
+			if (batch_size < SAMPLES)
+				batch_size = SAMPLES;
+
 			mini_batch(max_iterations, learningRate, momentum, batch_size, thread_count, traindata, testdata);
 		}
 		else if (optimizer == Optimizer::ADAM)
@@ -986,6 +990,8 @@ private:
 						}
 					});
 			}
+
+			// TODO Few samples remain unused
 
 			for (int t = 0; t < thread_count; ++t)
 			{
