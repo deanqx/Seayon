@@ -83,8 +83,8 @@ struct layer
 	int wCount;
 
 	ActivFunc func;
-	float (*activation)(const float& z); // TODO inline
-	float (*derivative)(const float& a); // WARN same function over multiple threads
+	float (*activation)(const float& z);
+	float (*derivative)(const float& a);
 
 	/**
 	 * Goes from second to first
@@ -212,12 +212,14 @@ public:
 
 		file.flush();
 
-		delete buffer;
+		free(buffer);
 		return buffersize;
 	}
-	// Copys network to a allocated buffer and returns size of the buffer
+	// warning: use free()
 	size_t save(char*& buffer)
 	{
+		// TODO Saving unnecessary empty space at beginning(alignas)
+
 		size_t buffersize = 0;
 		size_t nSize[LAYERS];
 		size_t wSize[LAYERS];
@@ -252,11 +254,10 @@ public:
 			int N = (int)file.tellg();
 			file.seekg(0, file.beg);
 
-			char* buffer = new char[N];
-			file.read(buffer, N);
-			load(buffer);
+			std::vector<char> buffer(N);
+			file.read(buffer.data(), N);
+			load(buffer.data());
 
-			delete[] buffer;
 			return true;
 		}
 
@@ -564,6 +565,8 @@ public:
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
 	float cost(const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data)
 	{
+		// PERF Add multi threading
+
 		if (!data.check(&layers[0], LAYERS))
 		{
 			printf("\tCurrupt training data!\n");
@@ -617,7 +620,7 @@ public:
 	 * @param momentum Large numbers will take less runs but can "over shoot" the right value.
 	 */
 	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void fit(int runCount, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata, Optimizer optimizer = Optimizer::AUTO, float learningRate = 0.03f, float momentum = 0.1f, int batch_size = 50)
+	void fit(int max_iterations, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata, Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int batch_size = 50, int thread_count = 32)
 	{
 		if (!traindata.check(&layers[0], LAYERS) || !testdata.check(&layers[0], LAYERS))
 		{
@@ -626,18 +629,15 @@ public:
 			return;
 		}
 
-		// TODO change runCount to max_iterations
-		if (optimizer == Optimizer::AUTO)
+		// TODO Quit optimizer if max_iterations reached or cost moves very slow(could use gradient descent error)
+
+		if (optimizer == Optimizer::STOCHASTIC)
 		{
-			// TODO automatic optimizer
-		}
-		else if (optimizer == Optimizer::STOCHASTIC)
-		{
-			stochastic(runCount, learningRate, momentum, traindata, testdata);
+			stochastic(max_iterations, learningRate, momentum, traindata, testdata);
 		}
 		else if (optimizer == Optimizer::MINI_BATCH)
 		{
-			mini_batch(runCount, learningRate, momentum, batch_size, traindata, testdata);
+			mini_batch(max_iterations, learningRate, momentum, batch_size, thread_count, traindata, testdata);
 		}
 		else if (optimizer == Optimizer::ADAM)
 		{
@@ -655,37 +655,40 @@ private:
 		resolved[2] = seconds;
 	}
 
-	void log(std::ofstream* file, const int& run, const int& runCount, const int& sampleCount, const int& runtime, std::chrono::microseconds elapsed, std::chrono::microseconds sampleTime, const float& c)
+	void log(std::unique_ptr<std::ofstream>& file, const int& run, const int& max_iterations, const int& sampleCount, const int& runtime, std::chrono::microseconds elapsed, std::chrono::microseconds sampleTime, const float& c)
 	{
-		float progress = (float)run * 100.0f / (float)runCount;
+		float progress = (float)run * 100.0f / (float)max_iterations;
 
 		int samplesPerSecond = 0;
 		if (run > 0)
 		{
-			samplesPerSecond = (int)((int64_t)sampleCount * 1000000LL / sampleTime.count());
+			if (sampleTime.count() < 1)
+				samplesPerSecond = -1;
+			else
+				samplesPerSecond = (int)((int64_t)sampleCount * 1000LL / sampleTime.count());
 		}
 
 		int runtimeResolved[3];
 		resolveTime(runtime, runtimeResolved);
 
-		elapsed *= runCount - run;
+		elapsed *= max_iterations - run;
 		int eta = (int)std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
 		int etaResolved[3];
 		resolveTime(eta, etaResolved);
 
 		std::cout << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
-			<< samplesPerSecond << " Samples/s " << std::setw(13)
+			<< samplesPerSecond << "k Samples/s " << std::setw(13)
 			<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
 			<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 		if (c > -1.0f)
 			std::cout << "Cost: " << std::fixed << std::setprecision(4) << c;
 		std::cout << "                " << std::flush;
 
-		if (file)
+		if (file.get() == nullptr)
 			*file << progress << "," << samplesPerSecond << "," << runtime << "," << eta << "," << c << std::endl;
 	}
 
-	void init_log(const float& c, const int& runCount, const int& SAMPLES, std::ofstream*& logfile)
+	void init_log(const float& c, const int& max_iterations, const int& SAMPLES, std::unique_ptr<std::ofstream>& logfile)
 	{
 		if (!logfolder.empty())
 		{
@@ -702,19 +705,19 @@ private:
 				exists.open(path);
 			}
 
-			logfile = new std::ofstream(path);
+			logfile.reset(new std::ofstream(path));
 			*logfile << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
 		}
 
 		printf("\n");
-		log(logfile, 0, runCount, SAMPLES, 0, std::chrono::microseconds::zero(), std::chrono::microseconds::zero(), c);
+		log(logfile, 0, max_iterations, SAMPLES, 0, std::chrono::microseconds::zero(), std::chrono::microseconds::zero(), c);
 	}
 
 	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void stochastic(const int& runCount, const float& n, const float& m, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata)
+	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata)
 	{
 		constexpr int LASTL = LAYERS - 1;
-		std::ofstream* logfile = nullptr;
+		std::unique_ptr<std::ofstream> logfile = nullptr;
 
 		if (printEnabled)
 		{
@@ -722,18 +725,18 @@ private:
 			if (printcost)
 				c = cost(testdata);
 
-			init_log(c, runCount, SAMPLES, logfile);
+			init_log(c, max_iterations, SAMPLES, logfile);
 		}
 
-		float* dn[LAYERS];
-		float* lastdb[LAYERS];
-		float* lastdw[LAYERS];
+		std::vector<float> dn[LAYERS];
+		std::vector<float> lastdb[LAYERS];
+		std::vector<float> lastdw[LAYERS];
 
 		for (int l = 0; l < LAYERS; ++l)
 		{
-			dn[l] = new float[layers[l].nCount];
-			lastdb[l] = new float[layers[l].nCount]();
-			lastdw[l] = new float[layers[l].wCount]();
+			dn[l].resize(layers[l].nCount);
+			lastdb[l].resize(layers[l].nCount);
+			lastdw[l].resize(layers[l].wCount);
 		}
 
 		auto overall = std::chrono::high_resolution_clock::now();
@@ -742,7 +745,7 @@ private:
 
 		// PERF Speed becomes slower overtime
 		// (could be because floats get more complex; because of momentum?!)
-		for (int run = 1; run <= runCount; ++run)
+		for (int run = 1; run <= max_iterations; ++run)
 		{
 			for (int i = 0; i < SAMPLES; ++i)
 			{
@@ -788,6 +791,7 @@ private:
 						{
 							const int windex = row + n1;
 							const float dw = layers[l1].neurons[n1] * d;
+
 							layers[l2].weights[windex] += n * dw + m * lastdw[l2][windex];
 							lastdw[l2][windex] = dw;
 						}
@@ -806,7 +810,7 @@ private:
 				if (printcost)
 					c = cost(testdata);
 
-				log(logfile, run, runCount, SAMPLES, runtime.count(), elapsed, sampleTime, c);
+				log(logfile, run, max_iterations, SAMPLES, runtime.count(), elapsed, sampleTime, c);
 
 				sampleTimeLast = std::chrono::high_resolution_clock::now();
 			}
@@ -817,25 +821,12 @@ private:
 			std::cout << std::endl
 				<< std::endl;
 		}
-
-		if (logfile != nullptr)
-		{
-			logfile->close();
-			delete logfile;
-		}
-
-		for (int l = 0; l < LAYERS; ++l)
-		{
-			delete[] dn[l];
-			delete[] lastdb[l];
-			delete[] lastdw[l];
-		}
 	}
 
 	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	void gradient_descent(const float n, const float m,
-		const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample** samples_begin,
-		const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample** samples_end,
+	static void gradient_descent(const int id,
+		const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample** sample_pointers, const int thread_size,
+		const float n, const float m,
 		seayon<LAYERS>& net,
 		std::vector<std::vector<float>>& deltas,
 		std::vector<std::vector<float>>& last_gb,
@@ -844,10 +835,13 @@ private:
 		std::vector<std::vector<float>>& weight_gradients)
 	{
 		constexpr int LASTL = LAYERS - 1;
+		const int offset = id * thread_size;
+		const int end = offset + thread_size - 1;
 
-		for (const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample** sample = samples_begin; sample <= samples_end; ++sample)
+		for (int i = offset; i <= end; ++i)
 		{
-			net.pulse<SAMPLES, INPUTS, OUTPUTS>(**sample);
+			const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample& sample = *sample_pointers[i];
+			net.pulse<SAMPLES, INPUTS, OUTPUTS>(sample);
 
 			for (int n2 = 0; n2 < net.layers[LASTL].nCount; ++n2)
 			{
@@ -855,7 +849,7 @@ private:
 				const int& n1count = net.layers[l1].nCount;
 				const int row = n2 * n1count;
 
-				const float delta = net.layers[LASTL].derivative(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - (*sample)->outputs[n2]);
+				const float delta = net.layers[LASTL].derivative(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
 				const float gradient = -delta * n;
 
 				deltas[LASTL][n2] = delta;
@@ -874,7 +868,7 @@ private:
 
 				for (int n1 = 0; n1 < n1count; ++n1)
 				{
-					float error = 0; // PERF
+					float error = 0;
 					for (int n2 = 0; n2 < n2count; ++n2)
 						error += deltas[l2][n2] * net.layers[l2].weights[n2 * n1count + n1];
 
@@ -912,11 +906,18 @@ private:
 	}
 
 	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void mini_batch(const int& runCount, const float& n, const float& m, const int& batch_size, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata)
+	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int thread_count, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata)
 	{
 		constexpr int LASTL = LAYERS - 1;
 		const int batch_count = SAMPLES / batch_size;
-		std::ofstream* logfile = nullptr;
+		int per_thread = batch_count / thread_count;
+		std::unique_ptr<std::ofstream> logfile{};
+
+		if (per_thread == 0)
+		{
+			per_thread = batch_count;
+			thread_count = 1;
+		}
 
 		if (printEnabled)
 		{
@@ -924,7 +925,7 @@ private:
 			if (printcost)
 				c = cost(testdata);
 
-			init_log(c, runCount, SAMPLES, logfile);
+			init_log(c, max_iterations, SAMPLES, logfile);
 		}
 
 		int layout[LAYERS];
@@ -940,11 +941,11 @@ private:
 		std::vector<std::vector<std::vector<float>>> last_gb(batch_count, std::vector<std::vector<float>>(LAYERS));
 		std::vector<std::vector<std::vector<float>>> last_gw(batch_count, std::vector<std::vector<float>>(LAYERS));
 
-		const auto** sample_pointers = new const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample* [batch_count * batch_size];
+		std::vector<const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample*> sample_pointers(batch_count * batch_size);
 		std::vector<std::vector<std::vector<float>>> bias_gradients(batch_count, std::vector<std::vector<float>>(LAYERS));
 		std::vector<std::vector<std::vector<float>>> weight_gradients(batch_count, std::vector<std::vector<float>>(LAYERS));
 
-		std::thread* myThreads = new std::thread[batch_count];
+		std::vector<std::thread> threads(thread_count);
 
 		for (int b = 0; b < batch_count; ++b)
 		{
@@ -969,87 +970,62 @@ private:
 		auto last = std::chrono::high_resolution_clock::now();
 		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
 
-		timez::init();
-
-		for (int run = 1; run <= runCount; ++run)
+		for (int run = 1; run <= max_iterations; ++run)
 		{
-			// for (int b = 0; b < batch_count; ++b)
-			// {
-			// 	const int offset = b * batch_size;
-			// 	myThreads[b] = std::thread(gradient_descent<SAMPLES, INPUTS, OUTPUTS>,
-			// 		n, m,
-			// 		sample_pointers + offset,
-			// 		sample_pointers + offset + batch_size - 1,
-			// 		nets[b], deltas[b], last_gb[b], last_gw[b], bias_gradients[b], weight_gradients[b]);
-			// }
-
+			for (int t = 0; t < thread_count; ++t)
 			{
-				timez::perf p0("A");
-
-				for (int b = 0; b < batch_count; ++b)
-				{
-					timez::perf ba("batch");
-
-					const int offset = b * batch_size;
-					gradient_descent<SAMPLES, INPUTS, OUTPUTS>(n, m,
-						sample_pointers + offset,
-						sample_pointers + offset + batch_size - 1,
-						nets[b], deltas[b], last_gb[b], last_gw[b], bias_gradients[b], weight_gradients[b]);
-				}
-			}
-
-			// for (int b = 0; b < batch_count; ++b)
-			// {
-			// 	myThreads[b].join();
-			// }
-
-			{
-				timez::perf p1("B");
-
-				for (int b = 0; b < batch_count; ++b)
-				{
-					// PERF could be paralell
-					for (int l2 = LASTL; l2 >= 1; --l2)
+				threads[t] = std::thread([&, t]
 					{
-						const int l1 = l2 - 1;
-						const int& n1count = layers[l1].nCount;
-						const int& n2count = layers[l2].nCount;
+						const int offset = t * per_thread;
+						const int end = offset + per_thread - 1;
 
-						for (int n2 = 0; n2 < n2count; ++n2)
+						for (int b = offset; b <= end; ++b)
 						{
-							layers[l2].biases[n2] += bias_gradients[b][l2][n2];
-
-							const int row = n2 * n1count;
-							for (int n1 = 0; n1 < n1count; ++n1)
-							{
-								const int windex = row + n1;
-								layers[l2].weights[windex] += weight_gradients[b][l2][windex];
-							}
+							gradient_descent<SAMPLES, INPUTS, OUTPUTS>(b, sample_pointers.data(), batch_size,
+								n, m, nets[b], deltas[b], last_gb[b], last_gw[b], bias_gradients[b], weight_gradients[b]);
 						}
-
-						memset(&last_gb[b][l2][0], 0, n2count * sizeof(float));
-						memset(&last_gw[b][l2][0], 0, layers[l2].wCount * sizeof(float));
-						memset(&bias_gradients[b][l2][0], 0, n2count * sizeof(float));
-						memset(&weight_gradients[b][l2][0], 0, layers[l2].wCount * sizeof(float));
-					}
-				}
+					});
 			}
 
+			for (int t = 0; t < thread_count; ++t)
 			{
-				timez::perf p2("C");
+				threads[t].join();
+			}
 
-				for (int b = 0; b < batch_count; ++b)
+			for (int b = 0; b < batch_count; ++b)
+			{
+				for (int l2 = LASTL; l2 >= 1; --l2)
 				{
-					copy(nets[b]);
+					const int l1 = l2 - 1;
+					const int& n1count = layers[l1].nCount;
+					const int& n2count = layers[l2].nCount;
+
+					for (int n2 = 0; n2 < n2count; ++n2)
+					{
+						layers[l2].biases[n2] += bias_gradients[b][l2][n2];
+
+						const int row = n2 * n1count;
+						for (int n1 = 0; n1 < n1count; ++n1)
+						{
+							const int windex = row + n1;
+							layers[l2].weights[windex] += weight_gradients[b][l2][windex];
+						}
+					}
+
+					memset(&last_gb[b][l2][0], 0, n2count * sizeof(float));
+					memset(&last_gw[b][l2][0], 0, layers[l2].wCount * sizeof(float));
+					memset(&bias_gradients[b][l2][0], 0, n2count * sizeof(float));
+					memset(&weight_gradients[b][l2][0], 0, layers[l2].wCount * sizeof(float));
 				}
 			}
 
+			for (int b = 0; b < batch_count; ++b)
 			{
-				timez::perf p3("D");
-
-				std::random_device rm_seed;
-				std::shuffle(&sample_pointers[0], &sample_pointers[batch_count * batch_size - 1], std::mt19937(rm_seed()));
+				copy(nets[b]);
 			}
+
+			std::random_device rm_seed;
+			std::shuffle(&sample_pointers[0], &sample_pointers[batch_count * batch_size - 1], std::mt19937(rm_seed()));
 
 			if (printEnabled)
 			{
@@ -1063,7 +1039,7 @@ private:
 				if (printcost)
 					c = cost(testdata);
 
-				log(logfile, run, runCount, SAMPLES, runtime.count(), elapsed, sampleTime, c);
+				log(logfile, run, max_iterations, SAMPLES, runtime.count(), elapsed, sampleTime, c);
 
 				sampleTimeLast = std::chrono::high_resolution_clock::now();
 			}
@@ -1075,15 +1051,5 @@ private:
 			std::cout << std::endl
 				<< std::endl;
 		}
-
-		timez::print();
-
-		if (logfile != nullptr)
-		{
-			logfile->close();
-			delete logfile;
-		}
-
-		delete[] sample_pointers;
 	}
 };

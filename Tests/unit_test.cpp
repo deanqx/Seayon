@@ -5,20 +5,20 @@ namespace
 {
     constexpr trainingdata<2, 2, 2> data = {
         {{{1.0f, 0.0f}, {0.0f, 1.0f}},
-         {{0.0f, 1.0f}, {1.0f, 0.0f}}}};
+         {{0.0f, 1.0f}, {1.0f, 0.0f}}} };
 
     float create()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
 
         return nn.layers[1].weights[0] + nn.layers[1].weights[1];
     }
     float pulse()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
 
         nn.pulse<2, 2, 2>(data.samples[0]);
@@ -27,28 +27,35 @@ namespace
     }
     float fit()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
 
-        nn.fit(20, data, data, 0.5f, 0.5f);
-        nn.pulse<2, 2, 2>(data.samples[0]);
+        float sum = 0.0f;
 
-        return nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+        nn.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f);
+        nn.pulse<2, 2, 2>(data.samples[0]);
+        sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+
+        nn.fit(20, data, data, Optimizer::MINI_BATCH, 0.5f, 0.5f, 1, 1);
+        nn.pulse<2, 2, 2>(data.samples[0]);
+        sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+
+        return sum;
     }
 
     float accruacy()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
 
         return nn.accruacy(data);
     }
     float cost()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
 
         return nn.cost(data);
@@ -56,8 +63,8 @@ namespace
 
     bool equals()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
         seayon<4> nn2(layout, funcs, false, false, 1471, "");
 
@@ -65,8 +72,8 @@ namespace
     }
     float combine()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
         seayon<4> nn2(layout, funcs, false, false, 1471, "");
 
@@ -76,8 +83,8 @@ namespace
     }
     bool copy()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
         seayon<4> nn2(layout, funcs, false, false, 1471, "");
 
@@ -87,12 +94,12 @@ namespace
     }
     bool save_load()
     {
-        int layout[]{2, 3, 4, 2};
-        ActivFunc funcs[]{ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID};
+        int layout[]{ 2, 3, 4, 2 };
+        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
         seayon<4> nn(layout, funcs, false, false, 1472, "");
         seayon<4> nn2(layout, funcs, false, false, 1471, "");
 
-        char *buffer;
+        char* buffer;
         nn.save(buffer);
         nn2.load(buffer);
 
@@ -111,7 +118,7 @@ TEST(Basis, Activation)
 }
 TEST(Basis, Training)
 {
-    EXPECT_EQ(fit(), 1.00777423f);
+    EXPECT_EQ(fit(), 2.01150656f);
 }
 
 TEST(Analysis, Accruacy)

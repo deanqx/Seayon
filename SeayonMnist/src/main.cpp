@@ -4,10 +4,38 @@
 #include "seayon.hpp"
 
 template <int SAMPLES>
-bool ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
+static void parse_line(const std::string* lines, const int begin, const int end, trainingdata<SAMPLES, 784, 10>& data)
 {
-	auto begin = std::chrono::high_resolution_clock::now();
-	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = begin; i <= end; ++i)
+	{
+		int pos = 0;
+		auto& sample = data.samples[i];
+
+		std::stringstream label;
+		for (; lines[i][pos] != ','; ++pos)
+			label << lines[i][pos];
+
+		++pos;
+
+		sample.outputs[stoi(label.str())] = 1.0f;
+
+		for (int pixelIndex = 0; pixelIndex < 784; ++pixelIndex)
+		{
+			std::stringstream pixel;
+			for (; pos < lines[i].size() && lines[i][pos] != ','; ++pos)
+				pixel << lines[i][pos];
+
+			++pos;
+
+			sample.inputs[pixelIndex] = (float)stoi(pixel.str()) / 255.0f;
+		}
+	}
+}
+
+template <int SAMPLES>
+bool ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv, int thread_count = 32)
+{
+	const int per_thread = SAMPLES / thread_count;
 
 	if (!csv.is_open())
 	{
@@ -15,63 +43,37 @@ bool ImportMnist(trainingdata<SAMPLES, 784, 10>& data, std::ifstream& csv)
 		return 1;
 	}
 
-	std::stringstream buffer;
-	buffer << csv.rdbuf();
-	std::string file = buffer.str();
+	printf("\tLoading mnist...");
 
-	int pos = 0;
+	std::string lines[SAMPLES];
+	std::vector<std::thread> threads(thread_count);
 
-	for (; pos < file.size(); ++pos)
-		if (file[pos] == '\n')
-			break;
-	++pos;
-
+	std::getline(csv, lines[0]); // garbage
 	for (int i = 0; i < SAMPLES; ++i)
 	{
-		auto& sample = data.samples[i];
-
-		std::stringstream label_s;
-		for (; pos < file.size() && file[pos] != ','; ++pos)
-		{
-			label_s << file[pos];
-		}
-		++pos;
-
-		sample.outputs[stoi(label_s.str())] = 1.0f;
-
-		for (int pixelPos = 0; pixelPos < 784; ++pixelPos)
-		{
-			std::stringstream pixel;
-			for (; file[pos] != ','; ++pos)
-			{
-				if (file[pos] == '\n')
-				{
-					sample.inputs[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
-					goto Break;
-				}
-
-				pixel << file[pos];
-			}
-			++pos;
-
-			sample.inputs[pixelPos] = (float)stoi(pixel.str()) / 255.0f;
-		}
-
-	Break:
-		if (i % 500 == 0)
-		{
-			std::chrono::duration<float> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
-			std::chrono::duration<float> elapsed = std::chrono::high_resolution_clock::now() - start;
-			start = std::chrono::high_resolution_clock::now();
-
-			int progress = i * 100 / SAMPLES;
-			float eta = elapsed.count() * (float)(SAMPLES - i) / 500.0f;
-			printf("\t%i%%\tETA: %.0fsec     \tTime: %.0fsec     \t\t\t\r", progress, eta, totalelapsed.count());
-		}
+		std::getline(csv, lines[i]);
 	}
 
-	std::chrono::duration<float> totalelapsed = std::chrono::high_resolution_clock::now() - begin;
-	printf("\t100%%\t\t\tTime: %.0fsec     \n\n", totalelapsed.count());
+	for (int t = 0; t < thread_count; ++t)
+	{
+		threads[t] = std::thread([&, t]
+			{
+				const int begin = t * per_thread;
+				const int end = begin + per_thread - 1;
+				parse_line(lines, begin, end, data);
+			});
+	}
+
+	const int begin = thread_count * per_thread;
+	const int end = SAMPLES - 1;
+	parse_line(lines, begin, end, data);
+
+	for (int t = 0; t < thread_count; ++t)
+	{
+		threads[t].join();
+	}
+
+	printf(" DONE\n");
 
 	return 0;
 }
@@ -81,9 +83,11 @@ int main()
 	constexpr bool print = true;
 	constexpr bool printcost = true;
 
-	constexpr int runCount = 1;
-	constexpr float learningRate = 0.0003f;
-	constexpr float momentum = 0.0001f;
+	constexpr int runCount = 100;
+	constexpr float learningRate = 0.00003f;
+	constexpr float momentum = 0.00001f;
+	constexpr float batch_size = 100;
+	constexpr float thread_count = 32;
 
 	int layout[]{ 784, 16, 16, 10 };
 	ActivFunc funcs[]{ ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
@@ -109,22 +113,24 @@ int main()
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
 		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-		if (train.is_open() && false)
+		if (train.is_open() && true)
 		{
 			auto& traindata = *new trainingdata<60000, 784, 10>;
 			if (ImportMnist(traindata, train))
 				return 1;
 
+			printf("\n");
 			nn.printo(traindata, 0);
-			nn.fit(runCount, traindata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, 50);
+			nn.fit(runCount, traindata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, batch_size, thread_count);
 			nn.printo(traindata, 0);
 
 			delete& traindata;
 		}
 		else
 		{
+			printf("\n");
 			nn.printo(testdata, 0);
-			nn.fit(runCount, testdata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, 50);
+			nn.fit(runCount, testdata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, batch_size, thread_count);
 			nn.printo(testdata, 0);
 		}
 
