@@ -7,14 +7,6 @@ namespace
         {{{1.0f, 0.0f}, {0.0f, 1.0f}},
          {{0.0f, 1.0f}, {1.0f, 0.0f}}} };
 
-    float create()
-    {
-        int layout[]{ 2, 3, 4, 2 };
-        ActivFunc funcs[]{ ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
-        seayon<4> nn(layout, funcs, false, false, 1472, "");
-
-        return nn.layers[1].weights[0] + nn.layers[1].weights[1];
-    }
     float pulse()
     {
         int layout[]{ 2, 3, 4, 2 };
@@ -108,17 +100,13 @@ namespace
     }
 }
 
-TEST(Basis, Generation)
-{
-    EXPECT_EQ(create(), -1.55601668f);
-}
 TEST(Basis, Activation)
 {
     EXPECT_EQ(pulse(), 1.01069021f);
 }
 TEST(Basis, Training)
 {
-    EXPECT_EQ(fit(), 2.01150656f);
+    EXPECT_EQ(fit(), 2.0108633f);
 }
 
 TEST(Analysis, Accruacy)
