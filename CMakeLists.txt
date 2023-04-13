@@ -14,7 +14,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")
 
 include_directories("include")
-# include_directories("external/googletest/googletest/include")
 include_directories("external/timez")
 
 add_subdirectory("external/googletest")
