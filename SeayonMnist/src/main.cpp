@@ -83,7 +83,7 @@ int main()
 	constexpr bool print = true;
 	constexpr bool printcost = true;
 
-	constexpr int runCount = 100;
+	constexpr int runCount = 1;
 	constexpr float learningRate = 0.00003f;
 	constexpr float momentum = 0.00001f;
 	constexpr float batch_size = 100;
@@ -113,7 +113,7 @@ int main()
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
 		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-		if (train.is_open() && true)
+		if (train.is_open())
 		{
 			auto& traindata = *new trainingdata<60000, 784, 10>;
 			if (ImportMnist(traindata, train))

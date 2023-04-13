@@ -2,4 +2,5 @@ SeayonMnist/res/mnist/mnist_train.csv
 SeayonMnist/res/logs/*
 build/**
 !build/bin
-!build/bin/**
+!build/bin/Release
+!build/bin/Release/**
