@@ -15,10 +15,6 @@
 // TODO Add linux support
 #include <windows.h>
 
-#ifndef NDEBUG
-#include "timez.hpp"
-#endif
-
 float Sigmoid(const float& z)
 {
 	return 1.0f / (1.0f + exp(-z));
@@ -71,79 +67,12 @@ enum class ActivFunc
 
 enum class Optimizer
 {
-	AUTO,
 	STOCHASTIC,
 	MINI_BATCH,
 	ADAM
 };
 
-struct layer
-{
-	int nCount;
-	int wCount;
-
-	ActivFunc func;
-	float (*activation)(const float& z);
-	float (*derivative)(const float& a);
-
-	/**
-	 * Goes from second to first
-	 * @tparam layers[l2].weights[n2 * n1Count + n1]
-	 */
-	std::vector<float> weights;
-	std::vector<float> neurons;
-	std::vector<float> biases;
-
-	void create(const int PREVIOUS, const int NEURONS, const ActivFunc func)
-	{
-		this->func = func;
-
-		nCount = NEURONS;
-		wCount = NEURONS * PREVIOUS;
-
-		neurons.resize(nCount);
-		if (wCount > 0)
-		{
-			biases.resize(nCount);
-			weights.resize(wCount);
-
-			for (int i = 0; i < wCount; ++i)
-			{
-				weights[i] = randf(-1.0f, 1.0f);
-			}
-		}
-
-		if (func == ActivFunc::SIGMOID)
-		{
-			activation = Sigmoid;
-			derivative = dSigmoid;
-		}
-		else if (func == ActivFunc::TANH)
-		{
-			activation = Tanh;
-			derivative = dTanh;
-		}
-		else if (func == ActivFunc::RELU)
-		{
-			activation = ReLu;
-			derivative = dReLu;
-		}
-		else if (func == ActivFunc::LEAKYRELU)
-		{
-			activation = LeakyReLu;
-			derivative = dLeakyReLu;
-		}
-	}
-
-	void clean()
-	{
-		neurons.clear();
-		biases.clear();
-		weights.clear();
-	}
-};
-
-template <int SAMPLES, int INPUTS, int OUTPUTS>
+template <int INPUTS, int OUTPUTS>
 struct trainingdata
 {
 	struct sample
@@ -151,55 +80,227 @@ struct trainingdata
 		float inputs[INPUTS]{};
 		float outputs[OUTPUTS]{};
 	};
-	sample samples[SAMPLES]{};
 
-	// Returns false if training data is currupt (quickcheck)
-	bool check(layer* layers, int N) const
+private:
+	sample* samples = nullptr;
+	size_t sampleCount = 0;
+	bool manageMemory = true;
+
+public:
+	trainingdata()
 	{
-		return layers[0].nCount == INPUTS && layers[N - 1].nCount == OUTPUTS;
+	}
+
+	trainingdata(size_t reserved)
+	{
+		reserve(reserved);
+	}
+
+	trainingdata(std::initializer_list<sample> list)
+	{
+		reserve(list.size());
+
+		int i = 0;
+		for (auto elem = list.begin(); elem != list.end(); ++elem)
+		{
+			samples[i++] = *elem;
+		}
+	}
+
+	trainingdata(sample* samples, const size_t sampleCount, const bool manageMemory)
+	{
+		this->samples = samples;
+		this->sampleCount = sampleCount;
+		this->manageMemory = manageMemory;
+	}
+
+	inline void reserve(const size_t reserved)
+	{
+		samples = new sample[reserved];
+		sampleCount = reserved;
+	}
+
+	inline size_t size() const
+	{
+		return sampleCount;
+	}
+
+	inline sample& operator[](const int i) const
+	{
+		return samples[i];
+	}
+
+	~trainingdata()
+	{
+		if (manageMemory)
+		{
+			delete[] samples;
+		}
 	}
 };
 
 // TODO Rewrite Discriptions
 // Open source Neural Network library in C++ with lots of easy to use features. Copyright by Dean Schneider (deanqx, Sawey)
-template <int LAYERS>
 class seayon
 {
+public:
+	struct layer
+	{
+	protected:
+		const bool manageMemory;
+	public:
+		const ActivFunc func;
+		float (*activation)(const float& z);
+		float (*derivative)(const float& a);
+
+		const int nCount;
+		const int wCount;
+
+		/**
+		 * Goes from second to first
+		 * @tparam layers[l2].weights[n2 * n1Count + n1]
+		 */
+		float* const weights;
+		float* const neurons;
+		float* const biases;
+
+		// layer(): manageMemory(false), func(ActivFunc::SIGMOID), nCount(0), wCount(0), neurons(nullptr), biases(nullptr), weights(nullptr)
+		// {
+		// }
+
+		layer(const ActivFunc func,
+			float (*activation)(const float& z),
+			float (*derivative)(const float& a),
+			float* const neurons,
+			float* const biases,
+			float* const weights,
+			const int nCount,
+			const int wCount,
+			const bool manageMemory):
+			func(func),
+			activation(activation),
+			derivative(derivative),
+			neurons(neurons),
+			biases(biases),
+			weights(weights),
+			nCount(nCount),
+			wCount(wCount),
+			manageMemory(manageMemory)
+		{
+		}
+
+		layer(const int PREVIOUS, const int NEURONS, const ActivFunc func): nCount(NEURONS), wCount(NEURONS* PREVIOUS), func(func),
+			manageMemory(true), neurons(new float[nCount]()), biases(wCount > 0 ? new float[nCount]() : nullptr), weights(wCount > 0 ? new float[wCount]() : nullptr)
+		{
+			if (wCount > 0)
+			{
+				for (int i = 0; i < wCount; ++i)
+				{
+					weights[i] = randf(-1.0f, 1.0f);
+				}
+			}
+
+			if (func == ActivFunc::SIGMOID)
+			{
+				activation = Sigmoid;
+				derivative = dSigmoid;
+			}
+			else if (func == ActivFunc::TANH)
+			{
+				activation = Tanh;
+				derivative = dTanh;
+			}
+			else if (func == ActivFunc::RELU)
+			{
+				activation = ReLu;
+				derivative = dReLu;
+			}
+			else if (func == ActivFunc::LEAKYRELU)
+			{
+				activation = LeakyReLu;
+				derivative = dLeakyReLu;
+			}
+		}
+
+		~layer()
+		{
+			if (manageMemory)
+			{
+				delete[] neurons;
+				if (wCount > 0)
+				{
+					delete[] biases;
+					delete[] weights;
+				}
+			}
+		}
+	};
+protected:
+	const bool manageMemory;
 	const bool printEnabled;
 	const bool printcost;
 	const int seed;
 	const std::string logfolder;
 
+	const int layerCount;
+	layer* const layers;
 public:
-	layer layers[LAYERS];
+	seayon(layer* layers,
+		const int layerCount,
+		const bool printEnabled,
+		const bool printcost,
+		const int seed,
+		const std::string logfolder,
+		const bool manageMemory):
+		layers(layers),
+		layerCount(layerCount),
+		printEnabled(printEnabled),
+		printcost(printcost),
+		seed(seed),
+		logfolder(logfolder),
+		manageMemory(manageMemory)
+	{
+	}
 
 	/**
 	 * Creates network where every neuron is connected to each neuron in the next layer.
 	 * @param layerCount Starts with the input layer (Minimum 2 layers)
 	 * @param ActivFunc Activation function for all neurons.
 	 */
-	seayon(const int(&layout)[LAYERS], const ActivFunc(&a)[LAYERS], const bool enablePrinting, const bool printcost, const int seed = -1, std::string logfolder = std::string())
-		: printEnabled(enablePrinting), printcost(printcost), seed(seed),
-		logfolder(logfolder[logfolder.back()] == '\\' || logfolder[logfolder.back()] == '/' ? logfolder : logfolder.append("/"))
+	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, const bool enablePrinting, const bool printcost, int seed = -1, std::string logfolder = std::string())
+		: manageMemory(true), printEnabled(enablePrinting), printcost(printcost), seed(seed),
+		logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
+		layerCount(layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 	{
 		if (seed < 0)
-			srand(rand());
+			srand((unsigned int)time(NULL));
 		else
 			srand(seed);
 
-		layers[0].create(0, layout[0], a[0]);
-		for (int l2 = 1; l2 < LAYERS; ++l2)
+		new (&layers[0]) layer(0, layout[0], a[0]);
+		for (int l2 = 1; l2 < layerCount; ++l2)
 		{
 			const int l1 = l2 - 1;
 
-			layers[l2].create(layout[l1], layout[l2], a[l2]);
+			new (&layers[l2]) layer(layout[l1], layout[l2], a[l2]);
 		}
 	}
-	void clean()
+
+	inline size_t size() const
 	{
-		for (size_t i = 0; i < LAYERS; ++i)
+		return layerCount;
+	}
+
+	inline layer& operator[](const int i) const
+	{
+		return layers[i];
+	}
+
+	~seayon()
+	{
+		if (manageMemory)
 		{
-			layers[i].clean();
+			free(layers);
 		}
 	}
 
@@ -222,9 +323,9 @@ public:
 	size_t save(char*& buffer)
 	{
 		size_t buffersize = 0;
-		size_t nSize[LAYERS];
-		size_t wSize[LAYERS];
-		for (int i = 1; i < LAYERS; ++i)
+		std::vector<size_t> nSize(layerCount);
+		std::vector<size_t> wSize(layerCount);
+		for (int i = 1; i < layerCount; ++i)
 		{
 			nSize[i] = sizeof(float) * layers[i].nCount;
 			wSize[i] = sizeof(float) * layers[i].wCount;
@@ -233,7 +334,7 @@ public:
 		buffer = (char*)malloc(buffersize);
 
 		char* pointer = buffer;
-		for (int i = 1; i < LAYERS; ++i)
+		for (int i = 1; i < layerCount; ++i)
 		{
 			memcpy(pointer, &layers[i].weights[0], wSize[i]);
 			pointer += wSize[i];
@@ -270,16 +371,16 @@ public:
 	 */
 	void load(char* buffer)
 	{
-		size_t nSize[LAYERS];
-		size_t wSize[LAYERS];
-		for (int i = 1; i < LAYERS; ++i)
+		std::vector<size_t> nSize(layerCount);
+		std::vector<size_t> wSize(layerCount);
+		for (int i = 1; i < layerCount; ++i)
 		{
 			nSize[i] = sizeof(float) * layers[i].nCount;
 			wSize[i] = sizeof(float) * layers[i].wCount;
 		}
 
 		char* pointer = buffer;
-		for (int i = 1; i < LAYERS; ++i)
+		for (int i = 1; i < layerCount; ++i)
 		{
 			memcpy(&layers[i].weights[0], pointer, wSize[i]);
 			pointer += wSize[i];
@@ -287,9 +388,9 @@ public:
 			pointer += nSize[i];
 		}
 	}
-	inline void copy(seayon<LAYERS>& to)
+	inline void copy(seayon& to)
 	{
-		for (int l = 1; l < LAYERS; ++l)
+		for (int l = 1; l < layerCount; ++l)
 		{
 			memcpy(&to.layers[l].biases[0], &layers[l].biases[0], layers[l].nCount * sizeof(float));
 			memcpy(&to.layers[l].weights[0], &layers[l].weights[0], layers[l].wCount * sizeof(float));
@@ -300,9 +401,9 @@ public:
 	 * @param with List of networks
 	 * @param count How many networks
 	 */
-	void combine(seayon<LAYERS>* with, int count)
+	void combine(seayon* with, int count)
 	{
-		for (int l2 = 1; l2 < LAYERS; ++l2)
+		for (int l2 = 1; l2 < layerCount; ++l2)
 		{
 			const int l1 = l2 - 1;
 
@@ -333,11 +434,11 @@ public:
 			layers[0].neurons[n1] = an / (count + 1);
 		}
 	}
-	bool equals(seayon<LAYERS>& second)
+	bool equals(seayon& second)
 	{
 		bool equal = true;
 
-		for (int i = 1; equal && i < LAYERS; ++i)
+		for (int i = 1; equal && i < layerCount; ++i)
 		{
 			for (int w = 0; equal && w < layers[i].wCount; ++w)
 				equal = (layers[i].weights[w] == second.layers[i].weights[w]);
@@ -350,13 +451,13 @@ public:
 	}
 
 	// Calculates network outputs
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	inline void pulse(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample& sample)
+	template <int INPUTS, int OUTPUTS>
+	inline void pulse(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
 	{
 		for (int n = 0; n < INPUTS; ++n)
 			layers[0].neurons[n] = sample.inputs[n];
 
-		for (int l2 = 1; l2 < LAYERS; ++l2)
+		for (int l2 = 1; l2 < layerCount; ++l2)
 		{
 			const int l1 = l2 - 1;
 			const int& n1count = layers[l1].nCount;
@@ -382,7 +483,7 @@ public:
 
 		int normalColor;
 
-		for (int l1 = 0; l1 < LAYERS; ++l1)
+		for (int l1 = 0; l1 < layerCount; ++l1)
 		{
 			const int l2 = l1 + 1;
 
@@ -393,7 +494,7 @@ public:
 
 				printf("\n  Input Layer:\n");
 			}
-			else if (l1 == LAYERS - 1) // TODO Use printo instead
+			else if (l1 == layerCount - 1) // TODO Use printo instead
 			{
 				normalColor = 11;
 				SetConsoleTextAttribute(cmd, 11);
@@ -408,11 +509,11 @@ public:
 				printf("  Hidden Layer[%i]:\n", l1 - 1);
 			}
 
-			int largest = std::max_element(&layers[l1].neurons[0], &layers[l1].neurons[0] + layers[l1].nCount) - &layers[l1].neurons[0];
+			size_t largest = std::max_element(&layers[l1].neurons[0], &layers[l1].neurons[0] + layers[l1].nCount) - &layers[l1].neurons[0];
 			for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 			{
 				printf("\t\tNeuron[%02i]   ", n1);
-				if (l1 == LAYERS - 1)
+				if (l1 == layerCount - 1)
 				{
 					if (n1 == largest)
 						SetConsoleTextAttribute(cmd, 95);
@@ -440,7 +541,7 @@ public:
 				else
 					printf("\n");
 
-				if (l2 < LAYERS)
+				if (l2 < layerCount)
 					for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
 					{
 						printf("\t\t  Weight[%02i] ", n2);
@@ -462,10 +563,10 @@ public:
 		printf("\t-----------------------------------------------\n\n");
 	}
 	// Prints all values with the cost() and the accruacy().
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	float print(trainingdata<SAMPLES, INPUTS, OUTPUTS>& data, int sample)
+	template <int INPUTS, int OUTPUTS>
+	float print(trainingdata<INPUTS, OUTPUTS>& data, int sample)
 	{
-		pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[sample]);
+		pulse<INPUTS, OUTPUTS>(data[sample]);
 		print();
 
 		float a = accruacy(data);
@@ -482,16 +583,16 @@ public:
 
 		int normalColor = 11;
 
-		int l = LAYERS - 1;
+		int l = layerCount - 1;
 
 		SetConsoleTextAttribute(cmd, 11);
 		printf("  Output Layer:\n");
 
-		int largest = std::max_element(&layers[l].neurons[0], &layers[l].neurons[0] + layers[l].nCount) - &layers[l].neurons[0];
+		size_t largest = std::max_element(&layers[l].neurons[0], &layers[l].neurons[0] + layers[l].nCount) - &layers[l].neurons[0];
 		for (int n = 0; n < layers[l].nCount; ++n)
 		{
 			printf("\t\tNeuron[%02i]   ", n);
-			if (l == LAYERS - 1)
+			if (l == layerCount - 1)
 			{
 				if (n == largest)
 					SetConsoleTextAttribute(cmd, 95);
@@ -523,10 +624,10 @@ public:
 		printf("\t-----------------------------------------------\n\n");
 	}
 	// Prints out the output layer with the cost() and the accruacy().
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	float printo(const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data, const int sample)
+	template <int INPUTS, int OUTPUTS>
+	float printo(const trainingdata<INPUTS, OUTPUTS>& data, const int sample)
 	{
-		pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[sample]);
+		pulse<INPUTS, OUTPUTS>(data[sample]);
 		printo();
 
 		float a = accruacy(data);
@@ -541,17 +642,17 @@ public:
 	 * @param outputs This are the optimal outputs
 	 * @return 0.0 = Best; 1.0 or more = Bad
 	 */
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	float cost(const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample& sample)
+	template <int INPUTS, int OUTPUTS>
+	float cost(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
 	{
-		pulse<SAMPLES, INPUTS, OUTPUTS>(sample);
+		pulse<INPUTS, OUTPUTS>(sample);
 
-		constexpr int LASTL = LAYERS - 1;
+		const int LASTL = layerCount - 1;
 
 		float c = 0;
 		for (int n = 0; n < OUTPUTS; ++n)
 		{
-			float x = layers[LASTL].neurons[n] - sample.outputs[n];
+			const float x = layers[LASTL].neurons[n] - sample.outputs[n];
 			c += x * x;
 		}
 
@@ -563,24 +664,24 @@ public:
 	 * @param outputs This are the optimal outputs
 	 * @return 0.0 = Best; 1.0 or more = Bad
 	 */
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	float cost(const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data)
+	template <int INPUTS, int OUTPUTS>
+	float cost(const trainingdata<INPUTS, OUTPUTS>& data)
 	{
 		// PERF Add multi threading
 
-		if (!data.check(&layers[0], LAYERS))
+		if (!check(data))
 		{
 			printf("\tCurrupt training data!\n");
 			return .0f;
 		}
 
 		float c = 0;
-		for (int i = 0; i < SAMPLES; ++i)
+		for (int i = 0; i < data.size(); ++i)
 		{
-			c += cost<SAMPLES, INPUTS, OUTPUTS>(data.samples[i]);
+			c += cost<INPUTS, OUTPUTS>(data[i]);
 		}
 
-		return c / (float)SAMPLES;
+		return c / (float)data.size();
 	}
 	/**
 	 * Describes how often the network would choose the right neurons to fire (neuron value >= 0.5).
@@ -588,29 +689,29 @@ public:
 	 * @param outputs This are the optimal outputs
 	 * @return 1.0 = 100%; 0.5f = 50%; 0.0 = 0%
 	 */
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
-	float accruacy(const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data)
+	template <int INPUTS, int OUTPUTS>
+	float accruacy(const trainingdata<INPUTS, OUTPUTS>& data)
 	{
-		constexpr int LASTL = LAYERS - 1;
+		const int LASTL = layerCount - 1;
 
-		if (!data.check(&layers[0], LAYERS))
+		if (!check(data))
 		{
 			printf("\tCurrupt training data!\n");
 			return .0f;
 		}
 
 		float a = 0;
-		for (int i = 0; i < SAMPLES; ++i)
+		for (int i = 0; i < data.size(); ++i)
 		{
-			pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i]);
+			pulse<INPUTS, OUTPUTS>(data[i]);
 
-			if (std::max_element(&layers[LASTL].neurons[0], &layers[LASTL].neurons[0] + layers[LASTL].nCount) - &layers[LASTL].neurons[0] == std::max_element(&data.samples[i].outputs[0], &data.samples[i].outputs[0] + OUTPUTS) - &data.samples[i].outputs[0])
+			if (std::max_element(&layers[LASTL].neurons[0], &layers[LASTL].neurons[0] + layers[LASTL].nCount) - &layers[LASTL].neurons[0] == std::max_element(&data[i].outputs[0], &data[i].outputs[0] + OUTPUTS) - &data[i].outputs[0])
 			{
 				++a;
 			}
 		}
 
-		return a / (float)SAMPLES;
+		return a / (float)data.size();
 	}
 
 	/**
@@ -620,10 +721,10 @@ public:
 	 * @param learningRate Large numbers will take less runs but can "over shoot" the right value.
 	 * @param momentum Large numbers will take less runs but can "over shoot" the right value.
 	 */
-	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void fit(int max_iterations, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata, Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int batch_size = 50, int thread_count = 32)
+	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
+	void fit(int max_iterations, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata, Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int batch_size = 50, int thread_count = 32)
 	{
-		if (!traindata.check(&layers[0], LAYERS) || !testdata.check(&layers[0], LAYERS))
+		if (!check(traindata) || !check(testdata))
 		{
 			if (printEnabled)
 				printf("\tCurrupt training data!\n");
@@ -638,8 +739,8 @@ public:
 		}
 		else if (optimizer == Optimizer::MINI_BATCH)
 		{
-			if (batch_size < SAMPLES)
-				batch_size = SAMPLES;
+			if (batch_size > traindata.size())
+				batch_size = traindata.size();
 
 			mini_batch(max_iterations, learningRate, momentum, batch_size, thread_count, traindata, testdata);
 		}
@@ -649,17 +750,24 @@ public:
 		}
 	}
 
-private:
-	void resolveTime(int seconds, int* resolved)
+protected:
+	// Returns false if training data is currupt (quickcheck)
+	template <int INPUTS, int OUTPUTS>
+	inline bool check(const trainingdata<INPUTS, OUTPUTS>& data) const
 	{
-		resolved[0] = seconds / 3600;
-		seconds -= 3600 * resolved[0];
-		resolved[1] = seconds / 60;
-		seconds -= 60 * resolved[1];
-		resolved[2] = seconds;
+		return layers[0].nCount == INPUTS && layers[layerCount - 1].nCount == OUTPUTS;
 	}
 
-	void log(std::unique_ptr<std::ofstream>& file, const int& run, const int& max_iterations, const int& sampleCount, const int& runtime, std::chrono::microseconds elapsed, std::chrono::microseconds sampleTime, const float& c)
+	void resolveTime(long long seconds, int* resolved)
+	{
+		resolved[0] = (int)(seconds / 3600LL);
+		seconds -= 3600LL * (long long)resolved[0];
+		resolved[1] = (int)(seconds / 60LL);
+		seconds -= 60LL * (long long)resolved[1];
+		resolved[2] = (int)(seconds);
+	}
+
+	void log(std::unique_ptr<std::ofstream>& file, const int& run, const int& max_iterations, const int& sampleCount, const long long& runtime, std::chrono::microseconds elapsed, std::chrono::microseconds sampleTime, const float& c)
 	{
 		float progress = (float)run * 100.0f / (float)max_iterations;
 
@@ -676,7 +784,7 @@ private:
 		resolveTime(runtime, runtimeResolved);
 
 		elapsed *= max_iterations - run;
-		int eta = (int)std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+		long long eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
 		int etaResolved[3];
 		resolveTime(eta, etaResolved);
 
@@ -692,7 +800,7 @@ private:
 			*file << progress << "," << samplesPerSecond << "," << runtime << "," << eta << "," << c << std::endl;
 	}
 
-	void init_log(const float& c, const int& max_iterations, const int& SAMPLES, std::unique_ptr<std::ofstream>& logfile)
+	void init_log(const float& c, const int& max_iterations, const int& sampleCount, std::unique_ptr<std::ofstream>& logfile)
 	{
 		if (!logfolder.empty())
 		{
@@ -714,13 +822,13 @@ private:
 		}
 
 		printf("\n");
-		log(logfile, 0, max_iterations, SAMPLES, 0, std::chrono::microseconds::zero(), std::chrono::microseconds::zero(), c);
+		log(logfile, 0, max_iterations, sampleCount, 0, std::chrono::microseconds::zero(), std::chrono::microseconds::zero(), c);
 	}
-
-	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& data, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata)
+private:
+	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
+	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<INPUTS, OUTPUTS>& data, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
 	{
-		constexpr int LASTL = LAYERS - 1;
+		const int LASTL = layerCount - 1;
 		std::unique_ptr<std::ofstream> logfile = nullptr;
 
 		if (printEnabled)
@@ -729,14 +837,14 @@ private:
 			if (printcost)
 				c = cost(testdata);
 
-			init_log(c, max_iterations, SAMPLES, logfile);
+			init_log(c, max_iterations, data.size(), logfile);
 		}
 
-		std::vector<float> dn[LAYERS];
-		std::vector<float> lastdb[LAYERS];
-		std::vector<float> lastdw[LAYERS];
+		std::vector<std::vector<float>> dn(layerCount);
+		std::vector<std::vector<float>> lastdb(layerCount);
+		std::vector<std::vector<float>> lastdw(layerCount);
 
-		for (int l = 0; l < LAYERS; ++l)
+		for (int l = 0; l < layerCount; ++l)
 		{
 			dn[l].resize(layers[l].nCount);
 			lastdb[l].resize(layers[l].nCount);
@@ -751,13 +859,13 @@ private:
 		// (could be because floats get more complex; because of momentum?!)
 		for (int run = 1; run <= max_iterations; ++run)
 		{
-			for (int i = 0; i < SAMPLES; ++i)
+			for (int i = 0; i < data.size(); ++i)
 			{
-				pulse<SAMPLES, INPUTS, OUTPUTS>(data.samples[i]);
+				pulse<INPUTS, OUTPUTS>(data[i]);
 
 				for (int n2 = 0; n2 < layers[LASTL].nCount; ++n2)
 				{
-					dn[LASTL][n2] = layers[LASTL].derivative(layers[LASTL].neurons[n2]) * 2.0f * (layers[LASTL].neurons[n2] - data.samples[i].outputs[n2]);
+					dn[LASTL][n2] = layers[LASTL].derivative(layers[LASTL].neurons[n2]) * 2.0f * (layers[LASTL].neurons[n2] - data[i].outputs[n2]);
 				}
 
 				for (int l2 = LASTL; l2 >= 2; --l2)
@@ -814,7 +922,7 @@ private:
 				if (printcost)
 					c = cost(testdata);
 
-				log(logfile, run, max_iterations, SAMPLES, runtime.count(), elapsed, sampleTime, c);
+				log(logfile, run, max_iterations, data.size(), runtime.count(), elapsed, sampleTime, c);
 
 				sampleTimeLast = std::chrono::high_resolution_clock::now();
 			}
@@ -827,40 +935,44 @@ private:
 		}
 	}
 
-	template <int SAMPLES, int INPUTS, int OUTPUTS>
+	template <int INPUTS, int OUTPUTS>
 	static void gradient_descent(const int id,
-		const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample** sample_pointers, const int thread_size,
+		const typename trainingdata<INPUTS, OUTPUTS>::sample** sample_pointers, const int thread_size,
 		const float n, const float m,
-		seayon<LAYERS>& net,
+		seayon& net,
 		std::vector<std::vector<float>>& deltas,
 		std::vector<std::vector<float>>& last_gb,
 		std::vector<std::vector<float>>& last_gw,
 		std::vector<std::vector<float>>& bias_gradients,
 		std::vector<std::vector<float>>& weight_gradients)
 	{
-		constexpr int LASTL = LAYERS - 1;
+		const int LASTL = net.layerCount - 1;
 		const int offset = id * thread_size;
 		const int end = offset + thread_size - 1;
 
 		for (int i = offset; i <= end; ++i)
 		{
-			const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample& sample = *sample_pointers[i];
-			net.pulse<SAMPLES, INPUTS, OUTPUTS>(sample);
+			const typename trainingdata<INPUTS, OUTPUTS>::sample& sample = *sample_pointers[i];
+			net.pulse<INPUTS, OUTPUTS>(sample);
 
-			for (int n2 = 0; n2 < net.layers[LASTL].nCount; ++n2)
 			{
 				const int l1 = LASTL - 1;
 				const int& n1count = net.layers[l1].nCount;
-				const int row = n2 * n1count;
+				const int& n2count = net.layers[LASTL].nCount;
 
-				const float delta = net.layers[LASTL].derivative(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
-				const float gradient = -delta * n;
+				for (int n2 = 0; n2 < n2count; ++n2)
+				{
+					const int row = n2 * n1count;
 
-				deltas[LASTL][n2] = delta;
-				bias_gradients[LASTL][n2] += gradient;
+					const float delta = net.layers[LASTL].derivative(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+					const float gradient = -delta * n;
 
-				for (int n1 = 0; n1 < n1count; ++n1)
-					weight_gradients[LASTL][row + n1] += gradient * net.layers[l1].neurons[n1];
+					deltas[LASTL][n2] = delta;
+					bias_gradients[LASTL][n2] += gradient;
+
+					for (int n1 = 0; n1 < n1count; ++n1)
+						weight_gradients[LASTL][row + n1] += gradient * net.layers[l1].neurons[n1];
+				}
 			}
 
 			for (int l2 = LASTL; l2 >= 2; --l2)
@@ -909,11 +1021,11 @@ private:
 		}
 	}
 
-	template <int SAMPLES, int INPUTS, int OUTPUTS, int T_SAMPLES, int T_INPUTS, int T_OUTPUTS>
-	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int thread_count, const trainingdata<SAMPLES, INPUTS, OUTPUTS>& traindata, const trainingdata<T_SAMPLES, T_INPUTS, T_OUTPUTS>& testdata)
+	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
+	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int thread_count, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
 	{
-		constexpr int LASTL = LAYERS - 1;
-		const int batch_count = SAMPLES / batch_size;
+		const int LASTL = layerCount - 1;
+		const int batch_count = traindata.size() / batch_size;
 		int per_thread = batch_count / thread_count;
 		std::unique_ptr<std::ofstream> logfile{};
 
@@ -929,38 +1041,40 @@ private:
 			if (printcost)
 				c = cost(testdata);
 
-			init_log(c, max_iterations, SAMPLES, logfile);
+			init_log(c, max_iterations, traindata.size(), logfile);
 		}
 
-		int layout[LAYERS];
-		ActivFunc a[LAYERS];
-		for (int l = 0; l < LAYERS; ++l)
+		std::vector<int> layout(layerCount);
+		std::vector<ActivFunc> a(layerCount);
+		for (int l = 0; l < layerCount; ++l)
 		{
 			layout[l] = layers[l].nCount;
 			a[l] = layers[l].func;
 		}
 
-		std::vector<seayon<LAYERS>> nets = std::vector<seayon<LAYERS>>(batch_count, seayon<LAYERS>(layout, a, printEnabled, printcost, seed, logfolder));
-		std::vector<std::vector<std::vector<float>>> deltas(batch_count, std::vector<std::vector<float>>(LAYERS));
-		std::vector<std::vector<std::vector<float>>> last_gb(batch_count, std::vector<std::vector<float>>(LAYERS));
-		std::vector<std::vector<std::vector<float>>> last_gw(batch_count, std::vector<std::vector<float>>(LAYERS));
+		std::vector<seayon> nets;
+		nets.reserve(batch_count);
+		std::vector<std::vector<std::vector<float>>> deltas(batch_count, std::vector<std::vector<float>>(layerCount));
+		std::vector<std::vector<std::vector<float>>> last_gb(batch_count, std::vector<std::vector<float>>(layerCount));
+		std::vector<std::vector<std::vector<float>>> last_gw(batch_count, std::vector<std::vector<float>>(layerCount));
 
-		std::vector<const typename trainingdata<SAMPLES, INPUTS, OUTPUTS>::sample*> sample_pointers(batch_count * batch_size);
-		std::vector<std::vector<std::vector<float>>> bias_gradients(batch_count, std::vector<std::vector<float>>(LAYERS));
-		std::vector<std::vector<std::vector<float>>> weight_gradients(batch_count, std::vector<std::vector<float>>(LAYERS));
+		std::vector<const typename trainingdata<INPUTS, OUTPUTS>::sample*> sample_pointers(batch_count * batch_size);
+		std::vector<std::vector<std::vector<float>>> bias_gradients(batch_count, std::vector<std::vector<float>>(layerCount));
+		std::vector<std::vector<std::vector<float>>> weight_gradients(batch_count, std::vector<std::vector<float>>(layerCount));
 
 		std::vector<std::thread> threads(thread_count);
 
 		for (int b = 0; b < batch_count; ++b)
 		{
+			nets.emplace_back(layout, a, printEnabled, printcost, seed, logfolder);
 			copy(nets[b]);
 
 			for (int i = 0; i < batch_count * batch_size; ++i)
 			{
-				sample_pointers[i] = &traindata.samples[i];
+				sample_pointers[i] = &traindata[i];
 			}
 
-			for (int l = 0; l < LAYERS; ++l)
+			for (int l = 0; l < layerCount; ++l)
 			{
 				deltas[b][l].resize(layers[l].nCount);
 				last_gb[b][l].resize(layers[l].nCount);
@@ -985,7 +1099,7 @@ private:
 
 						for (int b = offset; b <= end; ++b)
 						{
-							gradient_descent<SAMPLES, INPUTS, OUTPUTS>(b, sample_pointers.data(), batch_size,
+							gradient_descent<INPUTS, OUTPUTS>(b, sample_pointers.data(), batch_size,
 								n, m, nets[b], deltas[b], last_gb[b], last_gw[b], bias_gradients[b], weight_gradients[b]);
 						}
 					});
@@ -1045,7 +1159,7 @@ private:
 				if (printcost)
 					c = cost(testdata);
 
-				log(logfile, run, max_iterations, SAMPLES, runtime.count(), elapsed, sampleTime, c);
+				log(logfile, run, max_iterations, traindata.size(), runtime.count(), elapsed, sampleTime, c);
 
 				sampleTimeLast = std::chrono::high_resolution_clock::now();
 			}

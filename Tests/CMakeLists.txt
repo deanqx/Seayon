@@ -4,6 +4,8 @@ if(BUILD_TESTING)
     project(${ProjectId})
 
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}/${PROJECT_NAME}")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/Debug/${PROJECT_NAME}")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/Release/${PROJECT_NAME}")
     add_executable(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/unit_test.cpp")
     
     target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gtest_main)
