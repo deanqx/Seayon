@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD 17)
 #     add_compile_options(-fcolor-diagnostics)
 # endif()
 
+option(CUDA_DISABLED OFF)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
@@ -22,9 +24,12 @@ include_directories("external/timez")
 
 add_subdirectory("external/googletest")
 add_subdirectory("SeayonDemo")
-add_subdirectory("local") # TODO temp
+add_subdirectory("local") # TEMP
 add_subdirectory("SeayonMnist")
-add_subdirectory("SeayonMnistCuda")
 add_subdirectory("SeayonTrading")
 include(CTest)
 add_subdirectory("tests")
+
+if(NOT CUDA_DISABLED)
+    add_subdirectory("SeayonMnistCuda")
+endif()
