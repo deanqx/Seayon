@@ -1,0 +1,50 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Windows",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "cwd": "${command:cmake.launchTargetDirectory}",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [],
+            "stopAtEntry": false,
+            "environment": [],
+            "console": "externalTerminal"
+        },
+        {
+            "name": "Cuda",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "cwd": "${command:cmake.launchTargetDirectory}",
+            "program": "${command:cmake.launchTargetPath}",
+            "console": "externalTerminal"
+        },
+        {
+            "name": "gdb",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${command:cmake.launchTargetDirectory}",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [],
+            "stopAtEntry": false,
+            "environment": [
+                {
+                    // add the directory where our target was built to the PATHs
+                    // it gets resolved by CMake Tools:
+                    "name": "PATH",
+                    "value": "$PATH:${command:cmake.launchTargetDirectory}"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
