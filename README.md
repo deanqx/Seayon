@@ -35,9 +35,6 @@ You can find the work-in-progress version in the **beta branch**.
 
 # How to include the library
 
-// TODO rewrite
-// WARN you need to init submodules
-
 1. Copy `./bin/Seayon/include/` and `./bin/Seayon/lib/` to your workspace folder.
 2. `#include "seayon.h"`
 3. Use `seayon* nn = new seayon;` to allocate on the heap, which is slower but prevents memory overflows.

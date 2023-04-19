@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <random>
 #include <thread>
-// TODO Add linux support
 #include <windows.h>
 
 float Sigmoid(const float& z)
@@ -139,7 +138,6 @@ public:
 	}
 };
 
-// TODO Rewrite Discriptions
 // Open source Neural Network library in C++ with lots of easy to use features. Copyright by Dean Schneider (deanqx, Sawey)
 class seayon
 {
@@ -494,7 +492,7 @@ public:
 
 				printf("\n  Input Layer:\n");
 			}
-			else if (l1 == layerCount - 1) // TODO Use printo instead
+			else if (l1 == layerCount - 1)
 			{
 				normalColor = 11;
 				SetConsoleTextAttribute(cmd, 11);
@@ -667,8 +665,6 @@ public:
 	template <int INPUTS, int OUTPUTS>
 	float cost(const trainingdata<INPUTS, OUTPUTS>& data)
 	{
-		// PERF Add multi threading
-
 		if (!check(data))
 		{
 			printf("\tCurrupt training data!\n");
@@ -731,8 +727,6 @@ public:
 			return;
 		}
 
-		// TODO Quit optimizer if max_iterations reached or cost moves very slow(could use gradient descent error)
-
 		if (optimizer == Optimizer::STOCHASTIC)
 		{
 			stochastic(max_iterations, learningRate, momentum, traindata, testdata);
@@ -746,7 +740,6 @@ public:
 		}
 		else if (optimizer == Optimizer::ADAM)
 		{
-			// TODO ADAM
 		}
 	}
 
@@ -855,8 +848,6 @@ private:
 		auto last = std::chrono::high_resolution_clock::now();
 		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
 
-		// PERF Speed becomes slower overtime
-		// (could be because floats get more complex; because of momentum?!)
 		for (int run = 1; run <= max_iterations; ++run)
 		{
 			for (int i = 0; i < data.size(); ++i)
@@ -1104,8 +1095,6 @@ private:
 						}
 					});
 			}
-
-			// TODO Few samples remain unused
 
 			for (int t = 0; t < thread_count; ++t)
 			{
