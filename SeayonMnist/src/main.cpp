@@ -6,10 +6,9 @@
 int main()
 {
 	constexpr bool load = false;
-	constexpr bool print = true;
 	constexpr bool printcost = true;
 
-	constexpr int runCount = 100;
+	constexpr int runCount = 10000;
 	constexpr float learningRate = 0.00003f;
 	constexpr float momentum = 0.00001f;
 	// constexpr float learningRate = 0.03f;
@@ -19,7 +18,7 @@ int main()
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-	seayon nn(layout, funcs, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
+	seayon nn(layout, funcs, printcost, 1472, "../../../../SeayonMnist/res/logs");
 
 	trainingdata<784, 10> testdata;
 
@@ -41,7 +40,7 @@ int main()
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
 		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-		if (train.is_open() && true)
+		if (train.is_open() && false)
 		{
 			trainingdata<784, 10> traindata;
 			if (ImportMnist(60000, traindata, train))

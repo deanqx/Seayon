@@ -115,6 +115,8 @@ public:
 
 	inline void reserve(const size_t reserved)
 	{
+		this->~trainingdata();
+
 		samples = new sample[reserved];
 		sampleCount = reserved;
 	}
@@ -133,7 +135,8 @@ public:
 	{
 		if (manageMemory)
 		{
-			delete[] samples;
+			if (samples != nullptr)
+				delete[] samples;
 		}
 	}
 };
@@ -235,24 +238,22 @@ public:
 	};
 protected:
 	const bool manageMemory;
-	const bool printEnabled;
 	const bool printcost;
 	const int seed;
 	const std::string logfolder;
 
+public:
 	const int layerCount;
 	layer* const layers;
-public:
+
 	seayon(layer* layers,
 		const int layerCount,
-		const bool printEnabled,
 		const bool printcost,
 		const int seed,
 		const std::string logfolder,
 		const bool manageMemory):
 		layers(layers),
 		layerCount(layerCount),
-		printEnabled(printEnabled),
 		printcost(printcost),
 		seed(seed),
 		logfolder(logfolder),
@@ -265,8 +266,8 @@ public:
 	 * @param layerCount Starts with the input layer (Minimum 2 layers)
 	 * @param ActivFunc Activation function for all neurons.
 	 */
-	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, const bool enablePrinting, const bool printcost, int seed = -1, std::string logfolder = std::string())
-		: manageMemory(true), printEnabled(enablePrinting), printcost(printcost), seed(seed),
+	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, const bool printcost, int seed = -1, std::string logfolder = std::string())
+		: manageMemory(true), printcost(printcost), seed(seed),
 		logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 		layerCount(layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 	{
@@ -282,16 +283,6 @@ public:
 
 			new (&layers[l2]) layer(layout[l1], layout[l2], a[l2]);
 		}
-	}
-
-	inline size_t size() const
-	{
-		return layerCount;
-	}
-
-	inline layer& operator[](const int i) const
-	{
-		return layers[i];
 	}
 
 	~seayon()
@@ -722,8 +713,7 @@ public:
 	{
 		if (!check(traindata) || !check(testdata))
 		{
-			if (printEnabled)
-				printf("\tCurrupt training data!\n");
+			printf("\tCurrupt training data!\n");
 			return;
 		}
 
@@ -751,87 +741,133 @@ protected:
 		return layers[0].nCount == INPUTS && layers[layerCount - 1].nCount == OUTPUTS;
 	}
 
-	void resolveTime(long long seconds, int* resolved)
+	template <int INPUTS, int OUTPUTS>
+	class fitlog
 	{
-		resolved[0] = (int)(seconds / 3600LL);
-		seconds -= 3600LL * (long long)resolved[0];
-		resolved[1] = (int)(seconds / 60LL);
-		seconds -= 60LL * (long long)resolved[1];
-		resolved[2] = (int)(seconds);
-	}
+		seayon& parent;
+		const int sampleCount;
+		const trainingdata<INPUTS, OUTPUTS>& testdata;
+		const int max_iterations;
+		const bool printcost;
 
-	void log(std::unique_ptr<std::ofstream>& file, const int& run, const int& max_iterations, const int& sampleCount, const long long& runtime, std::chrono::microseconds elapsed, std::chrono::microseconds sampleTime, const float& c)
-	{
-		float progress = (float)run * 100.0f / (float)max_iterations;
+		std::unique_ptr<std::ofstream> file;
+		size_t lastLogLenght = 0;
+		int lastLogAt = 0;
+		std::chrono::steady_clock::time_point overall;
+		std::chrono::steady_clock::time_point sampleTimeLast;
+		std::chrono::steady_clock::time_point last;
 
-		int samplesPerSecond = 0;
-		if (run > 0)
+		inline void resolveTime(long long seconds, int* resolved) const
 		{
-			if (sampleTime.count() < 1)
-				samplesPerSecond = -1;
-			else
-				samplesPerSecond = (int)((int64_t)sampleCount * 1000LL / sampleTime.count());
+			resolved[0] = (int)(seconds / 3600LL);
+			seconds -= 3600LL * (long long)resolved[0];
+			resolved[1] = (int)(seconds / 60LL);
+			seconds -= 60LL * (long long)resolved[1];
+			resolved[2] = (int)(seconds);
 		}
 
-		int runtimeResolved[3];
-		resolveTime(runtime, runtimeResolved);
-
-		elapsed *= max_iterations - run;
-		long long eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
-		int etaResolved[3];
-		resolveTime(eta, etaResolved);
-
-		std::cout << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
-			<< samplesPerSecond << "k Samples/s " << std::setw(13)
-			<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
-			<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
-		if (c > -1.0f)
-			std::cout << "Cost: " << std::fixed << std::setprecision(4) << c;
-		std::cout << "                " << std::flush;
-
-		if (file.get() == nullptr)
-			*file << progress << "," << samplesPerSecond << "," << runtime << "," << eta << "," << c << std::endl;
-	}
-
-	void init_log(const float& c, const int& max_iterations, const int& sampleCount, std::unique_ptr<std::ofstream>& logfile)
-	{
-		if (!logfolder.empty())
+	public:
+		void log(int run)
 		{
-			std::string path(logfolder + "log.csv");
-			std::ifstream exists(path);
-			for (int i = 1; i < 16; ++i)
+			auto now = std::chrono::high_resolution_clock::now();
+			std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
+			if (sampleTime.count() > 1000000LL || run > max_iterations)
 			{
-				if (!exists.good())
+				sampleTimeLast = now;
+				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
+				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
+
+				if (run > max_iterations)
+					run = max_iterations;
+
+				float c = -1.0f;
+				if (printcost)
+					c = parent.cost(testdata);
+
+				float progress = (float)run * 100.0f / (float)max_iterations;
+
+				int samplesPerSecond = 0;
+				if (run > 0)
 				{
-					break;
+					sampleTime /= run - lastLogAt;
+					if (sampleTime.count() < 1)
+						samplesPerSecond = -1;
+					else
+						samplesPerSecond = (int)((int64_t)sampleCount * 1000LL / sampleTime.count());
 				}
-				exists.close();
-				path = logfolder + "log(" + std::to_string(i) + ").csv";
-				exists.open(path);
+
+				int runtimeResolved[3];
+				resolveTime(runtime.count(), runtimeResolved);
+
+				elapsed /= run - lastLogAt;
+				elapsed *= max_iterations - run;
+				long long eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+				int etaResolved[3];
+				resolveTime(eta, etaResolved);
+
+				std::stringstream message;
+				message << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
+					<< samplesPerSecond << "k Samples/s " << std::setw(13)
+					<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
+					<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
+				if (c > -1.0f)
+					message << "Cost: " << std::fixed << std::setprecision(4) << c;
+
+				std::cout << std::string(lastLogLenght, '\b') << message.str();
+				lastLogLenght = message.str().length();
+
+				if (file.get() == nullptr)
+					*file << progress << "," << samplesPerSecond << "," << runtime.count() << "," << eta << "," << c << std::endl;
+
+				lastLogAt = run;
+				last = std::chrono::high_resolution_clock::now();
+			}
+		}
+
+		fitlog(seayon& parent,
+			const int& sampleCount,
+			const trainingdata<INPUTS, OUTPUTS>& testdata,
+			const int& max_iterations,
+			const bool& printcost,
+			const std::string& logfolder):
+			parent(parent),
+			sampleCount(sampleCount),
+			testdata(testdata),
+			max_iterations(max_iterations),
+			printcost(printcost)
+		{
+			if (!logfolder.empty())
+			{
+				std::string path(logfolder + "log.csv");
+				std::ifstream exists(path);
+				for (int i = 1; i < 16; ++i)
+				{
+					if (!exists.good())
+					{
+						break;
+					}
+					exists.close();
+					path = logfolder + "log(" + std::to_string(i) + ").csv";
+					exists.open(path);
+				}
+
+				file.reset(new std::ofstream(path));
+				*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
 			}
 
-			logfile.reset(new std::ofstream(path));
-			*logfile << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
+			printf("\n");
+			overall = std::chrono::high_resolution_clock::now();
+			last = overall;
+			sampleTimeLast = overall;
+			log(0);
 		}
+	};
 
-		printf("\n");
-		log(logfile, 0, max_iterations, sampleCount, 0, std::chrono::microseconds::zero(), std::chrono::microseconds::zero(), c);
-	}
 private:
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<INPUTS, OUTPUTS>& data, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
+	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
 	{
 		const int LASTL = layerCount - 1;
-		std::unique_ptr<std::ofstream> logfile = nullptr;
-
-		if (printEnabled)
-		{
-			float c = -1.0f;
-			if (printcost)
-				c = cost(testdata);
-
-			init_log(c, max_iterations, data.size(), logfile);
-		}
 
 		std::vector<std::vector<float>> dn(layerCount);
 		std::vector<std::vector<float>> lastdb(layerCount);
@@ -844,19 +880,17 @@ private:
 			lastdw[l].resize(layers[l].wCount);
 		}
 
-		auto overall = std::chrono::high_resolution_clock::now();
-		auto last = std::chrono::high_resolution_clock::now();
-		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
+		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printcost, logfolder);
 
 		for (int run = 1; run <= max_iterations; ++run)
 		{
-			for (int i = 0; i < data.size(); ++i)
+			for (int i = 0; i < traindata.size(); ++i)
 			{
-				pulse<INPUTS, OUTPUTS>(data[i]);
+				pulse<INPUTS, OUTPUTS>(traindata[i]);
 
 				for (int n2 = 0; n2 < layers[LASTL].nCount; ++n2)
 				{
-					dn[LASTL][n2] = layers[LASTL].derivative(layers[LASTL].neurons[n2]) * 2.0f * (layers[LASTL].neurons[n2] - data[i].outputs[n2]);
+					dn[LASTL][n2] = layers[LASTL].derivative(layers[LASTL].neurons[n2]) * 2.0f * (layers[LASTL].neurons[n2] - traindata[i].outputs[n2]);
 				}
 
 				for (int l2 = LASTL; l2 >= 2; --l2)
@@ -901,29 +935,12 @@ private:
 					}
 				}
 			}
-			if (printEnabled)
-			{
-				auto now = std::chrono::high_resolution_clock::now();
-				std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
-				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
-				last = now;
 
-				float c = -1.0f;
-				if (printcost)
-					c = cost(testdata);
-
-				log(logfile, run, max_iterations, data.size(), runtime.count(), elapsed, sampleTime, c);
-
-				sampleTimeLast = std::chrono::high_resolution_clock::now();
-			}
+			logger.log(run);
 		}
 
-		if (printEnabled)
-		{
-			std::cout << std::endl
-				<< std::endl;
-		}
+		logger.log(max_iterations + 1);
+		printf("\n\n");
 	}
 
 	template <int INPUTS, int OUTPUTS>
@@ -1018,21 +1035,11 @@ private:
 		const int LASTL = layerCount - 1;
 		const int batch_count = traindata.size() / batch_size;
 		int per_thread = batch_count / thread_count;
-		std::unique_ptr<std::ofstream> logfile{};
 
 		if (per_thread == 0)
 		{
 			per_thread = batch_count;
 			thread_count = 1;
-		}
-
-		if (printEnabled)
-		{
-			float c = -1.0f;
-			if (printcost)
-				c = cost(testdata);
-
-			init_log(c, max_iterations, traindata.size(), logfile);
 		}
 
 		std::vector<int> layout(layerCount);
@@ -1057,7 +1064,7 @@ private:
 
 		for (int b = 0; b < batch_count; ++b)
 		{
-			nets.emplace_back(layout, a, printEnabled, printcost, seed, logfolder);
+			nets.emplace_back(layout, a, printcost, seed, logfolder);
 			copy(nets[b]);
 
 			for (int i = 0; i < batch_count * batch_size; ++i)
@@ -1075,9 +1082,7 @@ private:
 			}
 		}
 
-		auto overall = std::chrono::high_resolution_clock::now();
-		auto last = std::chrono::high_resolution_clock::now();
-		auto sampleTimeLast = std::chrono::high_resolution_clock::now();
+		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printcost, logfolder);
 
 		for (int run = 1; run <= max_iterations; ++run)
 		{
@@ -1136,29 +1141,11 @@ private:
 			std::random_device rm_seed;
 			std::shuffle(&sample_pointers[0], &sample_pointers[batch_count * batch_size - 1], std::mt19937(rm_seed()));
 
-			if (printEnabled)
-			{
-				auto now = std::chrono::high_resolution_clock::now();
-				std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
-				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
-				last = now;
-
-				float c = -1.0f;
-				if (printcost)
-					c = cost(testdata);
-
-				log(logfile, run, max_iterations, traindata.size(), runtime.count(), elapsed, sampleTime, c);
-
-				sampleTimeLast = std::chrono::high_resolution_clock::now();
-			}
+			logger.log(run);
 		}
 
 
-		if (printEnabled)
-		{
-			std::cout << std::endl
-				<< std::endl;
-		}
+		logger.log(max_iterations + 1);
+		printf("\n\n");
 	}
 };
