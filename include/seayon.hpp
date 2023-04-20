@@ -289,6 +289,9 @@ public:
 	{
 		if (manageMemory)
 		{
+			for (int i = 0; i < layerCount; ++i)
+				layers[i].~layer();
+
 			free(layers);
 		}
 	}
@@ -296,20 +299,18 @@ public:
 	// Saves network to a .nn file
 	size_t save(std::ofstream& file)
 	{
-		char* buffer;
+		std::vector<char> buffer;
 		size_t buffersize = save(buffer);
 
-		file.write(buffer, buffersize);
+		file.write(buffer.data(), buffersize);
 		if (file.fail())
 			buffersize = 0;
 
 		file.flush();
 
-		free(buffer);
 		return buffersize;
 	}
-	// warning: use free()
-	size_t save(char*& buffer)
+	size_t save(std::vector<char>& buffer)
 	{
 		size_t buffersize = 0;
 		std::vector<size_t> nSize(layerCount);
@@ -320,14 +321,14 @@ public:
 			wSize[i] = sizeof(float) * layers[i].wCount;
 			buffersize += nSize[i] + wSize[i];
 		}
-		buffer = (char*)malloc(buffersize);
+		buffer.resize(buffersize);
 
-		char* pointer = buffer;
+		char* pointer = buffer.data();
 		for (int i = 1; i < layerCount; ++i)
 		{
-			memcpy(pointer, &layers[i].weights[0], wSize[i]);
+			memcpy(pointer, layers[i].weights, wSize[i]);
 			pointer += wSize[i];
-			memcpy(pointer, &layers[i].biases[0], nSize[i]);
+			memcpy(pointer, layers[i].biases, nSize[i]);
 			pointer += nSize[i];
 		}
 
@@ -371,9 +372,9 @@ public:
 		char* pointer = buffer;
 		for (int i = 1; i < layerCount; ++i)
 		{
-			memcpy(&layers[i].weights[0], pointer, wSize[i]);
+			memcpy(layers[i].weights, pointer, wSize[i]);
 			pointer += wSize[i];
-			memcpy(&layers[i].biases[0], pointer, nSize[i]);
+			memcpy(layers[i].biases, pointer, nSize[i]);
 			pointer += nSize[i];
 		}
 	}
@@ -381,8 +382,8 @@ public:
 	{
 		for (int l = 1; l < layerCount; ++l)
 		{
-			memcpy(&to.layers[l].biases[0], &layers[l].biases[0], layers[l].nCount * sizeof(float));
-			memcpy(&to.layers[l].weights[0], &layers[l].weights[0], layers[l].wCount * sizeof(float));
+			memcpy(to.layers[l].biases, layers[l].biases, layers[l].nCount * sizeof(float));
+			memcpy(to.layers[l].weights, layers[l].weights, layers[l].wCount * sizeof(float));
 		}
 	}
 	/**
@@ -498,7 +499,7 @@ public:
 				printf("  Hidden Layer[%i]:\n", l1 - 1);
 			}
 
-			size_t largest = std::max_element(&layers[l1].neurons[0], &layers[l1].neurons[0] + layers[l1].nCount) - &layers[l1].neurons[0];
+			size_t largest = std::max_element(layers[l1].neurons, layers[l1].neurons + layers[l1].nCount) - layers[l1].neurons;
 			for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 			{
 				printf("\t\tNeuron[%02i]   ", n1);
@@ -577,7 +578,7 @@ public:
 		SetConsoleTextAttribute(cmd, 11);
 		printf("  Output Layer:\n");
 
-		size_t largest = std::max_element(&layers[l].neurons[0], &layers[l].neurons[0] + layers[l].nCount) - &layers[l].neurons[0];
+		size_t largest = std::max_element(layers[l].neurons, layers[l].neurons + layers[l].nCount) - layers[l].neurons;
 		for (int n = 0; n < layers[l].nCount; ++n)
 		{
 			printf("\t\tNeuron[%02i]   ", n);
@@ -692,7 +693,7 @@ public:
 		{
 			pulse<INPUTS, OUTPUTS>(data[i]);
 
-			if (std::max_element(&layers[LASTL].neurons[0], &layers[LASTL].neurons[0] + layers[LASTL].nCount) - &layers[LASTL].neurons[0] == std::max_element(&data[i].outputs[0], &data[i].outputs[0] + OUTPUTS) - &data[i].outputs[0])
+			if (std::max_element(layers[LASTL].neurons, layers[LASTL].neurons + layers[LASTL].nCount) - layers[LASTL].neurons == std::max_element(data[i].outputs, data[i].outputs + OUTPUTS) - data[i].outputs)
 			{
 				++a;
 			}
@@ -789,7 +790,8 @@ protected:
 				int samplesPerSecond = 0;
 				if (run > 0)
 				{
-					sampleTime /= run - lastLogAt;
+					if (run < lastLogAt)
+						sampleTime /= run - lastLogAt;
 					if (sampleTime.count() < 1)
 						samplesPerSecond = -1;
 					else
@@ -799,7 +801,8 @@ protected:
 				int runtimeResolved[3];
 				resolveTime(runtime.count(), runtimeResolved);
 
-				elapsed /= run - lastLogAt;
+				if (run < lastLogAt)
+					elapsed /= run - lastLogAt;
 				elapsed *= max_iterations - run;
 				long long eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
 				int etaResolved[3];

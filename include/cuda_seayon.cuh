@@ -2,6 +2,7 @@
 // #include "cuda_runtime.h"
 // #include "device_launch_parameters.h"
 #include <vector>
+#include <memory>
 #include "seayon.hpp"
 
 __device__ float cuda_Sigmoid(const float& z)
@@ -159,6 +160,15 @@ public:
 						cudaMemset(bias_gradients, 0, nSize);
 						cudaMemset(weight_gradients, 0, wSize);
 					}
+
+					~layer()
+					{
+						cudaFree(deltas);
+						cudaFree(last_gb);
+						cudaFree(last_gw);
+						cudaFree(bias_gradients);
+						cudaFree(weight_gradients);
+					}
 				};
 
 				layer* layers;
@@ -166,6 +176,10 @@ public:
 				std::vector<layer> linker_layers;
 				std::unique_ptr<cuda_seayon> linker_net;
 				std::vector<seayon::layer> linker_seayon_layers;
+
+				batch(const batch& b)
+				{
+				}
 
 				batch(const cuda_seayon& main)
 				{
@@ -241,6 +255,19 @@ public:
 						}
 					}
 				}
+
+				~batch()
+				{
+					cudaFree(layers);
+					cudaFree(net);
+					for (int i = 0; i < linker_net->layerCount; ++i)
+					{
+						cudaFree(linker_seayon_layers[i].neurons);
+						cudaFree(linker_seayon_layers[i].biases);
+						cudaFree(linker_seayon_layers[i].weights);
+					}
+					cudaFree(linker_net->layers);
+				}
 			};
 
 			batch* batches;
@@ -287,6 +314,14 @@ public:
 				{
 					linker_batches[i].reset(main);
 				}
+			}
+
+			~device()
+			{
+				cudaFree(batches);
+				cudaFree(traindata);
+				cudaFree(sample_pointers);
+				cudaFree(&((*linker_traindata.get())[0]));
 			}
 		};
 
@@ -347,6 +382,7 @@ public:
 
 		~memory_manager()
 		{
+			cudaFree(on_device);
 		}
 	};
 

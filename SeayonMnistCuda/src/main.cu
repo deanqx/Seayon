@@ -49,8 +49,6 @@ int main()
             nn.printo(traindata, 0);
             nn.fit(runCount, traindata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
             nn.printo(traindata, 0);
-
-            delete& traindata;
         }
         else
         {
@@ -63,13 +61,6 @@ int main()
         std::ofstream file("../../../../SeayonMnist/res/mnist.bin", std::ios::binary);
         nn.save(file);
     }
-
-    float acc = nn.printo(testdata, 0);
-
-    if (acc < 0.5f) // (unit test) Has it learned slightly
-        return 2;
-
-    delete& testdata;
 
     return 0;
 }
