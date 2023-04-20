@@ -80,11 +80,10 @@ namespace
         seayon nn(layout, funcs, false, 1472, "");
         seayon nn2(layout, funcs, false, 1471, "");
 
-        char* buffer;
+        std::vector<char> buffer;
         nn.save(buffer);
-        nn2.load(buffer);
+        nn2.load(buffer.data());
 
-        delete buffer;
         return nn.equals(nn2);
     }
 }
