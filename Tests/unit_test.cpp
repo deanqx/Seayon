@@ -14,62 +14,62 @@ namespace
 
     float pulse()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
+        seayon nn(layout, funcs, false, 1472, "");
 
         nn.pulse<2, 2>(data[0]);
 
-        return nn[3].neurons[0] + nn[3].neurons[1];
+        return nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
     }
     float fit()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
+        seayon nn(layout, funcs, false, 1472, "");
 
         float sum = 0.0f;
 
         nn.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f);
         nn.pulse<2, 2>(data[0]);
-        sum += nn[3].neurons[0] + nn[3].neurons[1];
+        sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
 
         nn.fit(20, data, data, Optimizer::MINI_BATCH, 0.5f, 0.5f, 1, 1);
         nn.pulse<2, 2>(data[0]);
-        sum += nn[3].neurons[0] + nn[3].neurons[1];
+        sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
 
         return sum;
     }
 
     float accruacy()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
+        seayon nn(layout, funcs, false, 1472, "");
 
         return nn.accruacy(data);
     }
     float cost()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
+        seayon nn(layout, funcs, false, 1472, "");
 
         return nn.cost(data);
     }
 
     bool equals()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
-        seayon nn2(layout, funcs, false, false, 1471, "");
+        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn2(layout, funcs, false, 1471, "");
 
         return nn.equals(nn) == true && nn.equals(nn2) == false;
     }
     float combine()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
-        seayon nn2(layout, funcs, false, false, 1471, "");
+        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn2(layout, funcs, false, 1471, "");
 
         nn.combine(&nn2, 1);
 
-        return nn[3].neurons[0] + nn[3].neurons[1];
+        return nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
     }
     bool copy()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
-        seayon nn2(layout, funcs, false, false, 1471, "");
+        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn2(layout, funcs, false, 1471, "");
 
         nn.copy(nn2);
 
@@ -77,8 +77,8 @@ namespace
     }
     bool save_load()
     {
-        seayon nn(layout, funcs, false, false, 1472, "");
-        seayon nn2(layout, funcs, false, false, 1471, "");
+        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn2(layout, funcs, false, 1471, "");
 
         char* buffer;
         nn.save(buffer);

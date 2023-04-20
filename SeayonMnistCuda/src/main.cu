@@ -8,17 +8,16 @@
 int main()
 {
     constexpr bool load = false;
-    constexpr bool print = true;
     constexpr bool printcost = true;
 
-    constexpr int runCount = 100;
+    constexpr int runCount = 1000;
     constexpr float learningRate = 0.00003f;
     constexpr float momentum = 0.00001f;
-    constexpr int batch_size = 100;
+    constexpr int batch_size = 10;
 
     std::vector<int> layout = { 784, 16, 16, 10 };
     std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-    cuda_seayon nn(layout, funcs, print, printcost, 1472, "../../../../SeayonMnist/res/logs");
+    cuda_seayon nn(layout, funcs, printcost, 1472, "../../../../SeayonMnist/res/logs");
 
     trainingdata<784, 10> testdata;
 
@@ -40,7 +39,7 @@ int main()
         // 3. Put mnist_train.csv in the "res/mnist/" folder
 
         std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-        if (train.is_open() && false)
+        if (train.is_open() && true)
         {
             trainingdata<784, 10> traindata;
             if (ImportMnist(60000, traindata, train, 1))

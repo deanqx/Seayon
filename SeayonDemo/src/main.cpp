@@ -15,7 +15,7 @@ int main()
 	// <4 layers> | 2-3-4-2 neurons | Hidden layer: Leaky ReLu - Output layer: Sigmoid | print current state: true | printing cost after every run: false | seed: 1472 | no logfile
 	std::vector<int> layout = { 2, 3, 4, 2 };
 	std::vector<ActivFunc> funcs = { ActivFunc::RELU, ActivFunc::RELU, ActivFunc::RELU, ActivFunc::SIGMOID };
-	seayon nn(layout, funcs, true, false, 1472, "");
+	seayon nn(layout, funcs, false, 1472, "");
 
 	// ### Before training ###
 

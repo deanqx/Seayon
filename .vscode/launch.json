@@ -13,14 +13,6 @@
             "console": "externalTerminal"
         },
         {
-            "name": "Cuda",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "cwd": "${command:cmake.launchTargetDirectory}",
-            "program": "${command:cmake.launchTargetPath}",
-            "console": "externalTerminal"
-        },
-        {
             "name": "gdb",
             "type": "cppdbg",
             "request": "launch",
