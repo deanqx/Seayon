@@ -750,7 +750,7 @@ protected:
 		const int max_iterations;
 		const bool printcost;
 
-		std::unique_ptr<std::ofstream> file;
+		std::unique_ptr<std::ofstream> file{};
 		size_t lastLogLenght = 0;
 		int lastLogAt = 0;
 		std::chrono::steady_clock::time_point overall;
@@ -816,7 +816,7 @@ protected:
 				std::cout << std::string(lastLogLenght, '\b') << message.str();
 				lastLogLenght = message.str().length();
 
-				if (file.get() == nullptr)
+				if (file.get() != nullptr)
 					*file << progress << "," << samplesPerSecond << "," << runtime.count() << "," << eta << "," << c << std::endl;
 
 				lastLogAt = run;
