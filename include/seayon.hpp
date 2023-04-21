@@ -238,8 +238,8 @@ public:
 	};
 protected:
 	const bool manageMemory;
-	const bool printcost;
 	const int seed;
+	const bool printcost;
 	const std::string logfolder;
 
 public:
@@ -254,8 +254,8 @@ public:
 		const bool manageMemory):
 		layers(layers),
 		layerCount(layerCount),
-		printcost(printcost),
 		seed(seed),
+		printcost(printcost),
 		logfolder(logfolder),
 		manageMemory(manageMemory)
 	{
@@ -266,8 +266,8 @@ public:
 	 * @param layerCount Starts with the input layer (Minimum 2 layers)
 	 * @param ActivFunc Activation function for all neurons.
 	 */
-	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, const bool printcost, int seed = -1, std::string logfolder = std::string())
-		: manageMemory(true), printcost(printcost), seed(seed),
+	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printcost = true, std::string logfolder = std::string())
+		: manageMemory(true), seed(seed), printcost(printcost),
 		logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 		layerCount(layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 	{
@@ -775,7 +775,7 @@ protected:
 			if (sampleTime.count() > 1000000LL || run > max_iterations)
 			{
 				sampleTimeLast = now;
-				std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last);
+				std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
 				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
 
 				if (run > max_iterations)
@@ -790,7 +790,7 @@ protected:
 				int samplesPerSecond = 0;
 				if (run > 0)
 				{
-					if (run < lastLogAt)
+					if (run > lastLogAt)
 						sampleTime /= run - lastLogAt;
 					if (sampleTime.count() < 1)
 						samplesPerSecond = -1;
@@ -801,18 +801,21 @@ protected:
 				int runtimeResolved[3];
 				resolveTime(runtime.count(), runtimeResolved);
 
-				if (run < lastLogAt)
+				if (run > lastLogAt)
 					elapsed /= run - lastLogAt;
 				elapsed *= max_iterations - run;
-				long long eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+
+				std::chrono::seconds eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed);
+
 				int etaResolved[3];
-				resolveTime(eta, etaResolved);
+				resolveTime(eta.count(), etaResolved);
 
 				std::stringstream message;
 				message << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
 					<< samplesPerSecond << "k Samples/s " << std::setw(13)
 					<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
 					<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
+
 				if (c > -1.0f)
 					message << "Cost: " << std::fixed << std::setprecision(4) << c;
 
@@ -820,7 +823,7 @@ protected:
 				lastLogLenght = message.str().length();
 
 				if (file.get() != nullptr)
-					*file << progress << "," << samplesPerSecond << "," << runtime.count() << "," << eta << "," << c << std::endl;
+					*file << progress << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << c << '\n';
 
 				lastLogAt = run;
 				last = std::chrono::high_resolution_clock::now();
