@@ -14,7 +14,7 @@ namespace
 
     float pulse()
     {
-        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn(layout, funcs, 1472, false);
 
         nn.pulse<2, 2>(data[0]);
 
@@ -22,7 +22,7 @@ namespace
     }
     float fit()
     {
-        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn(layout, funcs, 1472, false);
 
         float sum = 0.0f;
 
@@ -39,28 +39,28 @@ namespace
 
     float accruacy()
     {
-        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn(layout, funcs, 1472, false);
 
         return nn.accruacy(data);
     }
     float cost()
     {
-        seayon nn(layout, funcs, false, 1472, "");
+        seayon nn(layout, funcs, 1472, false);
 
         return nn.cost(data);
     }
 
     bool equals()
     {
-        seayon nn(layout, funcs, false, 1472, "");
-        seayon nn2(layout, funcs, false, 1471, "");
+        seayon nn(layout, funcs, 1472, false);
+        seayon nn2(layout, funcs, 1471, false);
 
         return nn.equals(nn) == true && nn.equals(nn2) == false;
     }
     float combine()
     {
-        seayon nn(layout, funcs, false, 1472, "");
-        seayon nn2(layout, funcs, false, 1471, "");
+        seayon nn(layout, funcs, 1472, false);
+        seayon nn2(layout, funcs, 1471, false);
 
         nn.combine(&nn2, 1);
 
@@ -68,8 +68,8 @@ namespace
     }
     bool copy()
     {
-        seayon nn(layout, funcs, false, 1472, "");
-        seayon nn2(layout, funcs, false, 1471, "");
+        seayon nn(layout, funcs, 1472, false);
+        seayon nn2(layout, funcs, 1471, false);
 
         nn.copy(nn2);
 
@@ -77,8 +77,8 @@ namespace
     }
     bool save_load()
     {
-        seayon nn(layout, funcs, false, 1472, "");
-        seayon nn2(layout, funcs, false, 1471, "");
+        seayon nn(layout, funcs, 1472, false);
+        seayon nn2(layout, funcs, 1471, false);
 
         std::vector<char> buffer;
         nn.save(buffer);
