@@ -17,7 +17,7 @@ int main()
 
     std::vector<int> layout = { 784, 16, 16, 10 };
     std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-    cuda_seayon nn(layout, funcs, printcost, 1472, "../../../../SeayonMnist/res/logs");
+    cuda_seayon nn(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
 
     trainingdata<784, 10> testdata;
 
