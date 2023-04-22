@@ -40,7 +40,7 @@ int main()
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
 		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-		if (train.is_open() && false)
+		if (train.is_open() && true)
 		{
 			trainingdata<784, 10> traindata;
 			if (ImportMnist(60000, traindata, train))

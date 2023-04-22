@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 project("Seayon")
 set(CMAKE_CXX_STANDARD 17)
 
@@ -10,14 +10,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(CUDA_DISABLED OFF)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")
-# elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-endif()
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 set(CMAKE_CXX_FLAGS_RELEASE "/O2")
+endif()
 
 include_directories("include")
 include_directories("external/timez")
