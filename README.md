@@ -37,7 +37,7 @@ To use the GPU accelerated version you include the cuda header and install the [
 
 # Found a bug
 
-If you have found an issue or you would like to submit improvements, use the **Issues tab**, select the version you are using under "milestones" and choose fitting labels. The **Issues tab** can also be used to start discussions. Make sure beforehand whether the issue ticket has already been created.
+If you have found an issue or you would like to submit improvements, use the **Issues tab**. The **Issues tab** can also be used to start discussions. Make sure beforehand whether the issue ticket has already been created.
 
 # Contributing
 
