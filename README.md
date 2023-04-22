@@ -23,16 +23,30 @@ When you are using `./SeayonMnist` you have to download the `Mnist dataset` and 
 Project is built using Visual Studio Code and CMake on Windows. The code runs about 30% faster with compiled with `GNU` than with `MSVC`.
 
 The default branch contains the currently in development beta version. The latest stable version is found under the "Release" tab.
-To use Seayon in your project you include the basis header:
+To use Seayon in your project you include the `seayon.hpp` header:
 
 ```C++
 #include "seayon.hpp"
+
+int main()
+{
+  seayon net(...);
+
+  return 0;
+}
 ```
 
-To use the GPU accelerated version you include the cuda header and install the [Cuda toolkit](https://developer.nvidia.com/cuda-downloads). Follow the [Cuda Installation Guide](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows) to setup the compiler.
+To use the GPU accelerated version you include the `cuda_seayon.cuh` header and use the `cuda_seayon` class (use `./SeayonMnistCuda` as reference). You need to install the [Cuda toolkit](https://developer.nvidia.com/cuda-downloads). Follow the [Cuda Installation Guide](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows) to setup the compiler.
 
 ```C++
 #include "cuda_seayon.cuh"
+
+int main()
+{
+  cuda_seayon net(...);
+
+  return 0;
+}
 ```
 
 # Found a bug
