@@ -858,7 +858,7 @@ protected:
 				}
 
 				file.reset(new std::ofstream(path));
-				*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
+				*file << "Progress,SamplesPer(sec),Runtime(sec),ETA(sec),Cost" << std::endl;
 			}
 
 			printf("\n");

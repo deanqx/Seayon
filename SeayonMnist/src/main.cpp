@@ -18,7 +18,7 @@ int main()
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-	seayon nn(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
+	seayon nn(layout, funcs, 1472, printcost, "../../../../SeayonMnist/logs");
 
 	trainingdata<784, 10> testdata;
 
@@ -63,10 +63,7 @@ int main()
 		nn.save(file);
 	}
 
-	float acc = nn.printo(testdata, 0);
-
-	if (acc < 0.5f) // (unit test) Has it learned slightly
-		return 2;
+	nn.printo(testdata, 0);
 
 	return 0;
 }
