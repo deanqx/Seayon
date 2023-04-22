@@ -442,7 +442,7 @@ public:
 
 	// Calculates network outputs
 	template <int INPUTS, int OUTPUTS>
-	inline void pulse(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
+	inline float* pulse(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
 	{
 		for (int n = 0; n < INPUTS; ++n)
 			layers[0].neurons[n] = sample.inputs[n];
@@ -464,6 +464,8 @@ public:
 				layers[l2].neurons[n2] = func(z);
 			}
 		}
+
+		return layers[layerCount - 1].neurons;
 	}
 
 	// Prints all values. pulse() should be called before
@@ -754,9 +756,9 @@ protected:
 		std::unique_ptr<std::ofstream> file{};
 		size_t lastLogLenght = 0;
 		int lastLogAt = 0;
-		std::chrono::steady_clock::time_point overall;
-		std::chrono::steady_clock::time_point sampleTimeLast;
-		std::chrono::steady_clock::time_point last;
+		std::chrono::high_resolution_clock::time_point overall;
+		std::chrono::high_resolution_clock::time_point sampleTimeLast;
+		std::chrono::high_resolution_clock::time_point last;
 
 		inline void resolveTime(long long seconds, int* resolved) const
 		{

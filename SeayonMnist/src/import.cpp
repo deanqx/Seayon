@@ -54,7 +54,6 @@ bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, std::ifstre
     std::vector<std::string> lines(sampleCount);
     std::vector<std::thread> threads(thread_count);
 
-    std::getline(csv, lines[0]); // garbage
     for (int i = 0; i < sampleCount; ++i)
     {
         std::getline(csv, lines[i]);
