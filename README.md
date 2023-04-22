@@ -16,7 +16,7 @@
 
 Example project under `./SeayonDemo`
 
-**Note:** When you are using `./SeayonMnist` you have to download the `Mnist dataset` and put it into the `./SeayonMnist/res` folder.
+When you are using `./SeayonMnist` you have to download the `Mnist dataset` and put it into the `./SeayonMnist/res` folder.
 
 # Including in your Project
 
