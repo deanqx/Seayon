@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Windows",
+            "name": "MSVC",
             "type": "cppvsdbg",
             "request": "launch",
             "cwd": "${command:cmake.launchTargetDirectory}",
@@ -13,7 +13,7 @@
             "console": "externalTerminal"
         },
         {
-            "name": "gdb",
+            "name": "GNU",
             "type": "cppdbg",
             "request": "launch",
             "cwd": "${command:cmake.launchTargetDirectory}",

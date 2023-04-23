@@ -84,7 +84,11 @@
         "numeric": "cpp",
         "string_view": "cpp",
         "numbers": "cpp",
+<<<<<<< Updated upstream
         "semaphore": "cpp",
         "cinttypes": "cpp"
+=======
+        "semaphore": "cpp"
+>>>>>>> Stashed changes
     }
 }

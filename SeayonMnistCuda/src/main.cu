@@ -21,10 +21,8 @@ int main()
 
     trainingdata<784, 10> testdata;
 
-    std::ifstream test("../../../../SeayonMnist/res/mnist/mnist_test.csv");
-    if (ImportMnist(10000, testdata, test, 1))
+    if (!ImportMnist(10000, testdata, "../../../../SeayonMnist/res/mnist/mnist_test"))
         return 1;
-    test.close();
 
     if (load)
     {
@@ -38,23 +36,45 @@ int main()
         // 2. Copy the header(first line) from mnist_test.csv
         // 3. Put mnist_train.csv in the "res/mnist/" folder
 
-        std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-        if (train.is_open() && true)
+        const std::string traindata_path("../../../../SeayonMnist/res/mnist/mnist_train");
+        std::ifstream exists(traindata_path + ".csv");
+        if (exists.good() && true)
         {
             trainingdata<784, 10> traindata;
-            if (ImportMnist(60000, traindata, train, 1))
+            if (!ImportMnist(60000, traindata, traindata_path, 1))
                 return 1;
 
             printf("\n");
             nn.printo(traindata, 0);
             nn.fit(runCount, traindata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
+<<<<<<< Updated upstream
+=======
+            auto end1 = std::chrono::high_resolution_clock::now();
+
+            auto start2 = std::chrono::high_resolution_clock::now();
+            nn2.fit(runCount, traindata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, 32);
+            auto end2 = std::chrono::high_resolution_clock::now();
+
+            auto time1 = std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1);
+            auto time2 = std::chrono::duration_cast<std::chrono::milliseconds>(end2 - start2);
+
+            printf("Cuda:   %lldms\n", time1.count());
+            printf("Native: %lldms\n", time2.count());
+
+>>>>>>> Stashed changes
             nn.printo(traindata, 0);
         }
         else
         {
             printf("\n");
             nn.printo(testdata, 0);
+<<<<<<< Updated upstream
             nn.fit(runCount, testdata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
+=======
+
+            nn.fit(runCount, testdata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
+
+>>>>>>> Stashed changes
             nn.printo(testdata, 0);
         }
 

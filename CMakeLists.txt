@@ -15,20 +15,26 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")
+<<<<<<< Updated upstream
+=======
+# elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+>>>>>>> Stashed changes
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 set(CMAKE_CXX_FLAGS_RELEASE "/O2")
 endif()
 
 include_directories("include")
 include_directories("external/timez")
-
-add_subdirectory("external/googletest")
 add_subdirectory("SeayonDemo")
 add_subdirectory("local") # TEMP
 add_subdirectory("SeayonMnist")
 add_subdirectory("SeayonTrading")
+
+if (CMAKE_BUILD_TYPE MATCHES DEBUG)
 include(CTest)
 add_subdirectory("tests")
+add_subdirectory("external/googletest")
+endif()
 
 if(NOT CUDA_DISABLED)
     add_subdirectory("SeayonMnistCuda")

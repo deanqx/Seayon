@@ -36,50 +36,68 @@ static void parse_line(const std::string* lines, const int begin, const int end,
     // printf("FINISHED[%i -> %i(%i)] (%ims)\n", begin, end, end + 1 - begin, (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
 }
 
-bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, std::ifstream& csv, int thread_count = 2)
+bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, const std::string file_without_extension, int thread_count = 1)
 {
     const int per_thread = sampleCount / thread_count;
-
-    if (!csv.is_open())
-    {
-        printf("Cannot open csv file\n");
-        return 1;
-    }
 
     auto start = std::chrono::high_resolution_clock::now();
 
     printf("\tLoading mnist...");
 
-    data.reserve(sampleCount);
-    std::vector<std::string> lines(sampleCount);
-    std::vector<std::thread> threads(thread_count);
+    std::ifstream binary(file_without_extension + ".bin", std::ios::binary);
 
+<<<<<<< Updated upstream
     for (int i = 0; i < sampleCount; ++i)
+=======
+    if (binary.is_open())
+>>>>>>> Stashed changes
     {
-        std::getline(csv, lines[i]);
+        data.reserve(sampleCount);
+        binary.read((char*)&data[0], sampleCount * sizeof(typename trainingdata<784, 10>::sample));
     }
-
-    for (int t = 0; t < thread_count; ++t)
+    else
     {
-        threads[t] = std::thread([&, t]
-            {
-                const int begin = t * per_thread;
-                const int end = begin + per_thread - 1;
-                parse_line(lines.data(), begin, end, data);
-            });
-    }
-    // printf("launched (%ims)\n", (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+        std::ifstream csv(file_without_extension + ".csv");
+        std::ofstream new_binary(file_without_extension + ".bin", std::ios::binary);
 
-    const int begin = thread_count * per_thread;
-    const int end = sampleCount - 1;
-    parse_line(lines.data(), begin, end, data);
+        if (!csv.is_open())
+        {
+            printf("Cannot open csv file\n");
+            return false;
+        }
 
-    for (int t = 0; t < thread_count; ++t)
-    {
-        threads[t].join();
+        data.reserve(sampleCount);
+        std::vector<std::string> lines(sampleCount);
+        std::vector<std::thread> threads(thread_count);
+
+        for (int i = 0; i < sampleCount; ++i)
+        {
+            std::getline(csv, lines[i]);
+        }
+
+        for (int t = 0; t < thread_count; ++t)
+        {
+            threads[t] = std::thread([&, t]
+                {
+                    const int begin = t * per_thread;
+                    const int end = begin + per_thread - 1;
+                    parse_line(lines.data(), begin, end, data);
+                });
+        }
+
+        const int begin = thread_count * per_thread;
+        const int end = sampleCount - 1;
+        parse_line(lines.data(), begin, end, data);
+
+        for (int t = 0; t < thread_count; ++t)
+        {
+            threads[t].join();
+        }
+
+        new_binary.write((char*)&data[0], sampleCount * sizeof(typename trainingdata<784, 10>::sample));
     }
 
     printf("DONE (%ims)\n", (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
 
-    return 0;
+    return true;
 }
