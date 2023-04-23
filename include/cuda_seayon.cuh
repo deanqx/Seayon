@@ -400,6 +400,15 @@ public:
 			return;
 		}
 
+		if (learningRate <= 0.0f)
+			learningRate = 0.0001f;
+
+		if (momentum <= 0.0f)
+			momentum = 0.0001f;
+
+		if (batch_size > traindata.size() || batch_size < 0)
+			batch_size = traindata.size();
+
 		if (optimizer == ParallelOptimizer::MINI_BATCH)
 		{
 			if (batch_size > traindata.size())
@@ -490,7 +499,6 @@ __device__ void cuda_gradient_descent(const int& b, typename cuda_seayon::memory
 			}
 		}
 
-		// PERF Try to combine loops
 		for (int l2 = LASTL; l2 >= 1; --l2)
 		{
 			const int l1 = l2 - 1;
@@ -534,9 +542,65 @@ void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const fl
 	const int block_count = traindata.size() / batch_size / 512 + 1;      // Optimal: power of 2
 	const int thread_count = traindata.size() / batch_size / block_count; // Optimal: multiple of 32, range 128 and 512
 	const int batch_count = block_count * thread_count;
+<<<<<<< Updated upstream
 	printf("blocks: %i | threads: %i | batch_count: %i | batch_size: %i | used: %i\n", block_count, thread_count, batch_count, batch_size, batch_count * batch_size);
+=======
+
+	// const int per_thread = traindata.size() / batch_size / total_threads;
+	// int batch_count = per_thread * total_threads;
+
+	// total_threads = batch_count / per_thread;
+	// int block_count = total_threads / 512 + 1;      // Optimal: power of 2
+	// int thread_count = total_threads / block_count; // Optimal: multiple of 32, range 128 and 512
+	// total_threads = block_count * thread_count;
+
+	// int unused = traindata.size() - total_threads * per_thread * batch_size;
+	// total_threads += unused / (per_thread * batch_size);
+	// block_count = total_threads / 512 + 1;
+	// thread_count = total_threads / block_count;
+	// total_threads = block_count * thread_count;
+
+	// unused = traindata.size() - total_threads * per_thread * batch_size;
+	// batch_count = per_thread * total_threads;
+
+	auto start = std::chrono::high_resolution_clock::now();
+
+	size_t used_bytes;
+	size_t used_by_bytes;
+	size_t free_bytes;
+	size_t before_free_bytes;
+	size_t total_bytes;
+
+	if (cudaMemGetInfo(&before_free_bytes, &total_bytes) != cudaSuccess)
+	{
+		printf("Failed to get gpu memory info");
+		return;
+	}
+>>>>>>> Stashed changes
 
 	memory_manager<INPUTS, OUTPUTS> mm(*this, traindata, batch_count, batch_size, n, m);
+
+	if (cudaMemGetInfo(&free_bytes, &total_bytes) != cudaSuccess)
+	{
+		printf("Failed to get gpu memory info");
+		return;
+	}
+
+	constexpr size_t mb = 1048576;
+	used_bytes = (total_bytes - free_bytes) / mb;
+	used_by_bytes = (before_free_bytes - free_bytes) / mb;
+	free_bytes /= mb;
+
+	std::chrono::milliseconds time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+
+	printf("Cuda has launched in %lldms with:\n", time.count());
+	printf("%i blocks | ", block_count);
+	printf("%i threads | ", thread_count);
+	printf("%i batches | ", batch_count);
+	printf("%i samples per thread | ", batch_size);
+	printf("%i/%i unused samples\n\n", traindata.size() - batch_count, traindata.size());
+
+	printf("GPU memory usage: %llumb used | %llumb used by seayon | %llumb free\n", used_bytes, used_by_bytes, free_bytes);
 
 	fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printcost, logfolder);
 

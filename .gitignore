@@ -1,5 +1,8 @@
+SeayonMnist/res/mnist/mnist_test.bin
 SeayonMnist/res/mnist/mnist_train.csv
-SeayonMnist/res/logs/*
+SeayonMnist/res/mnist/mnist_train.bin
+SeayonMnist/logs/*
+SeayonMnistCuda/logs/*
 build/**
 !build/bin
 !build/bin/Release
