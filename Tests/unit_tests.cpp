@@ -30,7 +30,7 @@ namespace
         nn.pulse<2, 2>(data[0]);
         sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
 
-        nn.fit(20, data, data, Optimizer::MINI_BATCH, 0.5f, 0.5f, 1, 1);
+        nn.fit(20, data, data, Optimizer::MINI_BATCH, 0.5f, 0.5f, 2);
         nn.pulse<2, 2>(data[0]);
         sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
 
@@ -94,7 +94,7 @@ TEST(Basis, Activation)
 }
 TEST(Basis, Training)
 {
-    EXPECT_EQ(fit(), 2.01150656f);
+    EXPECT_EQ(fit(), 2.01234579f);
 }
 
 TEST(Analysis, Accruacy)

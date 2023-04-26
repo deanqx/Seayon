@@ -15,10 +15,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")
-<<<<<<< Updated upstream
-=======
-# elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
->>>>>>> Stashed changes
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 set(CMAKE_CXX_FLAGS_RELEASE "/O2")
 endif()
@@ -30,7 +26,7 @@ add_subdirectory("local") # TEMP
 add_subdirectory("SeayonMnist")
 add_subdirectory("SeayonTrading")
 
-if (CMAKE_BUILD_TYPE MATCHES DEBUG)
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
 include(CTest)
 add_subdirectory("tests")
 add_subdirectory("external/googletest")

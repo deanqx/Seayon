@@ -18,6 +18,7 @@ int main()
     std::vector<int> layout = { 784, 16, 16, 10 };
     std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
     cuda_seayon nn(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
+    seayon nn2(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
 
     trainingdata<784, 10> testdata;
 
@@ -41,14 +42,14 @@ int main()
         if (exists.good() && true)
         {
             trainingdata<784, 10> traindata;
-            if (!ImportMnist(60000, traindata, traindata_path, 1))
+            if (!ImportMnist(60000, traindata, traindata_path))
                 return 1;
 
             printf("\n");
             nn.printo(traindata, 0);
+
+            auto start1 = std::chrono::high_resolution_clock::now();
             nn.fit(runCount, traindata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
-<<<<<<< Updated upstream
-=======
             auto end1 = std::chrono::high_resolution_clock::now();
 
             auto start2 = std::chrono::high_resolution_clock::now();
@@ -61,20 +62,13 @@ int main()
             printf("Cuda:   %lldms\n", time1.count());
             printf("Native: %lldms\n", time2.count());
 
->>>>>>> Stashed changes
             nn.printo(traindata, 0);
         }
         else
         {
             printf("\n");
             nn.printo(testdata, 0);
-<<<<<<< Updated upstream
             nn.fit(runCount, testdata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
-=======
-
-            nn.fit(runCount, testdata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
-
->>>>>>> Stashed changes
             nn.printo(testdata, 0);
         }
 
