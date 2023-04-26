@@ -542,9 +542,6 @@ void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const fl
 	const int block_count = traindata.size() / batch_size / 512 + 1;      // Optimal: power of 2
 	const int thread_count = traindata.size() / batch_size / block_count; // Optimal: multiple of 32, range 128 and 512
 	const int batch_count = block_count * thread_count;
-<<<<<<< Updated upstream
-	printf("blocks: %i | threads: %i | batch_count: %i | batch_size: %i | used: %i\n", block_count, thread_count, batch_count, batch_size, batch_count * batch_size);
-=======
 
 	// const int per_thread = traindata.size() / batch_size / total_threads;
 	// int batch_count = per_thread * total_threads;
@@ -576,7 +573,6 @@ void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const fl
 		printf("Failed to get gpu memory info");
 		return;
 	}
->>>>>>> Stashed changes
 
 	memory_manager<INPUTS, OUTPUTS> mm(*this, traindata, batch_count, batch_size, n, m);
 

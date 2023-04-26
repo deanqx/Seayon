@@ -34,14 +34,9 @@ int main()
 		// 2. Copy the header(first line) from mnist_test.csv
 		// 3. Put mnist_train.csv in the "res/mnist/" folder
 
-<<<<<<< Updated upstream
-		std::ifstream train("../../../../SeayonMnist/res/mnist/mnist_train.csv");
-		if (train.is_open() && true)
-=======
 		const std::string traindata_path("../../../../SeayonMnist/res/mnist/mnist_train");
 		std::ifstream exists(traindata_path + ".csv");
 		if (exists.good() && false)
->>>>>>> Stashed changes
 		{
 			trainingdata<784, 10> traindata;
 			if (!ImportMnist(60000, traindata, traindata_path))

@@ -46,11 +46,7 @@ bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, const std::
 
     std::ifstream binary(file_without_extension + ".bin", std::ios::binary);
 
-<<<<<<< Updated upstream
-    for (int i = 0; i < sampleCount; ++i)
-=======
     if (binary.is_open())
->>>>>>> Stashed changes
     {
         data.reserve(sampleCount);
         binary.read((char*)&data[0], sampleCount * sizeof(typename trainingdata<784, 10>::sample));
