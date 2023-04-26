@@ -828,7 +828,7 @@ protected:
 				resolveTime(eta.count(), etaResolved);
 
 				std::stringstream message;
-				message << "\r" << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
+				message << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
 					<< samplesPerSecond << "k Samples/s " << std::setw(13)
 					<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
 					<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);

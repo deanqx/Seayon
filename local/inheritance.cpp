@@ -96,6 +96,9 @@ int main()
     MyChild my;
     my.foo();
 
+    printf("hello\b");
+    std::cin.get();
+
     cuda<4> c;
-    printf("%f\n", c.foo<10, 10>());
+    // printf("%f\n", c.foo<10, 10>());
 }
