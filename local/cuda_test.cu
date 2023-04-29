@@ -3,156 +3,108 @@
 
 #include <iostream>
 
-struct memory_manager
+__host__
+int add(int a, int b)
 {
-    float* host_bias_gradients;
-    float* host_weight_gradients;
+    return a + b;
+}
 
-    float* bias_gradients;
-    float* weight_gradients;
+__device__
+int device_add(int a, int b)
+{
+    return a + b;
+}
 
-    memory_manager* device_this;
+__host__
+int sub(int a, int b)
+{
+    return a - b;
+}
 
-    const int batch_count;
-    const int LAYERS;
-    const int nCount;
-    const int n2Count;
+__device__
+int device_sub(int a, int b)
+{
+    return a - b;
+}
 
-    size_t nSize;
-    size_t wSize;
+typedef int(*func_t)(int, int);
 
-    memory_manager(const int host_batch_count, const int host_LAYERS, const int host_nCount, const int host_n2Count)
-        : batch_count(host_batch_count), LAYERS(host_LAYERS), nCount(host_nCount), n2Count(host_n2Count)
-    {
-        nSize = host_batch_count * host_LAYERS * host_nCount * sizeof(float);
-        wSize = host_batch_count * host_LAYERS * host_nCount * host_n2Count * sizeof(float);
+__device__ func_t d_add = device_add;
+__device__ func_t d_sub = device_sub;
 
-        host_bias_gradients = (float*)malloc(nSize);
-        host_weight_gradients = (float*)malloc(wSize);
-
-        cudaMalloc(&bias_gradients, nSize);
-        cudaMalloc(&weight_gradients, wSize);
-
-        cudaMalloc(&device_this, sizeof(memory_manager));
-
-        for (int b = 0; b < host_batch_count; ++b)
-        {
-            const int nIndex0 = b * host_LAYERS * host_nCount;
-            const int wIndex0 = b * host_LAYERS * host_nCount * host_n2Count;
-
-            for (int l = 0; l < host_LAYERS; ++l)
-            {
-                const int nIndex1 = nIndex0 + l * host_nCount;
-                const int wIndex1 = wIndex0 + l * host_nCount * host_n2Count;
-
-                for (int n1 = 0; n1 < host_nCount; ++n1)
-                {
-                    const int wIndex2 = wIndex1 + n1 * host_n2Count;
-
-                    host_bias_gradients[nIndex1 + n1] = 7;
-
-                    for (int n2 = 0; n2 < host_n2Count; ++n2)
-                    {
-                        host_weight_gradients[wIndex2 + n2] = 3;
-                    }
-                }
-            }
-        }
-
-        cudaMemcpy(bias_gradients, host_bias_gradients, nSize, cudaMemcpyHostToDevice);
-        cudaMemcpy(weight_gradients, host_weight_gradients, wSize, cudaMemcpyHostToDevice);
-        cudaMemcpy(device_this, this, sizeof(memory_manager), cudaMemcpyHostToDevice);
-    }
-
-    void sync()
-    {
-        cudaMemcpy(host_bias_gradients, bias_gradients, nSize, cudaMemcpyDeviceToHost);
-        cudaMemcpy(host_weight_gradients, weight_gradients, wSize, cudaMemcpyDeviceToHost);
-    }
+struct layer
+{
+    func_t f;
 };
 
 __host__ __device__
-void work(const int& b, memory_manager& mm)
+void work(const int* a, const int* b, int* c, const int& i, func_t f)
 {
-    const int nIndex0 = b * mm.LAYERS * mm.nCount;
-    const int wIndex0 = b * mm.LAYERS * mm.nCount * mm.n2Count;
-
-    for (int l = 0; l < mm.LAYERS; ++l)
-    {
-        const int nIndex1 = nIndex0 + l * mm.nCount;
-        const int wIndex1 = wIndex0 + l * mm.nCount * mm.n2Count;
-
-        for (int n1 = 0; n1 < mm.nCount; ++n1)
-        {
-            const int wIndex2 = wIndex1 + n1 * mm.n2Count;
-
-            for (int n2 = 0; n2 < mm.n2Count; ++n2)
-            {
-                // printf("[%i] [%i]\n", wIndex2 + n2, nIndex1 + n1);
-                mm.weight_gradients[wIndex2 + n2] += mm.bias_gradients[nIndex1 + n1];
-            }
-        }
-    }
+    c[i] = f(a[i], b[i]);
 }
 
 __global__
-void work_kernel(memory_manager* device_mm)
+void work_kernel(const int* a, const int* b, int* c, layer lay)
 {
-    int b = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    work(b, *device_mm);
+    work(a, b, c, i, lay.f);
 }
+
 
 int main()
 {
-    constexpr int batch_size = 10;
-    constexpr int LAYERS = 10;
-    constexpr int nCount = 10;
-    constexpr int n2Count = 10;
+    constexpr int N = 100;
 
-    int block_count = batch_size / 512 + 1;         // Optimal: power of 2
-    int thread_count = batch_size / block_count;    // Optimal: multiple of 32, range 128 and 512
-    int batch_count = block_count * thread_count;
+    int a[N];
+    int b[N];
+    int c[N];
 
-    printf("block_count: %i\nthread_count: %i\nbatch_count: %i\n", block_count, thread_count, batch_count);
+    for (int i = 0; i < N; ++i)
+    {
+        a[i] = 7;
+        b[i] = 3;
+    }
 
-    memory_manager mm(batch_count, LAYERS, nCount, n2Count);
+    int* aCuda;
+    int* bCuda;
+    int* cCuda;
 
-    work_kernel << <block_count, thread_count >> > (mm.device_this); // TODO test function pointer
+    cudaMalloc(&aCuda, N * sizeof(int));
+    cudaMalloc(&bCuda, N * sizeof(int));
+    cudaMalloc(&cCuda, N * sizeof(int));
 
-    // for (int b = 0; b < batch_count; ++b)
-    // {
-    //     work(b, LAYERS, nCount, n2Count, mm.host_bias_gradients, mm.host_weight_gradients);
-    // }
+    cudaMemcpy(aCuda, a, N * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(bCuda, b, N * sizeof(int), cudaMemcpyHostToDevice);
+
+    func_t h_add;
+    func_t h_sub;
+
+    cudaMemcpyFromSymbol(&h_add, d_add, sizeof(func_t));
+    cudaMemcpyFromSymbol(&h_sub, d_sub, sizeof(func_t));
+
+    layer lay;
+    lay.f = h_sub;
+
+    work_kernel << <1, N >> > (aCuda, bCuda, cCuda, lay);
 
     cudaDeviceSynchronize();
-    mm.sync();
+
+    cudaMemcpy(c, cCuda, N * sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaFree(a);
+    cudaFree(b);
+    cudaFree(c);
 
     bool equal = true;
-    for (int b = 0; equal && b < batch_count; ++b)
+    for (int i = 0; equal && i < N; ++i)
     {
-        const int wIndex0 = b * LAYERS * nCount * n2Count;
-
-        for (int l = 0; equal && l < LAYERS; ++l)
-        {
-            const int wIndex1 = wIndex0 + l * nCount * n2Count;
-
-            for (int n1 = 0; equal && n1 < nCount; ++n1)
-            {
-                const int wIndex2 = wIndex1 + n1 * n2Count;
-
-                for (int n2 = 0; equal && n2 < n2Count; ++n2)
-                {
-                    if (mm.host_weight_gradients[wIndex2 + n2] != 10)
-                    {
-                        printf("error: %i\n", wIndex2 + n2);
-                        equal = false;
-                    }
-                }
-            }
-        }
+        int cuda = c[i];
+        work(a, b, c, i, sub);
+        if (cuda != c[i])
+            equal = false;
     }
-    printf("%f (%i)\n", mm.host_weight_gradients[0], (int)equal);
+    printf("%i (%i)\n", c[0], (int)equal);
 
     return 0;
 }
