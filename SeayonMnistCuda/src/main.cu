@@ -10,13 +10,13 @@ int main()
     constexpr bool load = false;
     constexpr bool printcost = true;
 
-    constexpr int runCount = 1000;
-    constexpr float learningRate = 0.00003f;
-    constexpr float momentum = 0.00001f;
-    constexpr int batch_size = 10;
+    constexpr int runCount = 1;
+    constexpr float learningRate = 0.03f;
+    constexpr float momentum = 0.5f;
+    constexpr int thread_count = 32;
 
     std::vector<int> layout = { 784, 16, 16, 10 };
-    std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
+    std::vector<ActivFunc> funcs = { ActivFunc::RELU, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
     cuda_seayon nn(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
     seayon nn2(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
 
@@ -49,7 +49,7 @@ int main()
             nn.printo(traindata, 0);
 
             auto start1 = std::chrono::high_resolution_clock::now();
-            nn.fit(runCount, traindata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
+            nn.fit(runCount, traindata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, thread_count);
             auto end1 = std::chrono::high_resolution_clock::now();
 
             auto start2 = std::chrono::high_resolution_clock::now();
@@ -68,7 +68,7 @@ int main()
         {
             printf("\n");
             nn.printo(testdata, 0);
-            nn.fit(runCount, testdata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, batch_size);
+            nn.fit(runCount, testdata, testdata, ParallelOptimizer::MINI_BATCH, learningRate, momentum, thread_count);
             nn.printo(testdata, 0);
         }
 

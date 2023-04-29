@@ -51,6 +51,8 @@ float dLeakyReLu(const float& a)
 	return (a > 0.0f ? 1.0f : 0.01f);
 }
 
+typedef float(*ActivFunc_t)(const float&);
+
 inline float randf(float min, float max)
 {
 	return min + (float)rand() / (float)(RAND_MAX / (max - min));
@@ -151,8 +153,8 @@ public:
 		const bool manageMemory;
 	public:
 		const ActivFunc func;
-		float (*activation)(const float& z);
-		float (*derivative)(const float& a);
+		ActivFunc_t activation;
+		ActivFunc_t derivative;
 
 		const int nCount;
 		const int wCount;
@@ -170,8 +172,8 @@ public:
 		// }
 
 		layer(const ActivFunc func,
-			float (*activation)(const float& z),
-			float (*derivative)(const float& a),
+			ActivFunc_t activation,
+			ActivFunc_t derivative,
 			float* const neurons,
 			float* const biases,
 			float* const weights,
@@ -919,7 +921,7 @@ private:
 
 			const float sample_share;
 
-			batch(const int& b, const float& sample_share, const seayon& main, const trainingdata<INPUTS, OUTPUTS>& traindata)
+			batch(const seayon& main, const float& sample_share)
 				: sample_share(sample_share)
 			{
 				std::vector<int> layout(main.layerCount);
@@ -962,7 +964,7 @@ private:
 
 			for (int i = 0; i < batch_count; ++i)
 			{
-				batches.emplace_back(i, sample_share, main, traindata);
+				batches.emplace_back(main, sample_share);
 			}
 		}
 
@@ -1013,10 +1015,11 @@ private:
 
 		{
 			const int& ncount = net.layers[LASTL].nCount;
+			const auto& deri = net.layers[LASTL].derivative;
 
 			for (int n2 = 0; n2 < ncount; ++n2)
 			{
-				thread.layers[LASTL].deltas[n2] = net.layers[LASTL].derivative(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+				thread.layers[LASTL].deltas[n2] = deri(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
 			}
 		}
 
@@ -1131,8 +1134,6 @@ private:
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
 	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
 	{
-		const int LASTL = layerCount - 1;
-
 		std::vector<std::vector<float>> bias_gradients(layerCount);
 		std::vector<std::vector<float>> weight_gradients(layerCount);
 
@@ -1163,7 +1164,6 @@ private:
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
 	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, const int& total_threads, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
 	{
-		const int LASTL = layerCount - 1;
 		const int sampleCount = batch_size * total_threads;
 
 		std::vector<std::thread> threads(total_threads);
