@@ -4,6 +4,7 @@ SeayonMnist/res/mnist/mnist_train.bin
 SeayonMnist/logs/*
 SeayonMnistCuda/logs/*
 build/**
+local
 !build/bin
 !build/bin/Release
 !build/bin/Release/**

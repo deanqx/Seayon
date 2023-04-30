@@ -43,11 +43,11 @@ namespace
 
         return nn.accruacy(data);
     }
-    float cost()
+    float loss()
     {
         seayon nn(layout, funcs, 1472, false);
 
-        return nn.cost(data);
+        return nn.loss(data);
     }
 
     bool equals()
@@ -101,9 +101,9 @@ TEST(Analysis, Accruacy)
 {
     EXPECT_EQ(accruacy(), 0.5f);
 }
-TEST(Analysis, Cost)
+TEST(Analysis, Loss)
 {
-    EXPECT_EQ(cost(), 0.53441453f);
+    EXPECT_EQ(loss(), 0.53441453f);
 }
 
 TEST(Management, Equals)

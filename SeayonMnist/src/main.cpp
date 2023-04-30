@@ -6,7 +6,7 @@
 int main()
 {
 	constexpr bool load = false;
-	constexpr bool printcost = true;
+	constexpr bool printloss = true;
 
 	constexpr int runCount = 50;
 	constexpr float learningRate = 0.03f;
@@ -15,7 +15,7 @@ int main()
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-	seayon nn(layout, funcs, 1472, printcost, "../../../../SeayonMnist/res/logs");
+	seayon nn(layout, funcs, 1472, printloss, "../../../../SeayonMnist/res/logs");
 
 	trainingdata<784, 10> testdata;
 
