@@ -22,7 +22,6 @@ endif()
 include_directories("include")
 include_directories("external/timez")
 add_subdirectory("SeayonDemo")
-add_subdirectory("local") # TEMP
 add_subdirectory("SeayonMnist")
 add_subdirectory("SeayonTrading")
 

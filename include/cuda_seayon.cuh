@@ -71,7 +71,7 @@ class cuda_seayon: public seayon
 {
 private:
 	using seayon::manageMemory;
-	using seayon::printcost;
+	using seayon::printloss;
 	using seayon::seed;
 	using seayon::logfolder;
 public:
@@ -87,14 +87,14 @@ public:
 	using seayon::pulse;
 	using seayon::print;
 	using seayon::printo;
-	using seayon::cost;
+	using seayon::loss;
 	using seayon::accruacy;
 private:
 	using seayon::fitlog;
 
 public:
-	cuda_seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printcost = true, std::string logfolder = std::string())
-		: seayon(layout, a, seed, printcost, logfolder)
+	cuda_seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printloss = true, std::string logfolder = std::string())
+		: seayon(layout, a, seed, printloss, logfolder)
 	{
 		cudaMemcpyFromSymbol(&h_Sigmoid, d_Sigmoid, sizeof(ActivFunc_t));
 		cudaMemcpyFromSymbol(&h_dSigmoid, d_dSigmoid, sizeof(ActivFunc_t));
@@ -271,7 +271,7 @@ public:
 					seayon::layer* seayon_layers;
 					cudaMalloc(&seayon_layers, main.layerCount * sizeof(seayon::layer));
 					cudaMemcpy(seayon_layers, linker_seayon_layers.data(), main.layerCount * sizeof(seayon::layer), cudaMemcpyHostToDevice);
-					linker_net.reset(new cuda_seayon(seayon_layers, main.layerCount, main.printcost, main.seed, main.logfolder, false));
+					linker_net.reset(new cuda_seayon(seayon_layers, main.layerCount, main.printloss, main.seed, main.logfolder, false));
 
 					cudaMemcpy(net, linker_net.get(), sizeof(cuda_seayon), cudaMemcpyHostToDevice);
 					reset(main);
@@ -371,7 +371,7 @@ public:
 			cudaMalloc(&on_device, sizeof(device));
 			on_host.linker_device.reset(new device(batch_count, batch_size, n, m, main, traindata));
 
-			const typename trainingdata<INPUTS, OUTPUTS>::sample* device_samples = &(*on_host.linker_device->linker_traindata.get())[0]; // TEMP -> &(*on_host.linker_device->linker_traindata)[0]
+			const typename trainingdata<INPUTS, OUTPUTS>::sample* device_samples = &(*on_host.linker_device->linker_traindata)[0];
 			for (int i = 0; i < traindata.size(); ++i)
 			{
 				on_host.device_sample_pointers[i] = device_samples + i;
@@ -623,7 +623,7 @@ void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const fl
 
 	printf("GPU memory usage: %llumb used | %llumb used by seayon | %llumb free\n", used_bytes, used_by_bytes, free_bytes);
 
-	fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printcost, logfolder);
+	fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
 
 	for (int run = 1; run <= max_iterations; ++run)
 	{

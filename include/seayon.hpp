@@ -68,11 +68,19 @@ enum class ActivFunc
 
 enum class Optimizer
 {
+	// Stochastic Gradient Descent
 	STOCHASTIC,
+	// Mini batch Gradient Descent
 	MINI_BATCH,
+	// ADAM algorithm
 	ADAM
 };
 
+/**
+ * Stores and manages dataset in memory
+ * @param INPUTS Input layer neurons
+ * @param OUTPUTS Output layer neurons
+ */
 template <int INPUTS, int OUTPUTS>
 struct trainingdata
 {
@@ -84,7 +92,7 @@ struct trainingdata
 
 private:
 	sample* samples = nullptr;
-	size_t sampleCount = 0;
+	int sampleCount = 0;
 	bool manageMemory = true;
 
 public:
@@ -99,7 +107,7 @@ public:
 
 	trainingdata(std::initializer_list<sample> list)
 	{
-		reserve(list.size());
+		reserve((int)list.size());
 
 		int i = 0;
 		for (auto elem = list.begin(); elem != list.end(); ++elem)
@@ -108,14 +116,19 @@ public:
 		}
 	}
 
-	trainingdata(sample* samples, const size_t sampleCount, const bool manageMemory)
+	/**
+	 * Introduced for cuda
+	 * @param manageMemory When enabled sample array will be deleted
+	 */
+	trainingdata(sample* samples, const int sampleCount, const bool manageMemory)
 	{
 		this->samples = samples;
 		this->sampleCount = sampleCount;
 		this->manageMemory = manageMemory;
 	}
 
-	inline void reserve(const size_t reserved)
+	// Allocates new memory without clearing it (size() is updated)
+	inline void reserve(const int reserved)
 	{
 		this->~trainingdata();
 
@@ -123,7 +136,11 @@ public:
 		sampleCount = reserved;
 	}
 
-	inline size_t size() const
+	/**
+	 * Introduced for cuda
+	 * @param manageMemory When enabled sample array will be deleted
+	 */
+	inline int size() const
 	{
 		return sampleCount;
 	}
@@ -143,7 +160,7 @@ public:
 	}
 };
 
-// Open source Neural Network library in C++ with lots of easy to use features. Copyright by Dean Schneider (deanqx, Sawey)
+// Open source Neural Network library in C++
 class seayon
 {
 public:
@@ -159,11 +176,12 @@ public:
 		const int nCount;
 		const int wCount;
 
+		// TODO replace with: layers[l2].weights[n1 * n2Count + n2]
 		/**
-		 * Goes from second to first
-		 * @tparam layers[l2].weights[n2 * n1Count + n1]
-		 */
-		float* const weights; // TODO replace with: layers[l2].weights[n1 * n2Count + n2]
+		* Goes from second to first
+		* @tparam layers[l2].weights [n2 * n1Count + n1]
+		*/
+		float* const weights;
 		float* const neurons;
 		float* const biases;
 
@@ -241,7 +259,7 @@ public:
 protected:
 	const bool manageMemory;
 	const int seed;
-	const bool printcost;
+	const bool printloss;
 	const std::string logfolder;
 
 public:
@@ -250,14 +268,14 @@ public:
 
 	seayon(layer* layers,
 		const int layerCount,
-		const bool printcost,
+		const bool printloss,
 		const int seed,
 		const std::string logfolder,
 		const bool manageMemory):
 		layers(layers),
 		layerCount(layerCount),
 		seed(seed),
-		printcost(printcost),
+		printloss(printloss),
 		logfolder(logfolder),
 		manageMemory(manageMemory)
 	{
@@ -265,13 +283,16 @@ public:
 
 	/**
 	 * Creates network where every neuron is connected to each neuron in the next layer.
-	 * @param layerCount Starts with the input layer (Minimum 2 layers)
-	 * @param ActivFunc Activation function for all neurons.
+	 * @param layout Starts with the input layer (Minimum 2 layers)
+	 * @param a Activation function for each layer (first one will be ignored)
+	 * @param seed Random weight seed (-1 generates random seed by time)
+	 * @param printloss Print loss() value while training (every second, high performance consumption)
+	 * @param logfolder Write log file for training progress (keep empty to disable)
 	 */
-	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printcost = true, std::string logfolder = std::string())
-		: manageMemory(true), seed(seed), printcost(printcost),
+	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printloss = true, std::string logfolder = std::string())
+		: manageMemory(true), seed(seed), printloss(printloss),
 		logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
-		layerCount(layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
+		layerCount((int)layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 	{
 		if (seed < 0)
 			srand((unsigned int)time(NULL));
@@ -298,7 +319,10 @@ public:
 		}
 	}
 
-	// Saves network to a .nn file
+	/**
+	 * Stores all weights and biases in one binary file
+	 * @return size of buffer
+	 */
 	size_t save(std::ofstream& file)
 	{
 		std::vector<char> buffer;
@@ -312,6 +336,10 @@ public:
 
 		return buffersize;
 	}
+	/**
+	 * Stores all weights and biases in one binary buffer
+	 * @return size of buffer
+	 */
 	size_t save(std::vector<char>& buffer)
 	{
 		size_t buffersize = 0;
@@ -337,8 +365,9 @@ public:
 		return buffersize;
 	}
 	/**
-	 * Loads .nn file
-	 * @exception Currupt .nn files will throw an error!
+	 * Loads binary network file
+	 * @exception Currupt files can through an error
+	 * @return if successful
 	 */
 	bool load(std::ifstream& file)
 	{
@@ -358,8 +387,8 @@ public:
 		return false;
 	}
 	/**
-	 * Loads network from a std::string
-	 * @exception Currupt string will throw an error!
+	 * Loads binary network buffer
+	 * @exception Currupt data can through an error
 	 */
 	void load(char* buffer)
 	{
@@ -380,6 +409,7 @@ public:
 			pointer += nSize[i];
 		}
 	}
+	// Copies weights and biases to a different instance
 	inline void copy(seayon& to) const
 	{
 		for (int l = 1; l < layerCount; ++l)
@@ -389,8 +419,8 @@ public:
 		}
 	}
 	/**
-	 * Combines two networks with the average values.
-	 * @param with List of networks
+	 * Combines array of networks by averaging the values.
+	 * @param with Array of networks
 	 * @param count How many networks
 	 */
 	void combine(seayon* with, int count)
@@ -426,6 +456,10 @@ public:
 			layers[0].neurons[n1] = an / (count + 1);
 		}
 	}
+	/**
+	 * Compares weights and biases
+	 * @return true: equal; false: not equal
+	 */
 	bool equals(seayon& second)
 	{
 		bool equal = true;
@@ -442,7 +476,10 @@ public:
 		return equal;
 	}
 
-	// Calculates network outputs
+	/**
+	 * Calculates network's outputs
+	 * @return Output layer/array
+	 */
 	template <int INPUTS, int OUTPUTS>
 	inline float* pulse(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
 	{
@@ -556,21 +593,24 @@ public:
 		SetConsoleTextAttribute(cmd, 7);
 		printf("\t-----------------------------------------------\n\n");
 	}
-	// Prints all values with the cost() and the accruacy().
+	/**
+	 * Prints all values with the loss() and the accruacy()
+	 * @return loss value
+	 */
 	template <int INPUTS, int OUTPUTS>
 	float print(trainingdata<INPUTS, OUTPUTS>& data, int sample)
 	{
 		pulse<INPUTS, OUTPUTS>(data[sample]);
 		print();
 
-		float a = accruacy(data);
-		printf("\t\tCost\t\t%.3f\n", cost(data));
+		float c = loss(data);
+		printf("\t\tloss\t\t%.3f\n", c);
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 		printf("\t-----------------------------------------------\n\n");
 
-		return a;
+		return c;
 	}
-	// Prints out the output layer. pulse() should be called before
+	// Prints only the output layer. pulse() should be called before
 	void printo()
 	{
 		HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -617,27 +657,30 @@ public:
 		SetConsoleTextAttribute(cmd, 7);
 		printf("\t-----------------------------------------------\n\n");
 	}
-	// Prints out the output layer with the cost() and the accruacy().
+	/**
+	 * Prints only the output layer with the loss() and the accruacy()
+	 * @return loss value
+	 */
 	template <int INPUTS, int OUTPUTS>
 	float printo(const trainingdata<INPUTS, OUTPUTS>& data, const int sample)
 	{
 		pulse<INPUTS, OUTPUTS>(data[sample]);
 		printo();
 
-		float a = accruacy(data);
-		printf("\t\tCost\t\t%.3f\n", cost(data));
+		float c = loss(data);
+		printf("\t\tloss\t\t%.3f\n", c);
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 		printf("\t-----------------------------------------------\n\n");
 
-		return a;
+		return c;
 	}
 	/**
-	 * Describes how far apart the optimal outputs from the outputs are.
-	 * @param outputs This are the optimal outputs
-	 * @return 0.0 = Best; 1.0 or more = Bad
+	 * for each output neuron: (x - OPTIMAL)^2
+	 * @param sample Optimal outputs (testdata)
+	 * @return lower means better
 	 */
 	template <int INPUTS, int OUTPUTS>
-	float cost(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
+	float loss(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
 	{
 		pulse<INPUTS, OUTPUTS>(sample);
 
@@ -651,15 +694,14 @@ public:
 		}
 
 		return c;
-		// return c / (float)OUTPUTS;
 	}
 	/**
-	 * Describes how far apart the optimal outputs from the outputs are.
-	 * @param outputs This are the optimal outputs
-	 * @return 0.0 = Best; 1.0 or more = Bad
+	 * for each output neuron: (x - OPTIMAL)^2
+	 * @param data Optimal outputs (testdata)
+	 * @return lower means better
 	 */
 	template <int INPUTS, int OUTPUTS>
-	float cost(const trainingdata<INPUTS, OUTPUTS>& data)
+	float loss(const trainingdata<INPUTS, OUTPUTS>& data)
 	{
 		if (!check(data))
 		{
@@ -670,16 +712,15 @@ public:
 		float c = 0;
 		for (int i = 0; i < data.size(); ++i)
 		{
-			c += cost<INPUTS, OUTPUTS>(data[i]);
+			c += loss<INPUTS, OUTPUTS>(data[i]);
 		}
 
 		return c / (float)data.size();
 	}
 	/**
-	 * Describes how often the network would choose the right neurons to fire (neuron value >= 0.5).
-	 * @param inputs Set values of the input layer
-	 * @param outputs This are the optimal outputs
-	 * @return 1.0 = 100%; 0.5f = 50%; 0.0 = 0%
+	 * for each sample: does highest output matches optimal highest
+	 * @param data Optimal outputs (testdata)
+	 * @return percentage, higher means better
 	 */
 	template <int INPUTS, int OUTPUTS>
 	float accruacy(const trainingdata<INPUTS, OUTPUTS>& data)
@@ -707,11 +748,14 @@ public:
 	}
 
 	/**
-	 * Backpropagation is an efficient training algorithm which works for many cases.
-	 * @param runCount How many iterations. Tip: Start small with like 5 - 20
-	 * @param print Writes detailed information about the progress to the console.
-	 * @param learningRate Large numbers will take less runs but can "over shoot" the right value.
-	 * @param momentum Large numbers will take less runs but can "over shoot" the right value.
+	 * Trains the network with Gradient Descent to minimize the loss function
+	 * @param max_iterations Begin small
+	 * @param traindata The large dataset
+	 * @param testdata The small dataset which the network never saw before
+	 * @param optimizer Search online for further information
+	 * @param learningRate Lower values generate more reliable but also slower results
+	 * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
+	 * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
 	 */
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
 	void fit(int max_iterations, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata,
@@ -757,7 +801,6 @@ public:
 	}
 
 protected:
-	// Returns false if training data is currupt (quickcheck)
 	template <int INPUTS, int OUTPUTS>
 	inline bool check(const trainingdata<INPUTS, OUTPUTS>& data) const
 	{
@@ -771,7 +814,7 @@ protected:
 		const int sampleCount;
 		const trainingdata<INPUTS, OUTPUTS>& testdata;
 		const int max_iterations;
-		const bool printcost;
+		const bool printloss;
 
 		std::unique_ptr<std::ofstream> file{};
 		size_t lastLogLenght = 0;
@@ -801,8 +844,8 @@ protected:
 				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
 
 				float c = -1.0f;
-				if (printcost)
-					c = parent.cost(testdata);
+				if (printloss)
+					c = parent.loss(testdata);
 
 				float progress = (float)run * 100.0f / (float)max_iterations;
 
@@ -836,7 +879,7 @@ protected:
 					<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 
 				if (c > -1.0f)
-					message << "Cost: " << std::fixed << std::setprecision(4) << c;
+					message << "loss: " << std::fixed << std::setprecision(4) << c;
 
 				std::cout << std::string(lastLogLenght, '\b') << message.str();
 				lastLogLenght = message.str().length();
@@ -853,13 +896,13 @@ protected:
 			const int& sampleCount,
 			const trainingdata<INPUTS, OUTPUTS>& testdata,
 			const int& max_iterations,
-			const bool& printcost,
+			const bool& printloss,
 			const std::string& logfolder):
 			parent(parent),
 			sampleCount(sampleCount),
 			testdata(testdata),
 			max_iterations(max_iterations),
-			printcost(printcost)
+			printloss(printloss)
 		{
 			if (!logfolder.empty())
 			{
@@ -877,7 +920,7 @@ protected:
 				}
 
 				file.reset(new std::ofstream(path));
-				*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),Cost" << std::endl;
+				*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
 			}
 
 			printf("\n");
@@ -932,7 +975,7 @@ private:
 					a[l] = main.layers[l].func;
 				}
 
-				net.reset(new seayon(layout, a, main.seed, main.printcost, main.logfolder));
+				net.reset(new seayon(layout, a, main.seed, main.printloss, main.logfolder));
 				main.copy(*net.get());
 
 				layers.reserve(main.layerCount);
@@ -1145,7 +1188,7 @@ private:
 
 		backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f, traindata.size(), 1, *this, traindata);
 
-		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printcost, logfolder);
+		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
 
 		for (int run = 1; run <= max_iterations; ++run)
 		{
@@ -1170,7 +1213,7 @@ private:
 
 		backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)sampleCount, sampleCount, total_threads, *this, traindata);
 
-		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printcost, logfolder);
+		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
 
 		for (int run = 1; run <= max_iterations; ++run)
 		{
