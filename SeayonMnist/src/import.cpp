@@ -54,13 +54,14 @@ bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, const std::
     else
     {
         std::ifstream csv(file_without_extension + ".csv");
-        std::ofstream new_binary(file_without_extension + ".bin", std::ios::binary);
 
         if (!csv.is_open())
         {
             printf("Cannot open csv file\n");
             return false;
         }
+
+        std::ofstream new_binary(file_without_extension + ".bin", std::ios::binary);
 
         data.reserve(sampleCount);
         std::vector<std::string> lines(sampleCount);

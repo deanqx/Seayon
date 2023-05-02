@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD 17)
 option(CUDA_DISABLED OFF)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+set(CUDA_DISABLED ON)
+
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
@@ -32,5 +34,6 @@ add_subdirectory("external/googletest")
 endif()
 
 if(NOT CUDA_DISABLED)
+    message(ERROR, ${CUDA_DISABLED})
     add_subdirectory("SeayonMnistCuda")
 endif()

@@ -3,8 +3,11 @@ SeayonMnist/res/mnist/mnist_train.csv
 SeayonMnist/res/mnist/mnist_train.bin
 SeayonMnist/logs/*
 SeayonMnistCuda/logs/*
+SeayonTrading/res/*
 build/**
 local
+!SeayonTrading/res/demo.py
+!SeayonTrading/res/test.py
 !build/bin
 !build/bin/Release
 !build/bin/Release/**

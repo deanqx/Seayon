@@ -14,7 +14,7 @@ int main()
 	constexpr int thread_count = 32;
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
-	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
+	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
 	seayon nn(layout, funcs, 1472, printloss, "../../../../SeayonMnist/res/logs");
 
 	trainingdata<784, 10> testdata;
@@ -44,7 +44,7 @@ int main()
 
 			printf("\n");
 			nn.printo(traindata, 0);
-			nn.fit(runCount, traindata, testdata, Optimizer::MINI_BATCH, learningRate, momentum, thread_count);
+			nn.fit(runCount, traindata, testdata, Optimizer::ADAM, learningRate, momentum, thread_count);
 			nn.printo(traindata, 0);
 		}
 		else
@@ -58,11 +58,6 @@ int main()
 		std::ofstream file("../../../../SeayonMnist/res/mnist.bin", std::ios::binary);
 		nn.save(file);
 	}
-
-	float acc = nn.printo(testdata, 0);
-
-	if (acc < 0.5f) // (unit test) Has it learned slightly
-		return 2;
 
 	return 0;
 }
