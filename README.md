@@ -1,16 +1,8 @@
 ![Console Screenshot](https://raw.githubusercontent.com/deanqx/Seayon/stable/preview.png)
 
-# Version 1.1
+# Version 1.2 Early Access
 
-:heavy_check_mark: New optimizer: Mini batches
-
-:heavy_check_mark: GPU accelerated training
-
-:heavy_check_mark: Improved data structure
-
-:heavy_check_mark: Different activation function for every layer
-
-:heavy_check_mark: Fast saving and loading
+:heavy_check_mark: ...
 
 # Quick start
 

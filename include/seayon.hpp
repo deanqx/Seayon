@@ -13,6 +13,9 @@
 #include <random>
 #include <thread>
 #include <windows.h>
+#include <conio.h>
+
+// TODO add namespace
 
 float Sigmoid(const float& z)
 {
@@ -60,6 +63,7 @@ inline float randf(float min, float max)
 
 enum class ActivFunc
 {
+	LINEAR,
 	SIGMOID,
 	TANH,
 	RELU,
@@ -70,8 +74,6 @@ enum class Optimizer
 {
 	// Stochastic Gradient Descent
 	STOCHASTIC,
-	// Mini batch Gradient Descent
-	MINI_BATCH,
 	// ADAM algorithm
 	ADAM
 };
@@ -127,8 +129,11 @@ public:
 		this->manageMemory = manageMemory;
 	}
 
-	// Allocates new memory without clearing it (size() is updated)
-	inline void reserve(const int reserved)
+	/**
+	 * Allocates new memory without clearing it (size() is updated)
+	 * @param reserved New sample count
+	 */
+	void reserve(const int reserved)
 	{
 		this->~trainingdata();
 
@@ -140,14 +145,104 @@ public:
 	 * Introduced for cuda
 	 * @param manageMemory When enabled sample array will be deleted
 	 */
-	inline int size() const
+	int size() const
 	{
 		return sampleCount;
 	}
 
-	inline sample& operator[](const int i) const
+	sample& operator[](const int i) const
 	{
 		return samples[i];
+	}
+
+	/**
+	 * @return Highest value in dataset
+	 */
+	float max() const
+	{
+		float max = samples[0].inputs[0];
+
+		for (int s = 0; s < sampleCount; ++s)
+		{
+			for (int i = 0; i < INPUTS; ++i)
+			{
+				const float& x = samples[s].inputs[i];
+
+				if (x > max)
+					max = x;
+			}
+
+			for (int i = 0; i < OUTPUTS; ++i)
+			{
+				const float& x = samples[s].outputs[i];
+
+				if (x > max)
+					max = x;
+			}
+		}
+
+		return max;
+	}
+
+	/**
+	 * @return Lowest value in dataset
+	 */
+	float min() const
+	{
+		float min = samples[0].inputs[0];
+
+		for (int s = 0; s < sampleCount; ++s)
+		{
+			for (int i = 0; i < INPUTS; ++i)
+			{
+				const float& x = samples[s].inputs[i];
+
+				if (x < min)
+					min = x;
+			}
+
+			for (int i = 0; i < OUTPUTS; ++i)
+			{
+				const float& x = samples[s].outputs[i];
+
+				if (x < min)
+					min = x;
+			}
+		}
+
+		return min;
+	}
+
+	/**
+	 * Normalizes all values between max and min
+	 * @param max Highest value in dataset (use this->max())
+	 * @param min Lowest value in dataset (use this->max())
+	 */
+	void normalize(const float max, const float min)
+	{
+		const float range = max - min;
+
+		for (int s = 0; s < sampleCount; ++s)
+		{
+			for (int i = 0; i < INPUTS; ++i)
+			{
+				samples[s].inputs[i] = (samples[s].inputs[i] - min) / range;
+			}
+
+			for (int i = 0; i < OUTPUTS; ++i)
+			{
+				samples[s].outputs[i] = (samples[s].outputs[i] - min) / range;
+			}
+		}
+	}
+
+	/**
+	 * Randomizes order of samples
+	 */
+	void shuffle()
+	{
+		std::random_device rm_seed;
+		std::shuffle(samples, samples + sampleCount - 1, std::mt19937(rm_seed()));
 	}
 
 	~trainingdata()
@@ -176,7 +271,6 @@ public:
 		const int nCount;
 		const int wCount;
 
-		// TODO replace with: layers[l2].weights[n1 * n2Count + n2]
 		/**
 		* Goes from second to first
 		* @tparam layers[l2].weights [n2 * n1Count + n1]
@@ -294,17 +388,22 @@ public:
 		logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 		layerCount((int)layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 	{
+		if (layout.size() != a.size() + 1)
+		{
+			printf("--- error: layer and activation array not matching ---\n");
+			return;
+		}
 		if (seed < 0)
 			srand((unsigned int)time(NULL));
 		else
 			srand(seed);
 
-		new (&layers[0]) layer(0, layout[0], a[0]);
+		new (&layers[0]) layer(0, layout[0], ActivFunc::LINEAR);
 		for (int l2 = 1; l2 < layerCount; ++l2)
 		{
 			const int l1 = l2 - 1;
 
-			new (&layers[l2]) layer(layout[l1], layout[l2], a[l2]);
+			new (&layers[l2]) layer(layout[l1], layout[l2], a[l1]);
 		}
 	}
 
@@ -321,6 +420,7 @@ public:
 
 	/**
 	 * Stores all weights and biases in one binary file
+	 * @param file use std::ios::binary
 	 * @return size of buffer
 	 */
 	size_t save(std::ofstream& file)
@@ -336,6 +436,7 @@ public:
 
 		return buffersize;
 	}
+	// TODO save and load layout too
 	/**
 	 * Stores all weights and biases in one binary buffer
 	 * @return size of buffer
@@ -366,6 +467,7 @@ public:
 	}
 	/**
 	 * Loads binary network file
+	 * @param file use std::ios::binary
 	 * @exception Currupt files can through an error
 	 * @return if successful
 	 */
@@ -478,7 +580,7 @@ public:
 
 	/**
 	 * Calculates network's outputs
-	 * @return Output layer/array
+	 * @return Pointer to output layer/array
 	 */
 	template <int INPUTS, int OUTPUTS>
 	inline float* pulse(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
@@ -604,7 +706,7 @@ public:
 		print();
 
 		float c = loss(data);
-		printf("\t\tloss\t\t%.3f\n", c);
+		printf("\t\tLoss\t\t%.5f\n", c);
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 		printf("\t-----------------------------------------------\n\n");
 
@@ -668,14 +770,14 @@ public:
 		printo();
 
 		float c = loss(data);
-		printf("\t\tloss\t\t%.3f\n", c);
+		printf("\t\tLoss\t\t%.5f\n", c);
 		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
 		printf("\t-----------------------------------------------\n\n");
 
 		return c;
 	}
 	/**
-	 * for each output neuron: (x - OPTIMAL)^2
+	 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
 	 * @param sample Optimal outputs (testdata)
 	 * @return lower means better
 	 */
@@ -693,10 +795,10 @@ public:
 			c += x * x;
 		}
 
-		return c;
+		return c / (float)OUTPUTS;
 	}
 	/**
-	 * for each output neuron: (x - OPTIMAL)^2
+	 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
 	 * @param data Optimal outputs (testdata)
 	 * @return lower means better
 	 */
@@ -748,7 +850,28 @@ public:
 	}
 
 	/**
-	 * Trains the network with Gradient Descent to minimize the loss function
+	 * Transforms normalized output back to original scale
+	 * @param max Highest value in dataset (use this->max())
+	 * @param min Lowest value in dataset (use this->max())
+	 * @return Denormalized output layer
+	 */
+	std::vector<float> denormalized(const float max, const float min) const
+	{
+		const layer& last = layers[layerCount - 1];
+		const float range = max - min;
+
+		std::vector<float> out(last.nCount);
+
+		for (int i = 0; i < last.nCount; ++i)
+		{
+			out[i] = last.neurons[i] * range + min;
+		}
+
+		return out;
+	}
+
+	/**
+	 * Trains the network with Gradient Descent to minimize the loss function (you can cancel with 'q')
 	 * @param max_iterations Begin small
 	 * @param traindata The large dataset
 	 * @param testdata The small dataset which the network never saw before
@@ -790,12 +913,9 @@ public:
 			if (total_threads > traindata.size() / batch_size || total_threads < 0)
 				total_threads = 1;
 
-			if (optimizer == Optimizer::MINI_BATCH)
+			if (optimizer == Optimizer::ADAM)
 			{
 				mini_batch(max_iterations, learningRate, momentum, batch_size, total_threads, traindata, testdata);
-			}
-			else if (optimizer == Optimizer::ADAM)
-			{
 			}
 		}
 	}
@@ -823,6 +943,9 @@ protected:
 		std::chrono::high_resolution_clock::time_point sampleTimeLast;
 		std::chrono::high_resolution_clock::time_point last;
 
+		float lastLoss[5]{};
+		int lastLossIndex = 0;
+
 		inline void resolveTime(long long seconds, int* resolved) const
 		{
 			resolved[0] = (int)(seconds / 3600LL);
@@ -833,19 +956,20 @@ protected:
 		}
 
 	public:
-		void log(int run)
+		float log(int run)
 		{
+			float l = -1.0f;
+
 			auto now = std::chrono::high_resolution_clock::now();
 			std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-			if (sampleTime.count() > 1000000LL || run == max_iterations)
+			if (sampleTime.count() > 1000000LL || run == max_iterations || run == 0)
 			{
 				sampleTimeLast = now;
 				std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
 				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
 
-				float c = -1.0f;
 				if (printloss)
-					c = parent.loss(testdata);
+					l = parent.loss(testdata);
 
 				float progress = (float)run * 100.0f / (float)max_iterations;
 
@@ -878,18 +1002,33 @@ protected:
 					<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
 					<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 
-				if (c > -1.0f)
-					message << "loss: " << std::fixed << std::setprecision(4) << c;
+				if (l > -1.0f)
+					message << "loss: " << std::fixed << std::setprecision(5) << l;
 
-				std::cout << std::string(lastLogLenght, '\b') << message.str();
-				lastLogLenght = message.str().length();
+				const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
+				std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
+				lastLogLenght = message.str().length() + cleared;
 
 				if (file.get() != nullptr)
-					*file << progress << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << c << '\n';
+					*file << progress << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
+
+				if (lastLoss[0] <= l
+					&& lastLoss[1] <= l
+					&& lastLoss[2] <= l
+					&& lastLoss[3] <= l
+					&& lastLoss[4] <= l && run > 10 || kbhit() && getch() == 'q')
+				{
+					return 0.0f;
+				}
+				lastLoss[lastLossIndex++] = l;
+				if (lastLossIndex == 5)
+					lastLossIndex = 0;
 
 				lastLogAt = run;
 				last = std::chrono::high_resolution_clock::now();
 			}
+
+			return l;
 		}
 
 		fitlog(seayon& parent,
@@ -927,6 +1066,7 @@ protected:
 			overall = std::chrono::high_resolution_clock::now();
 			last = overall;
 			sampleTimeLast = overall;
+			lastLoss[lastLossIndex++] = 999999.0f;
 			log(0);
 		}
 	};
@@ -968,11 +1108,12 @@ private:
 				: sample_share(sample_share)
 			{
 				std::vector<int> layout(main.layerCount);
-				std::vector<ActivFunc> a(main.layerCount);
+				std::vector<ActivFunc> a(main.layerCount - 1);
 				for (int l = 0; l < main.layerCount; ++l)
 				{
 					layout[l] = main.layers[l].nCount;
-					a[l] = main.layers[l].func;
+					if (l > 0)
+						a[l - 1] = main.layers[l].func;
 				}
 
 				net.reset(new seayon(layout, a, main.seed, main.printloss, main.logfolder));
@@ -1013,8 +1154,6 @@ private:
 
 		inline void apply(seayon& main)
 		{
-			// const float batch_share = 1.0f / batch_count;
-
 			for (int b = 0; b < batch_count; ++b)
 			{
 				for (int l = 1; l < main.layerCount; ++l)
@@ -1058,11 +1197,11 @@ private:
 
 		{
 			const int& ncount = net.layers[LASTL].nCount;
-			const auto& deri = net.layers[LASTL].derivative;
+			const auto& func = net.layers[LASTL].derivative;
 
 			for (int n2 = 0; n2 < ncount; ++n2)
 			{
-				thread.layers[LASTL].deltas[n2] = deri(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+				thread.layers[LASTL].deltas[n2] = func(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
 			}
 		}
 
@@ -1071,15 +1210,15 @@ private:
 			const int l1 = l2 - 1;
 			const int& n1count = net.layers[l1].nCount;
 			const int& n2count = net.layers[l2].nCount;
-			const auto& deri = net.layers[l1].derivative;
+			const auto& func = net.layers[l1].derivative;
 
 			for (int n1 = 0; n1 < n1count; ++n1)
 			{
-				float error = 0;
+				float delta = 0;
 				for (int n2 = 0; n2 < n2count; ++n2)
-					error += thread.layers[l2].deltas[n2] * net.layers[l2].weights[n2 * n1count + n1];
+					delta += net.layers[l2].weights[n2 * n1count + n1] * thread.layers[l2].deltas[n2];
 
-				thread.layers[l1].deltas[n1] = deri(net.layers[l1].neurons[n1]) * error;
+				thread.layers[l1].deltas[n1] = func(net.layers[l1].neurons[n1]) * delta;
 			}
 		}
 
@@ -1091,87 +1230,24 @@ private:
 
 			for (int n2 = 0; n2 < n2count; ++n2)
 			{
-				const float d = -thread.layers[l2].deltas[n2];
+				const float dn = -thread.layers[l2].deltas[n2];
+				const float step = n * dn;
 
-				thread.layers[l2].bias_gradients[n2] += (n * d + m * thread.layers[l2].last_gb[n2]) * thread.sample_share;
-				thread.layers[l2].last_gb[n2] = d;
-
-				const int row = n2 * n1count;
-				for (int n1 = 0; n1 < n1count; ++n1)
-				{
-					const int windex = row + n1;
-					const float gw = d * net.layers[l1].neurons[n1];
-
-					thread.layers[l2].weight_gradients[windex] += (n * gw + m * thread.layers[l2].last_gw[windex]) * thread.sample_share;
-					thread.layers[l2].last_gw[windex] = gw;
-				}
-			}
-		}
-
-		/*{
-			auto& tlay = thread.layers[LASTL];
-			const auto& lay = net.layers[LASTL];
-			const auto& deri = lay.derivative;
-
-			const int& ncount = lay.nCount;
-
-			for (int n2 = 0; n2 < ncount; ++n2)
-			{
-				const float& neu = lay.neurons[n2];
-				tlay.deltas[n2] = deri(neu) * 2.0f * (neu - sample.outputs[n2]);
-			}
-		}
-
-		for (int l2 = LASTL; l2 >= 2; --l2)
-		{
-			const int l1 = l2 - 1;
-			const auto& tlay = thread.layers[l2];
-			const auto& lay1 = net.layers[l1];
-			const auto& lay2 = net.layers[l2];
-			const auto& deri = lay1.derivative;
-
-			const int& n1count = lay1.nCount;
-			const int& n2count = net.layers[l2].nCount;
-
-			for (int n1 = 0; n1 < n1count; ++n1)
-			{
-				float error = 0;
-				for (int n2 = 0; n2 < n2count; ++n2)
-					error += tlay.deltas[n2] * lay2.weights[n2 * n1count + n1];
-
-				thread.layers[l1].deltas[n1] = deri(lay1.neurons[n1]) * error;
-			}
-		}
-
-		for (int l2 = LASTL; l2 >= 1; --l2)
-		{
-			const int l1 = l2 - 1;
-			auto& tlay = thread.layers[l2];
-			const auto& lay = net.layers[l1];
-
-			const int& n1count = lay.nCount;
-			const int& n2count = net.layers[l2].nCount;
-
-			for (int n2 = 0; n2 < n2count; ++n2)
-			{
-				auto& last_gb = tlay.last_gb[n2];
-				const float d = -tlay.deltas[n2];
-
-				tlay.bias_gradients[n2] += (n * d + m * last_gb) * thread.sample_share;
-				last_gb = d;
+				thread.layers[l2].bias_gradients[n2] += (step + m * thread.layers[l2].last_gb[n2]) * thread.sample_share;
+				thread.layers[l2].last_gb[n2] = step;
 
 				const int row = n2 * n1count;
 				for (int n1 = 0; n1 < n1count; ++n1)
 				{
 					const int windex = row + n1;
-					auto& last_gw = tlay.last_gw[windex];
-					const float gw = d * lay.neurons[n1];
+					const float dw = dn * net.layers[l1].neurons[n1];
+					const float stepw = n * dw;
 
-					tlay.weight_gradients[windex] += (n * gw + m * last_gw) * thread.sample_share;
-					last_gw = gw;
+					thread.layers[l2].weight_gradients[windex] += (stepw + m * thread.layers[l2].last_gw[windex]) * thread.sample_share;
+					thread.layers[l2].last_gw[windex] = stepw;
 				}
 			}
-		}*/
+		}
 	}
 
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
@@ -1198,7 +1274,8 @@ private:
 				matrix.apply(*this);
 			}
 
-			logger.log(run);
+			if (logger.log(run) == 0.0f)
+				break;
 		}
 
 		printf("\n\n");
@@ -1239,7 +1316,8 @@ private:
 			matrix.apply(*this);
 			matrix.shuffle();
 
-			logger.log(run);
+			if (logger.log(run) == 0.0f)
+				break;
 		}
 
 		printf("\n\n");
