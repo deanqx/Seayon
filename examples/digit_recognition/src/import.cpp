@@ -4,7 +4,7 @@
 #include <thread>
 #include "seayon.hpp"
 
-static void parse_line(const std::string* lines, const int begin, const int end, trainingdata<784, 10>& data)
+static void parse_line(const std::string* lines, const int begin, const int end, seayon::dataset<784, 10>& data)
 {
     // auto start = std::chrono::high_resolution_clock::now();
 
@@ -36,7 +36,7 @@ static void parse_line(const std::string* lines, const int begin, const int end,
     // printf("FINISHED[%i -> %i(%i)] (%ims)\n", begin, end, end + 1 - begin, (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
 }
 
-bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, const std::string file_without_extension, int thread_count = 1)
+bool ImportMnist(const int sampleCount, seayon::dataset<784, 10>& data, const std::string file_without_extension, int thread_count = 1)
 {
     const int per_thread = sampleCount / thread_count;
 
@@ -49,7 +49,7 @@ bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, const std::
     if (binary.is_open())
     {
         data.reserve(sampleCount);
-        binary.read((char*)&data[0], sampleCount * sizeof(typename trainingdata<784, 10>::sample));
+        binary.read((char*)&data[0], sampleCount * sizeof(typename seayon::dataset<784, 10>::sample));
     }
     else
     {
@@ -91,7 +91,7 @@ bool ImportMnist(const int sampleCount, trainingdata<784, 10>& data, const std::
             threads[t].join();
         }
 
-        new_binary.write((char*)&data[0], sampleCount * sizeof(typename trainingdata<784, 10>::sample));
+        new_binary.write((char*)&data[0], sampleCount * sizeof(typename seayon::dataset<784, 10>::sample));
     }
 
     printf("DONE (%ims)\n", (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());

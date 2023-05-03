@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __seayon__
+#define __seayon__
 
 #include <math.h>
 #include <fstream>
@@ -15,1311 +16,1314 @@
 #include <windows.h>
 #include <conio.h>
 
-// TODO add namespace
-
-float Sigmoid(const float& z)
+namespace seayon
 {
-	return 1.0f / (1.0f + exp(-z));
-}
-float dSigmoid(const float& a)
-{
-	return a * (1.0f - a);
-}
-float Tanh(const float& z)
-{
-	float x0 = exp(z);
-	float x1 = exp(-z);
-	return (x0 - x1) / (x0 + x1);
-}
-float dTanh(const float& a)
-{
-	float t = Tanh(a);
-	return 1 - t * t;
-}
-float ReLu(const float& z)
-{
-	return (z < 0.0f ? 0.0f : z);
-}
-float dReLu(const float& a)
-{
-	return (a < 0.0f ? 0.0f : 1.0f);
-}
-float LeakyReLu(const float& z)
-{
-	float x = 0.1f * z;
-	return (x > z ? x : z);
-}
-float dLeakyReLu(const float& a)
-{
-	return (a > 0.0f ? 1.0f : 0.01f);
-}
-
-typedef float(*ActivFunc_t)(const float&);
-
-inline float randf(float min, float max)
-{
-	return min + (float)rand() / (float)(RAND_MAX / (max - min));
-}
-
-enum class ActivFunc
-{
-	LINEAR,
-	SIGMOID,
-	TANH,
-	RELU,
-	LEAKYRELU
-};
-
-enum class Optimizer
-{
-	// Stochastic Gradient Descent
-	STOCHASTIC,
-	// ADAM algorithm
-	ADAM
-};
-
-/**
- * Stores and manages dataset in memory
- * @param INPUTS Input layer neurons
- * @param OUTPUTS Output layer neurons
- */
-template <int INPUTS, int OUTPUTS>
-struct trainingdata
-{
-	struct sample
+	float Sigmoid(const float& z)
 	{
-		float inputs[INPUTS]{};
-		float outputs[OUTPUTS]{};
+		return 1.0f / (1.0f + exp(-z));
+	}
+	float dSigmoid(const float& a)
+	{
+		return a * (1.0f - a);
+	}
+	float Tanh(const float& z)
+	{
+		float x0 = exp(z);
+		float x1 = exp(-z);
+		return (x0 - x1) / (x0 + x1);
+	}
+	float dTanh(const float& a)
+	{
+		float t = Tanh(a);
+		return 1 - t * t;
+	}
+	float ReLu(const float& z)
+	{
+		return (z < 0.0f ? 0.0f : z);
+	}
+	float dReLu(const float& a)
+	{
+		return (a < 0.0f ? 0.0f : 1.0f);
+	}
+	float LeakyReLu(const float& z)
+	{
+		float x = 0.1f * z;
+		return (x > z ? x : z);
+	}
+	float dLeakyReLu(const float& a)
+	{
+		return (a > 0.0f ? 1.0f : 0.01f);
+	}
+
+	typedef float(*ActivFunc_t)(const float&);
+
+	inline float randf(float min, float max)
+	{
+		return min + (float)rand() / (float)(RAND_MAX / (max - min));
+	}
+
+	enum class ActivFunc
+	{
+		LINEAR,
+		SIGMOID,
+		TANH,
+		RELU,
+		LEAKYRELU
 	};
 
-private:
-	sample* samples = nullptr;
-	int sampleCount = 0;
-	bool manageMemory = true;
-
-public:
-	trainingdata()
+	enum class Optimizer
 	{
-	}
+		// Stochastic Gradient Descent
+		STOCHASTIC,
+		// ADAM algorithm
+		ADAM
+	};
 
-	trainingdata(size_t reserved)
+	/**
+	 * Stores and manages dataset in memory
+	 * @param INPUTS Input layer neurons
+	 * @param OUTPUTS Output layer neurons
+	 */
+	template <int INPUTS, int OUTPUTS>
+	struct dataset
 	{
-		reserve(reserved);
-	}
-
-	trainingdata(std::initializer_list<sample> list)
-	{
-		reserve((int)list.size());
-
-		int i = 0;
-		for (auto elem = list.begin(); elem != list.end(); ++elem)
+		struct sample
 		{
-			samples[i++] = *elem;
-		}
-	}
+			float inputs[INPUTS]{};
+			float outputs[OUTPUTS]{};
+		};
 
-	/**
-	 * Introduced for cuda
-	 * @param manageMemory When enabled sample array will be deleted
-	 */
-	trainingdata(sample* samples, const int sampleCount, const bool manageMemory)
-	{
-		this->samples = samples;
-		this->sampleCount = sampleCount;
-		this->manageMemory = manageMemory;
-	}
+	private:
+		sample* samples = nullptr;
+		int sampleCount = 0;
+		bool manageMemory = true;
 
-	/**
-	 * Allocates new memory without clearing it (size() is updated)
-	 * @param reserved New sample count
-	 */
-	void reserve(const int reserved)
-	{
-		this->~trainingdata();
-
-		samples = new sample[reserved];
-		sampleCount = reserved;
-	}
-
-	/**
-	 * Introduced for cuda
-	 * @param manageMemory When enabled sample array will be deleted
-	 */
-	int size() const
-	{
-		return sampleCount;
-	}
-
-	sample& operator[](const int i) const
-	{
-		return samples[i];
-	}
-
-	/**
-	 * @return Highest value in dataset
-	 */
-	float max() const
-	{
-		float max = samples[0].inputs[0];
-
-		for (int s = 0; s < sampleCount; ++s)
-		{
-			for (int i = 0; i < INPUTS; ++i)
-			{
-				const float& x = samples[s].inputs[i];
-
-				if (x > max)
-					max = x;
-			}
-
-			for (int i = 0; i < OUTPUTS; ++i)
-			{
-				const float& x = samples[s].outputs[i];
-
-				if (x > max)
-					max = x;
-			}
-		}
-
-		return max;
-	}
-
-	/**
-	 * @return Lowest value in dataset
-	 */
-	float min() const
-	{
-		float min = samples[0].inputs[0];
-
-		for (int s = 0; s < sampleCount; ++s)
-		{
-			for (int i = 0; i < INPUTS; ++i)
-			{
-				const float& x = samples[s].inputs[i];
-
-				if (x < min)
-					min = x;
-			}
-
-			for (int i = 0; i < OUTPUTS; ++i)
-			{
-				const float& x = samples[s].outputs[i];
-
-				if (x < min)
-					min = x;
-			}
-		}
-
-		return min;
-	}
-
-	/**
-	 * Normalizes all values between max and min
-	 * @param max Highest value in dataset (use this->max())
-	 * @param min Lowest value in dataset (use this->max())
-	 */
-	void normalize(const float max, const float min)
-	{
-		const float range = max - min;
-
-		for (int s = 0; s < sampleCount; ++s)
-		{
-			for (int i = 0; i < INPUTS; ++i)
-			{
-				samples[s].inputs[i] = (samples[s].inputs[i] - min) / range;
-			}
-
-			for (int i = 0; i < OUTPUTS; ++i)
-			{
-				samples[s].outputs[i] = (samples[s].outputs[i] - min) / range;
-			}
-		}
-	}
-
-	/**
-	 * Randomizes order of samples
-	 */
-	void shuffle()
-	{
-		std::random_device rm_seed;
-		std::shuffle(samples, samples + sampleCount - 1, std::mt19937(rm_seed()));
-	}
-
-	~trainingdata()
-	{
-		if (manageMemory)
-		{
-			if (samples != nullptr)
-				delete[] samples;
-		}
-	}
-};
-
-// Open source Neural Network library in C++
-class seayon
-{
-public:
-	struct layer
-	{
-	protected:
-		const bool manageMemory;
 	public:
-		const ActivFunc func;
-		ActivFunc_t activation;
-		ActivFunc_t derivative;
+		dataset()
+		{
+		}
 
-		const int nCount;
-		const int wCount;
+		dataset(size_t reserved)
+		{
+			reserve(reserved);
+		}
+
+		dataset(std::initializer_list<sample> list)
+		{
+			reserve((int)list.size());
+
+			int i = 0;
+			for (auto elem = list.begin(); elem != list.end(); ++elem)
+			{
+				samples[i++] = *elem;
+			}
+		}
 
 		/**
-		* Goes from second to first
-		* @tparam layers[l2].weights [n2 * n1Count + n1]
-		*/
-		float* const weights;
-		float* const neurons;
-		float* const biases;
+		 * Introduced for cuda
+		 * @param manageMemory When enabled sample array will be deleted
+		 */
+		dataset(sample* samples, const int sampleCount, const bool manageMemory)
+		{
+			this->samples = samples;
+			this->sampleCount = sampleCount;
+			this->manageMemory = manageMemory;
+		}
 
-		// layer(): manageMemory(false), func(ActivFunc::SIGMOID), nCount(0), wCount(0), neurons(nullptr), biases(nullptr), weights(nullptr)
-		// {
-		// }
+		/**
+		 * Allocates new memory without clearing it (size() is updated)
+		 * @param reserved New sample count
+		 */
+		void reserve(const int reserved)
+		{
+			this->~dataset();
 
-		layer(const ActivFunc func,
-			ActivFunc_t activation,
-			ActivFunc_t derivative,
-			float* const neurons,
-			float* const biases,
-			float* const weights,
-			const int nCount,
-			const int wCount,
-			const bool manageMemory):
-			func(func),
-			activation(activation),
-			derivative(derivative),
-			neurons(neurons),
-			biases(biases),
-			weights(weights),
-			nCount(nCount),
-			wCount(wCount),
+			samples = new sample[reserved];
+			sampleCount = reserved;
+		}
+
+		/**
+		 * Introduced for cuda
+		 * @param manageMemory When enabled sample array will be deleted
+		 */
+		int size() const
+		{
+			return sampleCount;
+		}
+
+		sample& operator[](const int i) const
+		{
+			return samples[i];
+		}
+
+		/**
+		 * @return Highest value in dataset
+		 */
+		float max_value() const
+		{
+			float max = samples[0].inputs[0];
+
+			for (int s = 0; s < sampleCount; ++s)
+			{
+				for (int i = 0; i < INPUTS; ++i)
+				{
+					const float& x = samples[s].inputs[i];
+
+					if (x > max)
+						max = x;
+				}
+
+				for (int i = 0; i < OUTPUTS; ++i)
+				{
+					const float& x = samples[s].outputs[i];
+
+					if (x > max)
+						max = x;
+				}
+			}
+
+			return max;
+		}
+
+		/**
+		 * @return Lowest value in dataset
+		 */
+		float min_value() const
+		{
+			float min = samples[0].inputs[0];
+
+			for (int s = 0; s < sampleCount; ++s)
+			{
+				for (int i = 0; i < INPUTS; ++i)
+				{
+					const float& x = samples[s].inputs[i];
+
+					if (x < min)
+						min = x;
+				}
+
+				for (int i = 0; i < OUTPUTS; ++i)
+				{
+					const float& x = samples[s].outputs[i];
+
+					if (x < min)
+						min = x;
+				}
+			}
+
+			return min;
+		}
+
+		/**
+		 * Normalizes all values between max and min
+		 * @param max Highest value in dataset (use this->max_value())
+		 * @param min Lowest value in dataset (use this->min_value())
+		 */
+		void normalize(const float max, const float min)
+		{
+			const float range = max - min;
+
+			for (int s = 0; s < sampleCount; ++s)
+			{
+				for (int i = 0; i < INPUTS; ++i)
+				{
+					samples[s].inputs[i] = (samples[s].inputs[i] - min) / range;
+				}
+
+				for (int i = 0; i < OUTPUTS; ++i)
+				{
+					samples[s].outputs[i] = (samples[s].outputs[i] - min) / range;
+				}
+			}
+		}
+
+		/**
+		 * Randomizes order of samples
+		 */
+		void shuffle()
+		{
+			std::random_device rm_seed;
+			std::shuffle(samples, samples + sampleCount - 1, std::mt19937(rm_seed()));
+		}
+
+		~dataset()
+		{
+			if (manageMemory)
+			{
+				if (samples != nullptr)
+					delete[] samples;
+			}
+		}
+	};
+
+	// Open source Neural Network library in C++
+	class model
+	{
+	public:
+		struct layer
+		{
+		protected:
+			const bool manageMemory;
+		public:
+			const ActivFunc func;
+			ActivFunc_t activation;
+			ActivFunc_t derivative;
+
+			const int nCount;
+			const int wCount;
+
+			/**
+			* Goes from second to first
+			* @tparam layers[l2].weights [n2 * n1Count + n1]
+			*/
+			float* const weights;
+			float* const neurons;
+			float* const biases;
+
+			// layer(): manageMemory(false), func(ActivFunc::SIGMOID), nCount(0), wCount(0), neurons(nullptr), biases(nullptr), weights(nullptr)
+			// {
+			// }
+
+			layer(const ActivFunc func,
+				ActivFunc_t activation,
+				ActivFunc_t derivative,
+				float* const neurons,
+				float* const biases,
+				float* const weights,
+				const int nCount,
+				const int wCount,
+				const bool manageMemory) :
+				func(func),
+				activation(activation),
+				derivative(derivative),
+				neurons(neurons),
+				biases(biases),
+				weights(weights),
+				nCount(nCount),
+				wCount(wCount),
+				manageMemory(manageMemory)
+			{
+			}
+
+			layer(const int PREVIOUS, const int NEURONS, const ActivFunc func) : nCount(NEURONS), wCount(NEURONS* PREVIOUS), func(func),
+				manageMemory(true), neurons(new float[nCount]()), biases(wCount > 0 ? new float[nCount]() : nullptr), weights(wCount > 0 ? new float[wCount]() : nullptr)
+			{
+				if (wCount > 0)
+				{
+					for (int i = 0; i < wCount; ++i)
+					{
+						weights[i] = randf(-1.0f, 1.0f);
+					}
+				}
+
+				if (func == ActivFunc::SIGMOID)
+				{
+					activation = Sigmoid;
+					derivative = dSigmoid;
+				}
+				else if (func == ActivFunc::TANH)
+				{
+					activation = Tanh;
+					derivative = dTanh;
+				}
+				else if (func == ActivFunc::RELU)
+				{
+					activation = ReLu;
+					derivative = dReLu;
+				}
+				else if (func == ActivFunc::LEAKYRELU)
+				{
+					activation = LeakyReLu;
+					derivative = dLeakyReLu;
+				}
+			}
+
+			~layer()
+			{
+				if (manageMemory)
+				{
+					delete[] neurons;
+					if (wCount > 0)
+					{
+						delete[] biases;
+						delete[] weights;
+					}
+				}
+			}
+		};
+	protected:
+		const bool manageMemory;
+		const int seed;
+		const bool printloss;
+		const std::string logfolder;
+
+	public:
+		const int layerCount;
+		layer* const layers;
+
+		model(layer* layers,
+			const int layerCount,
+			const bool printloss,
+			const int seed,
+			const std::string logfolder,
+			const bool manageMemory) :
+			layers(layers),
+			layerCount(layerCount),
+			seed(seed),
+			printloss(printloss),
+			logfolder(logfolder),
 			manageMemory(manageMemory)
 		{
 		}
 
-		layer(const int PREVIOUS, const int NEURONS, const ActivFunc func): nCount(NEURONS), wCount(NEURONS* PREVIOUS), func(func),
-			manageMemory(true), neurons(new float[nCount]()), biases(wCount > 0 ? new float[nCount]() : nullptr), weights(wCount > 0 ? new float[wCount]() : nullptr)
+		/**
+		 * Creates network where every neuron is connected to each neuron in the next layer.
+		 * @param layout Starts with the input layer (Minimum 2 layers)
+		 * @param a Activation function for each layer (first one will be ignored)
+		 * @param seed Random weight seed (-1 generates random seed by time)
+		 * @param printloss Print loss() value while training (every second, high performance consumption)
+		 * @param logfolder Write log file for training progress (keep empty to disable)
+		 */
+		model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printloss = true, std::string logfolder = std::string())
+			: manageMemory(true), seed(seed), printloss(printloss),
+			logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
+			layerCount((int)layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 		{
-			if (wCount > 0)
+			if (layout.size() != a.size() + 1)
 			{
-				for (int i = 0; i < wCount; ++i)
-				{
-					weights[i] = randf(-1.0f, 1.0f);
-				}
+				printf("--- error: layer and activation array not matching ---\n");
+				return;
 			}
+			if (seed < 0)
+				srand((unsigned int)time(NULL));
+			else
+				srand(seed);
 
-			if (func == ActivFunc::SIGMOID)
+			new (&layers[0]) layer(0, layout[0], ActivFunc::LINEAR);
+			for (int l2 = 1; l2 < layerCount; ++l2)
 			{
-				activation = Sigmoid;
-				derivative = dSigmoid;
-			}
-			else if (func == ActivFunc::TANH)
-			{
-				activation = Tanh;
-				derivative = dTanh;
-			}
-			else if (func == ActivFunc::RELU)
-			{
-				activation = ReLu;
-				derivative = dReLu;
-			}
-			else if (func == ActivFunc::LEAKYRELU)
-			{
-				activation = LeakyReLu;
-				derivative = dLeakyReLu;
+				const int l1 = l2 - 1;
+
+				new (&layers[l2]) layer(layout[l1], layout[l2], a[l1]);
 			}
 		}
 
-		~layer()
+		~model()
 		{
 			if (manageMemory)
 			{
-				delete[] neurons;
-				if (wCount > 0)
-				{
-					delete[] biases;
-					delete[] weights;
-				}
+				for (int i = 0; i < layerCount; ++i)
+					layers[i].~layer();
+
+				free(layers);
 			}
 		}
-	};
-protected:
-	const bool manageMemory;
-	const int seed;
-	const bool printloss;
-	const std::string logfolder;
 
-public:
-	const int layerCount;
-	layer* const layers;
-
-	seayon(layer* layers,
-		const int layerCount,
-		const bool printloss,
-		const int seed,
-		const std::string logfolder,
-		const bool manageMemory):
-		layers(layers),
-		layerCount(layerCount),
-		seed(seed),
-		printloss(printloss),
-		logfolder(logfolder),
-		manageMemory(manageMemory)
-	{
-	}
-
-	/**
-	 * Creates network where every neuron is connected to each neuron in the next layer.
-	 * @param layout Starts with the input layer (Minimum 2 layers)
-	 * @param a Activation function for each layer (first one will be ignored)
-	 * @param seed Random weight seed (-1 generates random seed by time)
-	 * @param printloss Print loss() value while training (every second, high performance consumption)
-	 * @param logfolder Write log file for training progress (keep empty to disable)
-	 */
-	seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printloss = true, std::string logfolder = std::string())
-		: manageMemory(true), seed(seed), printloss(printloss),
-		logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
-		layerCount((int)layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
-	{
-		if (layout.size() != a.size() + 1)
+		/**
+		 * Stores all weights and biases in one binary file
+		 * @param file use std::ios::binary
+		 * @return size of buffer
+		 */
+		size_t save(std::ofstream& file)
 		{
-			printf("--- error: layer and activation array not matching ---\n");
-			return;
+			std::vector<char> buffer;
+			size_t buffersize = save(buffer);
+
+			file.write(buffer.data(), buffersize);
+			if (file.fail())
+				buffersize = 0;
+
+			file.flush();
+
+			return buffersize;
 		}
-		if (seed < 0)
-			srand((unsigned int)time(NULL));
-		else
-			srand(seed);
-
-		new (&layers[0]) layer(0, layout[0], ActivFunc::LINEAR);
-		for (int l2 = 1; l2 < layerCount; ++l2)
+		// TODO save and load layout too
+		/**
+		 * Stores all weights and biases in one binary buffer
+		 * @return size of buffer
+		 */
+		size_t save(std::vector<char>& buffer)
 		{
-			const int l1 = l2 - 1;
-
-			new (&layers[l2]) layer(layout[l1], layout[l2], a[l1]);
-		}
-	}
-
-	~seayon()
-	{
-		if (manageMemory)
-		{
-			for (int i = 0; i < layerCount; ++i)
-				layers[i].~layer();
-
-			free(layers);
-		}
-	}
-
-	/**
-	 * Stores all weights and biases in one binary file
-	 * @param file use std::ios::binary
-	 * @return size of buffer
-	 */
-	size_t save(std::ofstream& file)
-	{
-		std::vector<char> buffer;
-		size_t buffersize = save(buffer);
-
-		file.write(buffer.data(), buffersize);
-		if (file.fail())
-			buffersize = 0;
-
-		file.flush();
-
-		return buffersize;
-	}
-	// TODO save and load layout too
-	/**
-	 * Stores all weights and biases in one binary buffer
-	 * @return size of buffer
-	 */
-	size_t save(std::vector<char>& buffer)
-	{
-		size_t buffersize = 0;
-		std::vector<size_t> nSize(layerCount);
-		std::vector<size_t> wSize(layerCount);
-		for (int i = 1; i < layerCount; ++i)
-		{
-			nSize[i] = sizeof(float) * layers[i].nCount;
-			wSize[i] = sizeof(float) * layers[i].wCount;
-			buffersize += nSize[i] + wSize[i];
-		}
-		buffer.resize(buffersize);
-
-		char* pointer = buffer.data();
-		for (int i = 1; i < layerCount; ++i)
-		{
-			memcpy(pointer, layers[i].weights, wSize[i]);
-			pointer += wSize[i];
-			memcpy(pointer, layers[i].biases, nSize[i]);
-			pointer += nSize[i];
-		}
-
-		return buffersize;
-	}
-	/**
-	 * Loads binary network file
-	 * @param file use std::ios::binary
-	 * @exception Currupt files can through an error
-	 * @return if successful
-	 */
-	bool load(std::ifstream& file)
-	{
-		if (file.is_open())
-		{
-			file.seekg(0, file.end);
-			int N = (int)file.tellg();
-			file.seekg(0, file.beg);
-
-			std::vector<char> buffer(N);
-			file.read(buffer.data(), N);
-			load(buffer.data());
-
-			return true;
-		}
-
-		return false;
-	}
-	/**
-	 * Loads binary network buffer
-	 * @exception Currupt data can through an error
-	 */
-	void load(char* buffer)
-	{
-		std::vector<size_t> nSize(layerCount);
-		std::vector<size_t> wSize(layerCount);
-		for (int i = 1; i < layerCount; ++i)
-		{
-			nSize[i] = sizeof(float) * layers[i].nCount;
-			wSize[i] = sizeof(float) * layers[i].wCount;
-		}
-
-		char* pointer = buffer;
-		for (int i = 1; i < layerCount; ++i)
-		{
-			memcpy(layers[i].weights, pointer, wSize[i]);
-			pointer += wSize[i];
-			memcpy(layers[i].biases, pointer, nSize[i]);
-			pointer += nSize[i];
-		}
-	}
-	// Copies weights and biases to a different instance
-	inline void copy(seayon& to) const
-	{
-		for (int l = 1; l < layerCount; ++l)
-		{
-			memcpy(to.layers[l].biases, layers[l].biases, layers[l].nCount * sizeof(float));
-			memcpy(to.layers[l].weights, layers[l].weights, layers[l].wCount * sizeof(float));
-		}
-	}
-	/**
-	 * Combines array of networks by averaging the values.
-	 * @param with Array of networks
-	 * @param count How many networks
-	 */
-	void combine(seayon* with, int count)
-	{
-		for (int l2 = 1; l2 < layerCount; ++l2)
-		{
-			const int l1 = l2 - 1;
-
-			for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
+			size_t buffersize = 0;
+			std::vector<size_t> nSize(layerCount);
+			std::vector<size_t> wSize(layerCount);
+			for (int i = 1; i < layerCount; ++i)
 			{
-				float an = layers[l2].neurons[n2];
+				nSize[i] = sizeof(float) * layers[i].nCount;
+				wSize[i] = sizeof(float) * layers[i].wCount;
+				buffersize += nSize[i] + wSize[i];
+			}
+			buffer.resize(buffersize);
+
+			char* pointer = buffer.data();
+			for (int i = 1; i < layerCount; ++i)
+			{
+				memcpy(pointer, layers[i].weights, wSize[i]);
+				pointer += wSize[i];
+				memcpy(pointer, layers[i].biases, nSize[i]);
+				pointer += nSize[i];
+			}
+
+			return buffersize;
+		}
+		/**
+		 * Loads binary network file
+		 * @param file use std::ios::binary
+		 * @exception Currupt files can through an error
+		 * @return if successful
+		 */
+		bool load(std::ifstream& file)
+		{
+			if (file.is_open())
+			{
+				file.seekg(0, file.end);
+				int N = (int)file.tellg();
+				file.seekg(0, file.beg);
+
+				std::vector<char> buffer(N);
+				file.read(buffer.data(), N);
+				load(buffer.data());
+
+				return true;
+			}
+
+			return false;
+		}
+		/**
+		 * Loads binary network buffer
+		 * @exception Currupt data can through an error
+		 */
+		void load(char* buffer)
+		{
+			std::vector<size_t> nSize(layerCount);
+			std::vector<size_t> wSize(layerCount);
+			for (int i = 1; i < layerCount; ++i)
+			{
+				nSize[i] = sizeof(float) * layers[i].nCount;
+				wSize[i] = sizeof(float) * layers[i].wCount;
+			}
+
+			char* pointer = buffer;
+			for (int i = 1; i < layerCount; ++i)
+			{
+				memcpy(layers[i].weights, pointer, wSize[i]);
+				pointer += wSize[i];
+				memcpy(layers[i].biases, pointer, nSize[i]);
+				pointer += nSize[i];
+			}
+		}
+		// Copies weights and biases to a different instance
+		inline void copy(model& to) const
+		{
+			for (int l = 1; l < layerCount; ++l)
+			{
+				memcpy(to.layers[l].biases, layers[l].biases, layers[l].nCount * sizeof(float));
+				memcpy(to.layers[l].weights, layers[l].weights, layers[l].wCount * sizeof(float));
+			}
+		}
+		/**
+		 * Combines array of networks by averaging the values.
+		 * @param with Array of networks
+		 * @param count How many networks
+		 */
+		void combine(model* with, int count)
+		{
+			for (int l2 = 1; l2 < layerCount; ++l2)
+			{
+				const int l1 = l2 - 1;
+
+				for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
+				{
+					float an = layers[l2].neurons[n2];
+					for (int i = 0; i < count; ++i)
+						an += with[i].layers[l2].neurons[n2];
+
+					layers[l2].neurons[n2] = an / (count + 1);
+
+					for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
+					{
+						float aw = layers[l2].weights[n2 * layers[l1].nCount + n1];
+						for (int i = 0; i < count; ++i)
+							aw += with[i].layers[l2].weights[n2 * layers[l1].nCount + n1];
+
+						layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / (count + 1);
+					}
+				}
+			}
+			for (int n1 = 0; n1 < layers[0].nCount; ++n1)
+			{
+				float an = layers[0].neurons[n1];
 				for (int i = 0; i < count; ++i)
-					an += with[i].layers[l2].neurons[n2];
+					an += with[i].layers[0].neurons[n1];
 
-				layers[l2].neurons[n2] = an / (count + 1);
+				layers[0].neurons[n1] = an / (count + 1);
+			}
+		}
+		/**
+		 * Compares weights and biases
+		 * @return true: equal; false: not equal
+		 */
+		bool equals(model& second)
+		{
+			bool equal = true;
 
+			for (int i = 1; equal && i < layerCount; ++i)
+			{
+				for (int w = 0; equal && w < layers[i].wCount; ++w)
+					equal = (layers[i].weights[w] == second.layers[i].weights[w]);
+
+				for (int n = 0; equal && n < layers[i].nCount; ++n)
+					equal = (layers[i].biases[n] == second.layers[i].biases[n]);
+			}
+
+			return equal;
+		}
+
+		/**
+		 * Calculates network's outputs
+		 * @return Pointer to output layer/array
+		 */
+		template <int INPUTS, int OUTPUTS>
+		inline float* pulse(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		{
+			for (int n = 0; n < INPUTS; ++n)
+				layers[0].neurons[n] = sample.inputs[n];
+
+			for (int l2 = 1; l2 < layerCount; ++l2)
+			{
+				const int l1 = l2 - 1;
+				const int& n1count = layers[l1].nCount;
+				const int& n2count = layers[l2].nCount;
+				const auto& func = layers[l2].activation;
+
+				for (int n2 = 0; n2 < n2count; ++n2)
+				{
+					float z = 0;
+					for (int n1 = 0; n1 < n1count; ++n1)
+						z += layers[l2].weights[n2 * n1count + n1] * layers[l1].neurons[n1];
+					z += layers[l2].biases[n2];
+
+					layers[l2].neurons[n2] = func(z);
+				}
+			}
+
+			return layers[layerCount - 1].neurons;
+		}
+
+		// Prints all values. pulse() should be called before
+		void print()
+		{
+			HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
+
+			int normalColor;
+
+			for (int l1 = 0; l1 < layerCount; ++l1)
+			{
+				const int l2 = l1 + 1;
+
+				if (l1 == 0)
+				{
+					normalColor = 7;
+					SetConsoleTextAttribute(cmd, 7);
+
+					printf("\n  Input Layer:\n");
+				}
+				else if (l1 == layerCount - 1)
+				{
+					normalColor = 11;
+					SetConsoleTextAttribute(cmd, 11);
+
+					printf("  Output Layer:\n");
+				}
+				else
+				{
+					normalColor = 8;
+					SetConsoleTextAttribute(cmd, 8);
+
+					printf("  Hidden Layer[%i]:\n", l1 - 1);
+				}
+
+				size_t largest = std::max_element(layers[l1].neurons, layers[l1].neurons + layers[l1].nCount) - layers[l1].neurons;
 				for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 				{
-					float aw = layers[l2].weights[n2 * layers[l1].nCount + n1];
-					for (int i = 0; i < count; ++i)
-						aw += with[i].layers[l2].weights[n2 * layers[l1].nCount + n1];
+					printf("\t\tNeuron[%02i]   ", n1);
+					if (l1 == layerCount - 1)
+					{
+						if (n1 == largest)
+							SetConsoleTextAttribute(cmd, 95);
+						else
+							SetConsoleTextAttribute(cmd, 7);
+						printf("%.2f", layers[l1].neurons[n1]);
+						SetConsoleTextAttribute(cmd, normalColor);
+					}
+					else
+						printf("%0.2f", layers[l1].neurons[n1]);
 
-					layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / (count + 1);
+					if (l1 > 0)
+					{
+						if (layers[l1].biases[n1] <= 0.0f)
+						{
+							printf("\t\t(");
+							SetConsoleTextAttribute(cmd, 12);
+							printf("%0.2f", layers[l1].biases[n1]);
+							SetConsoleTextAttribute(cmd, normalColor);
+							printf(")\n");
+						}
+						else
+							printf("\t\t(%0.2f)\n", layers[l1].biases[n1]);
+					}
+					else
+						printf("\n");
+
+					if (l2 < layerCount)
+						for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
+						{
+							printf("\t\t  Weight[%02i] ", n2);
+							float& w = layers[l2].weights[n2 * layers[l1].nCount + n1];
+
+							if (w <= 0.0f)
+							{
+								SetConsoleTextAttribute(cmd, 12);
+								printf("%.2f\n", w);
+								SetConsoleTextAttribute(cmd, normalColor);
+							}
+							else
+								printf("%.2f\n", w);
+						}
+					printf("\n");
 				}
 			}
+			SetConsoleTextAttribute(cmd, 7);
+			printf("\t-----------------------------------------------\n\n");
 		}
-		for (int n1 = 0; n1 < layers[0].nCount; ++n1)
+		/**
+		 * Prints all values with the loss() and the accruacy()
+		 * @return loss value
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float print(dataset<INPUTS, OUTPUTS>& data, int sample)
 		{
-			float an = layers[0].neurons[n1];
-			for (int i = 0; i < count; ++i)
-				an += with[i].layers[0].neurons[n1];
+			pulse<INPUTS, OUTPUTS>(data[sample]);
+			print();
 
-			layers[0].neurons[n1] = an / (count + 1);
+			float c = loss(data);
+			printf("\t\tLoss\t\t%.5f\n", c);
+			printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
+			printf("\t-----------------------------------------------\n\n");
+
+			return c;
 		}
-	}
-	/**
-	 * Compares weights and biases
-	 * @return true: equal; false: not equal
-	 */
-	bool equals(seayon& second)
-	{
-		bool equal = true;
-
-		for (int i = 1; equal && i < layerCount; ++i)
+		// Prints only the output layer. pulse() should be called before
+		void printo()
 		{
-			for (int w = 0; equal && w < layers[i].wCount; ++w)
-				equal = (layers[i].weights[w] == second.layers[i].weights[w]);
+			HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
 
-			for (int n = 0; equal && n < layers[i].nCount; ++n)
-				equal = (layers[i].biases[n] == second.layers[i].biases[n]);
-		}
+			int normalColor = 11;
 
-		return equal;
-	}
+			int l = layerCount - 1;
 
-	/**
-	 * Calculates network's outputs
-	 * @return Pointer to output layer/array
-	 */
-	template <int INPUTS, int OUTPUTS>
-	inline float* pulse(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
-	{
-		for (int n = 0; n < INPUTS; ++n)
-			layers[0].neurons[n] = sample.inputs[n];
+			SetConsoleTextAttribute(cmd, 11);
+			printf("  Output Layer:\n");
 
-		for (int l2 = 1; l2 < layerCount; ++l2)
-		{
-			const int l1 = l2 - 1;
-			const int& n1count = layers[l1].nCount;
-			const int& n2count = layers[l2].nCount;
-			const auto& func = layers[l2].activation;
-
-			for (int n2 = 0; n2 < n2count; ++n2)
+			size_t largest = std::max_element(layers[l].neurons, layers[l].neurons + layers[l].nCount) - layers[l].neurons;
+			for (int n = 0; n < layers[l].nCount; ++n)
 			{
-				float z = 0;
-				for (int n1 = 0; n1 < n1count; ++n1)
-					z += layers[l2].weights[n2 * n1count + n1] * layers[l1].neurons[n1];
-				z += layers[l2].biases[n2];
-
-				layers[l2].neurons[n2] = func(z);
-			}
-		}
-
-		return layers[layerCount - 1].neurons;
-	}
-
-	// Prints all values. pulse() should be called before
-	void print()
-	{
-		HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		int normalColor;
-
-		for (int l1 = 0; l1 < layerCount; ++l1)
-		{
-			const int l2 = l1 + 1;
-
-			if (l1 == 0)
-			{
-				normalColor = 7;
-				SetConsoleTextAttribute(cmd, 7);
-
-				printf("\n  Input Layer:\n");
-			}
-			else if (l1 == layerCount - 1)
-			{
-				normalColor = 11;
-				SetConsoleTextAttribute(cmd, 11);
-
-				printf("  Output Layer:\n");
-			}
-			else
-			{
-				normalColor = 8;
-				SetConsoleTextAttribute(cmd, 8);
-
-				printf("  Hidden Layer[%i]:\n", l1 - 1);
-			}
-
-			size_t largest = std::max_element(layers[l1].neurons, layers[l1].neurons + layers[l1].nCount) - layers[l1].neurons;
-			for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
-			{
-				printf("\t\tNeuron[%02i]   ", n1);
-				if (l1 == layerCount - 1)
+				printf("\t\tNeuron[%02i]   ", n);
+				if (l == layerCount - 1)
 				{
-					if (n1 == largest)
+					if (n == largest)
 						SetConsoleTextAttribute(cmd, 95);
 					else
 						SetConsoleTextAttribute(cmd, 7);
-					printf("%.2f", layers[l1].neurons[n1]);
+					printf("%.2f", layers[l].neurons[n]);
 					SetConsoleTextAttribute(cmd, normalColor);
 				}
 				else
-					printf("%0.2f", layers[l1].neurons[n1]);
+					printf("%.2f", layers[l].neurons[n]);
 
-				if (l1 > 0)
+				if (l > 0)
 				{
-					if (layers[l1].biases[n1] <= 0.0f)
+					if (layers[l].biases[n] <= 0.0f)
 					{
 						printf("\t\t(");
 						SetConsoleTextAttribute(cmd, 12);
-						printf("%0.2f", layers[l1].biases[n1]);
+						printf("%0.2f", layers[l].biases[n]);
 						SetConsoleTextAttribute(cmd, normalColor);
 						printf(")\n");
 					}
 					else
-						printf("\t\t(%0.2f)\n", layers[l1].biases[n1]);
+						printf("\t\t(%0.2f)\n", layers[l].biases[n]);
 				}
 				else
-					printf("\n");
+					printf("\n\n");
+			}
+			SetConsoleTextAttribute(cmd, 7);
+			printf("\t-----------------------------------------------\n\n");
+		}
+		/**
+		 * Prints only the output layer with the loss() and the accruacy()
+		 * @return loss value
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float printo(const dataset<INPUTS, OUTPUTS>& data, const int sample)
+		{
+			pulse<INPUTS, OUTPUTS>(data[sample]);
+			printo();
 
-				if (l2 < layerCount)
-					for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
+			float c = loss(data);
+			printf("\t\tLoss\t\t%.5f\n", c);
+			printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
+			printf("\t-----------------------------------------------\n\n");
+
+			return c;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
+		 * @param sample Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float loss(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		{
+			pulse<INPUTS, OUTPUTS>(sample);
+
+			const int LASTL = layerCount - 1;
+
+			float c = 0;
+			for (int n = 0; n < OUTPUTS; ++n)
+			{
+				const float x = layers[LASTL].neurons[n] - sample.outputs[n];
+				c += x * x;
+			}
+
+			return c / (float)OUTPUTS;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
+		 * @param data Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float loss(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float c = 0;
+			for (int i = 0; i < data.size(); ++i)
+			{
+				c += loss<INPUTS, OUTPUTS>(data[i]);
+			}
+
+			return c / (float)data.size();
+		}
+		/**
+		 * for each sample: does highest output matches optimal highest
+		 * @param data Optimal outputs (testdata)
+		 * @return percentage, higher means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float accruacy(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			const int LASTL = layerCount - 1;
+
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float a = 0;
+			for (int i = 0; i < data.size(); ++i)
+			{
+				pulse<INPUTS, OUTPUTS>(data[i]);
+
+				if (std::max_element(layers[LASTL].neurons, layers[LASTL].neurons + layers[LASTL].nCount) - layers[LASTL].neurons == std::max_element(data[i].outputs, data[i].outputs + OUTPUTS) - data[i].outputs)
+				{
+					++a;
+				}
+			}
+
+			return a / (float)data.size();
+		}
+
+		/**
+		 * Transforms normalized output back to original scale
+		 * @param max Highest value in dataset (use this->max())
+		 * @param min Lowest value in dataset (use this->max())
+		 * @return Denormalized output layer
+		 */
+		std::vector<float> denormalized(const float max, const float min) const
+		{
+			const layer& last = layers[layerCount - 1];
+			const float range = max - min;
+
+			std::vector<float> out(last.nCount);
+
+			for (int i = 0; i < last.nCount; ++i)
+			{
+				out[i] = last.neurons[i] * range + min;
+			}
+
+			return out;
+		}
+
+		/**
+		 * Trains the network with Gradient Descent to minimize the loss function (you can cancel with 'q')
+		 * @param max_iterations Begin small
+		 * @param traindata The large dataset
+		 * @param testdata The small dataset which the network never saw before
+		 * @param optimizer Search online for further information
+		 * @param learningRate Lower values generate more reliable but also slower results
+		 * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
+		 * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
+		 */
+		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
+		void fit(int max_iterations, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
+			Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int total_threads = 32)
+		{
+			if (!check(traindata) || !check(testdata))
+			{
+				printf("\tCurrupt training data!\n");
+				return;
+			}
+
+			if (optimizer == Optimizer::STOCHASTIC)
+			{
+				stochastic(max_iterations, learningRate, momentum, traindata, testdata);
+			}
+			else
+			{
+				if (learningRate <= 0.0f)
+					learningRate = 0.0001f;
+
+				if (momentum <= 0.0f)
+					momentum = 0.0001f;
+
+				const int batch_size = traindata.size() / total_threads;
+				const int unused = traindata.size() - batch_size * total_threads;
+
+				printf("Mini batches launching with:\n");
+				printf("%i batches | ", total_threads);
+				printf("%i samples per batch | ", batch_size);
+				printf("%i/%i unused samples\n", unused, traindata.size());
+
+				if (total_threads > traindata.size() / batch_size || total_threads < 0)
+					total_threads = 1;
+
+				if (optimizer == Optimizer::ADAM)
+				{
+					mini_batch(max_iterations, learningRate, momentum, batch_size, total_threads, traindata, testdata);
+				}
+			}
+		}
+
+	protected:
+		template <int INPUTS, int OUTPUTS>
+		inline bool check(const dataset<INPUTS, OUTPUTS>& data) const
+		{
+			return layers[0].nCount == INPUTS && layers[layerCount - 1].nCount == OUTPUTS;
+		}
+
+		template <int INPUTS, int OUTPUTS>
+		class fitlog
+		{
+			model& parent;
+			const int sampleCount;
+			const dataset<INPUTS, OUTPUTS>& testdata;
+			const int max_iterations;
+			const bool printloss;
+
+			std::unique_ptr<std::ofstream> file{};
+			size_t lastLogLenght = 0;
+			int lastLogAt = 0;
+			std::chrono::high_resolution_clock::time_point overall;
+			std::chrono::high_resolution_clock::time_point sampleTimeLast;
+			std::chrono::high_resolution_clock::time_point last;
+
+			float lastLoss[5]{};
+			int lastLossIndex = 0;
+
+			inline void resolveTime(long long seconds, int* resolved) const
+			{
+				resolved[0] = (int)(seconds / 3600LL);
+				seconds -= 3600LL * (long long)resolved[0];
+				resolved[1] = (int)(seconds / 60LL);
+				seconds -= 60LL * (long long)resolved[1];
+				resolved[2] = (int)(seconds);
+			}
+
+		public:
+			float log(int run)
+			{
+				float l = -1.0f;
+
+				auto now = std::chrono::high_resolution_clock::now();
+				std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
+				if (sampleTime.count() > 1000000LL || run == max_iterations || run == 0)
+				{
+					sampleTimeLast = now;
+					std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
+					std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
+
+					if (printloss)
+						l = parent.loss(testdata);
+
+					float progress = (float)run * 100.0f / (float)max_iterations;
+
+					int samplesPerSecond = 0;
+					if (run > 0)
 					{
-						printf("\t\t  Weight[%02i] ", n2);
-						float& w = layers[l2].weights[n2 * layers[l1].nCount + n1];
-
-						if (w <= 0.0f)
-						{
-							SetConsoleTextAttribute(cmd, 12);
-							printf("%.2f\n", w);
-							SetConsoleTextAttribute(cmd, normalColor);
-						}
+						if (run > lastLogAt)
+							sampleTime /= run - lastLogAt;
+						if (sampleTime.count() < 1)
+							samplesPerSecond = -1;
 						else
-							printf("%.2f\n", w);
+							samplesPerSecond = (int)((int64_t)sampleCount * 1000LL / sampleTime.count());
 					}
-				printf("\n");
-			}
-		}
-		SetConsoleTextAttribute(cmd, 7);
-		printf("\t-----------------------------------------------\n\n");
-	}
-	/**
-	 * Prints all values with the loss() and the accruacy()
-	 * @return loss value
-	 */
-	template <int INPUTS, int OUTPUTS>
-	float print(trainingdata<INPUTS, OUTPUTS>& data, int sample)
-	{
-		pulse<INPUTS, OUTPUTS>(data[sample]);
-		print();
 
-		float c = loss(data);
-		printf("\t\tLoss\t\t%.5f\n", c);
-		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
-		printf("\t-----------------------------------------------\n\n");
+					int runtimeResolved[3];
+					resolveTime(runtime.count(), runtimeResolved);
 
-		return c;
-	}
-	// Prints only the output layer. pulse() should be called before
-	void printo()
-	{
-		HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		int normalColor = 11;
-
-		int l = layerCount - 1;
-
-		SetConsoleTextAttribute(cmd, 11);
-		printf("  Output Layer:\n");
-
-		size_t largest = std::max_element(layers[l].neurons, layers[l].neurons + layers[l].nCount) - layers[l].neurons;
-		for (int n = 0; n < layers[l].nCount; ++n)
-		{
-			printf("\t\tNeuron[%02i]   ", n);
-			if (l == layerCount - 1)
-			{
-				if (n == largest)
-					SetConsoleTextAttribute(cmd, 95);
-				else
-					SetConsoleTextAttribute(cmd, 7);
-				printf("%.2f", layers[l].neurons[n]);
-				SetConsoleTextAttribute(cmd, normalColor);
-			}
-			else
-				printf("%.2f", layers[l].neurons[n]);
-
-			if (l > 0)
-			{
-				if (layers[l].biases[n] <= 0.0f)
-				{
-					printf("\t\t(");
-					SetConsoleTextAttribute(cmd, 12);
-					printf("%0.2f", layers[l].biases[n]);
-					SetConsoleTextAttribute(cmd, normalColor);
-					printf(")\n");
-				}
-				else
-					printf("\t\t(%0.2f)\n", layers[l].biases[n]);
-			}
-			else
-				printf("\n\n");
-		}
-		SetConsoleTextAttribute(cmd, 7);
-		printf("\t-----------------------------------------------\n\n");
-	}
-	/**
-	 * Prints only the output layer with the loss() and the accruacy()
-	 * @return loss value
-	 */
-	template <int INPUTS, int OUTPUTS>
-	float printo(const trainingdata<INPUTS, OUTPUTS>& data, const int sample)
-	{
-		pulse<INPUTS, OUTPUTS>(data[sample]);
-		printo();
-
-		float c = loss(data);
-		printf("\t\tLoss\t\t%.5f\n", c);
-		printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
-		printf("\t-----------------------------------------------\n\n");
-
-		return c;
-	}
-	/**
-	 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
-	 * @param sample Optimal outputs (testdata)
-	 * @return lower means better
-	 */
-	template <int INPUTS, int OUTPUTS>
-	float loss(const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
-	{
-		pulse<INPUTS, OUTPUTS>(sample);
-
-		const int LASTL = layerCount - 1;
-
-		float c = 0;
-		for (int n = 0; n < OUTPUTS; ++n)
-		{
-			const float x = layers[LASTL].neurons[n] - sample.outputs[n];
-			c += x * x;
-		}
-
-		return c / (float)OUTPUTS;
-	}
-	/**
-	 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
-	 * @param data Optimal outputs (testdata)
-	 * @return lower means better
-	 */
-	template <int INPUTS, int OUTPUTS>
-	float loss(const trainingdata<INPUTS, OUTPUTS>& data)
-	{
-		if (!check(data))
-		{
-			printf("\tCurrupt training data!\n");
-			return .0f;
-		}
-
-		float c = 0;
-		for (int i = 0; i < data.size(); ++i)
-		{
-			c += loss<INPUTS, OUTPUTS>(data[i]);
-		}
-
-		return c / (float)data.size();
-	}
-	/**
-	 * for each sample: does highest output matches optimal highest
-	 * @param data Optimal outputs (testdata)
-	 * @return percentage, higher means better
-	 */
-	template <int INPUTS, int OUTPUTS>
-	float accruacy(const trainingdata<INPUTS, OUTPUTS>& data)
-	{
-		const int LASTL = layerCount - 1;
-
-		if (!check(data))
-		{
-			printf("\tCurrupt training data!\n");
-			return .0f;
-		}
-
-		float a = 0;
-		for (int i = 0; i < data.size(); ++i)
-		{
-			pulse<INPUTS, OUTPUTS>(data[i]);
-
-			if (std::max_element(layers[LASTL].neurons, layers[LASTL].neurons + layers[LASTL].nCount) - layers[LASTL].neurons == std::max_element(data[i].outputs, data[i].outputs + OUTPUTS) - data[i].outputs)
-			{
-				++a;
-			}
-		}
-
-		return a / (float)data.size();
-	}
-
-	/**
-	 * Transforms normalized output back to original scale
-	 * @param max Highest value in dataset (use this->max())
-	 * @param min Lowest value in dataset (use this->max())
-	 * @return Denormalized output layer
-	 */
-	std::vector<float> denormalized(const float max, const float min) const
-	{
-		const layer& last = layers[layerCount - 1];
-		const float range = max - min;
-
-		std::vector<float> out(last.nCount);
-
-		for (int i = 0; i < last.nCount; ++i)
-		{
-			out[i] = last.neurons[i] * range + min;
-		}
-
-		return out;
-	}
-
-	/**
-	 * Trains the network with Gradient Descent to minimize the loss function (you can cancel with 'q')
-	 * @param max_iterations Begin small
-	 * @param traindata The large dataset
-	 * @param testdata The small dataset which the network never saw before
-	 * @param optimizer Search online for further information
-	 * @param learningRate Lower values generate more reliable but also slower results
-	 * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
-	 * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
-	 */
-	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-	void fit(int max_iterations, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata,
-		Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int total_threads = 32)
-	{
-		if (!check(traindata) || !check(testdata))
-		{
-			printf("\tCurrupt training data!\n");
-			return;
-		}
-
-		if (optimizer == Optimizer::STOCHASTIC)
-		{
-			stochastic(max_iterations, learningRate, momentum, traindata, testdata);
-		}
-		else
-		{
-			if (learningRate <= 0.0f)
-				learningRate = 0.0001f;
-
-			if (momentum <= 0.0f)
-				momentum = 0.0001f;
-
-			const int batch_size = traindata.size() / total_threads;
-			const int unused = traindata.size() - batch_size * total_threads;
-
-			printf("Mini batches launching with:\n");
-			printf("%i batches | ", total_threads);
-			printf("%i samples per batch | ", batch_size);
-			printf("%i/%i unused samples\n", unused, traindata.size());
-
-			if (total_threads > traindata.size() / batch_size || total_threads < 0)
-				total_threads = 1;
-
-			if (optimizer == Optimizer::ADAM)
-			{
-				mini_batch(max_iterations, learningRate, momentum, batch_size, total_threads, traindata, testdata);
-			}
-		}
-	}
-
-protected:
-	template <int INPUTS, int OUTPUTS>
-	inline bool check(const trainingdata<INPUTS, OUTPUTS>& data) const
-	{
-		return layers[0].nCount == INPUTS && layers[layerCount - 1].nCount == OUTPUTS;
-	}
-
-	template <int INPUTS, int OUTPUTS>
-	class fitlog
-	{
-		seayon& parent;
-		const int sampleCount;
-		const trainingdata<INPUTS, OUTPUTS>& testdata;
-		const int max_iterations;
-		const bool printloss;
-
-		std::unique_ptr<std::ofstream> file{};
-		size_t lastLogLenght = 0;
-		int lastLogAt = 0;
-		std::chrono::high_resolution_clock::time_point overall;
-		std::chrono::high_resolution_clock::time_point sampleTimeLast;
-		std::chrono::high_resolution_clock::time_point last;
-
-		float lastLoss[5]{};
-		int lastLossIndex = 0;
-
-		inline void resolveTime(long long seconds, int* resolved) const
-		{
-			resolved[0] = (int)(seconds / 3600LL);
-			seconds -= 3600LL * (long long)resolved[0];
-			resolved[1] = (int)(seconds / 60LL);
-			seconds -= 60LL * (long long)resolved[1];
-			resolved[2] = (int)(seconds);
-		}
-
-	public:
-		float log(int run)
-		{
-			float l = -1.0f;
-
-			auto now = std::chrono::high_resolution_clock::now();
-			std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-			if (sampleTime.count() > 1000000LL || run == max_iterations || run == 0)
-			{
-				sampleTimeLast = now;
-				std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
-				std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
-
-				if (printloss)
-					l = parent.loss(testdata);
-
-				float progress = (float)run * 100.0f / (float)max_iterations;
-
-				int samplesPerSecond = 0;
-				if (run > 0)
-				{
 					if (run > lastLogAt)
-						sampleTime /= run - lastLogAt;
-					if (sampleTime.count() < 1)
-						samplesPerSecond = -1;
-					else
-						samplesPerSecond = (int)((int64_t)sampleCount * 1000LL / sampleTime.count());
-				}
+						elapsed /= run - lastLogAt;
+					elapsed *= max_iterations - run;
 
-				int runtimeResolved[3];
-				resolveTime(runtime.count(), runtimeResolved);
+					std::chrono::seconds eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed);
 
-				if (run > lastLogAt)
-					elapsed /= run - lastLogAt;
-				elapsed *= max_iterations - run;
+					int etaResolved[3];
+					resolveTime(eta.count(), etaResolved);
 
-				std::chrono::seconds eta = std::chrono::duration_cast<std::chrono::seconds>(elapsed);
+					std::stringstream message;
+					message << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
+						<< samplesPerSecond << "k Samples/s " << std::setw(13)
+						<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
+						<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 
-				int etaResolved[3];
-				resolveTime(eta.count(), etaResolved);
+					if (l > -1.0f)
+						message << "loss: " << std::fixed << std::setprecision(5) << l;
 
-				std::stringstream message;
-				message << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
-					<< samplesPerSecond << "k Samples/s " << std::setw(13)
-					<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
-					<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
+					const int cleared = max(0, (int)lastLogLenght - (int)message.str().length());
+					std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
+					lastLogLenght = message.str().length() + cleared;
 
-				if (l > -1.0f)
-					message << "loss: " << std::fixed << std::setprecision(5) << l;
+					if (file.get() != nullptr)
+						*file << progress << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
 
-				const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
-				std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
-				lastLogLenght = message.str().length() + cleared;
-
-				if (file.get() != nullptr)
-					*file << progress << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
-
-				if (lastLoss[0] <= l
-					&& lastLoss[1] <= l
-					&& lastLoss[2] <= l
-					&& lastLoss[3] <= l
-					&& lastLoss[4] <= l && run > 10 || kbhit() && getch() == 'q')
-				{
-					return 0.0f;
-				}
-				lastLoss[lastLossIndex++] = l;
-				if (lastLossIndex == 5)
-					lastLossIndex = 0;
-
-				lastLogAt = run;
-				last = std::chrono::high_resolution_clock::now();
-			}
-
-			return l;
-		}
-
-		fitlog(seayon& parent,
-			const int& sampleCount,
-			const trainingdata<INPUTS, OUTPUTS>& testdata,
-			const int& max_iterations,
-			const bool& printloss,
-			const std::string& logfolder):
-			parent(parent),
-			sampleCount(sampleCount),
-			testdata(testdata),
-			max_iterations(max_iterations),
-			printloss(printloss)
-		{
-			if (!logfolder.empty())
-			{
-				std::string path(logfolder + "log.csv");
-				std::ifstream exists(path);
-				for (int i = 1; i < 16; ++i)
-				{
-					if (!exists.good())
+					if (lastLoss[0] <= l
+						&& lastLoss[1] <= l
+						&& lastLoss[2] <= l
+						&& lastLoss[3] <= l
+						&& lastLoss[4] <= l && run > 10 || kbhit() && getch() == 'q')
 					{
-						break;
+						return 0.0f;
 					}
-					exists.close();
-					path = logfolder + "log(" + std::to_string(i) + ").csv";
-					exists.open(path);
+					lastLoss[lastLossIndex++] = l;
+					if (lastLossIndex == 5)
+						lastLossIndex = 0;
+
+					lastLogAt = run;
+					last = std::chrono::high_resolution_clock::now();
 				}
 
-				file.reset(new std::ofstream(path));
-				*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
+				return l;
 			}
 
-			printf("\n");
-			overall = std::chrono::high_resolution_clock::now();
-			last = overall;
-			sampleTimeLast = overall;
-			lastLoss[lastLossIndex++] = 999999.0f;
-			log(0);
-		}
-	};
-
-private:
-	template <int INPUTS, int OUTPUTS>
-	struct backprop_matrix
-	{
-		struct batch
-		{
-			struct layer
+			fitlog(model& parent,
+				const int& sampleCount,
+				const dataset<INPUTS, OUTPUTS>& testdata,
+				const int& max_iterations,
+				const bool& printloss,
+				const std::string& logfolder) :
+				parent(parent),
+				sampleCount(sampleCount),
+				testdata(testdata),
+				max_iterations(max_iterations),
+				printloss(printloss)
 			{
-				std::vector<float> deltas;
-				std::vector<float> last_gb;
-				std::vector<float> last_gw;
-				std::vector<float> bias_gradients;
-				std::vector<float> weight_gradients;
-
-				const int nCount;
-				const int wCount;
-
-				layer(const int& nCount, const int& wCount)
-					: nCount(nCount), wCount(wCount)
+				if (!logfolder.empty())
 				{
-					deltas.resize(nCount);
-					last_gb.resize(nCount);
-					last_gw.resize(wCount);
-					bias_gradients.resize(nCount);
-					weight_gradients.resize(wCount);
-				}
-			};
+					std::string path(logfolder + "log.csv");
+					std::ifstream exists(path);
+					for (int i = 1; i < 16; ++i)
+					{
+						if (!exists.good())
+						{
+							break;
+						}
+						exists.close();
+						path = logfolder + "log(" + std::to_string(i) + ").csv";
+						exists.open(path);
+					}
 
-			std::unique_ptr<seayon> net;
-			std::vector<layer> layers;
-
-			const float sample_share;
-
-			batch(const seayon& main, const float& sample_share)
-				: sample_share(sample_share)
-			{
-				std::vector<int> layout(main.layerCount);
-				std::vector<ActivFunc> a(main.layerCount - 1);
-				for (int l = 0; l < main.layerCount; ++l)
-				{
-					layout[l] = main.layers[l].nCount;
-					if (l > 0)
-						a[l - 1] = main.layers[l].func;
+					file.reset(new std::ofstream(path));
+					*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
 				}
 
-				net.reset(new seayon(layout, a, main.seed, main.printloss, main.logfolder));
-				main.copy(*net.get());
-
-				layers.reserve(main.layerCount);
-
-				layers.emplace_back(0, 0);
-				for (int i = 1; i < main.layerCount; ++i)
-				{
-					layers.emplace_back(main.layers[i].nCount, main.layers[i].wCount);
-				}
+				printf("\n");
+				overall = std::chrono::high_resolution_clock::now();
+				last = overall;
+				sampleTimeLast = overall;
+				lastLoss[lastLossIndex++] = 999999.0f;
+				log(0);
 			}
 		};
 
-		std::vector<const typename trainingdata<INPUTS, OUTPUTS>::sample*> sample_pointers;
-		std::vector<batch> batches;
-		const int batch_count;
-		const int layerCount;
-
-		backprop_matrix(const float& sample_share, const int& sampleCount, const int& batch_count, const seayon& main, const trainingdata<INPUTS, OUTPUTS>& traindata)
-			: batch_count(batch_count), layerCount(main.layerCount)
+	private:
+		template <int INPUTS, int OUTPUTS>
+		struct backprop_matrix
 		{
-			sample_pointers.resize(sampleCount);
-			batches.reserve(batch_count);
-
-			const typename trainingdata<INPUTS, OUTPUTS>::sample* sample = &traindata[0];
-			for (int i = 0; i < sampleCount; ++i)
+			struct batch
 			{
-				sample_pointers[i] = sample + i;
-			}
-
-			for (int i = 0; i < batch_count; ++i)
-			{
-				batches.emplace_back(main, sample_share);
-			}
-		}
-
-		inline void apply(seayon& main)
-		{
-			for (int b = 0; b < batch_count; ++b)
-			{
-				for (int l = 1; l < main.layerCount; ++l)
+				struct layer
 				{
-					for (int n = 0; n < main.layers[l].nCount; ++n)
+					std::vector<float> deltas;
+					std::vector<float> last_gb;
+					std::vector<float> last_gw;
+					std::vector<float> bias_gradients;
+					std::vector<float> weight_gradients;
+
+					const int nCount;
+					const int wCount;
+
+					layer(const int& nCount, const int& wCount)
+						: nCount(nCount), wCount(wCount)
 					{
-						main.layers[l].biases[n] += batches[b].layers[l].bias_gradients[n];
+						deltas.resize(nCount);
+						last_gb.resize(nCount);
+						last_gw.resize(wCount);
+						bias_gradients.resize(nCount);
+						weight_gradients.resize(wCount);
+					}
+				};
+
+				std::unique_ptr<model> net;
+				std::vector<layer> layers;
+
+				const float sample_share;
+
+				batch(const model& main, const float& sample_share)
+					: sample_share(sample_share)
+				{
+					std::vector<int> layout(main.layerCount);
+					std::vector<ActivFunc> a(main.layerCount - 1);
+					for (int l = 0; l < main.layerCount; ++l)
+					{
+						layout[l] = main.layers[l].nCount;
+						if (l > 0)
+							a[l - 1] = main.layers[l].func;
 					}
 
-					for (int w = 0; w < main.layers[l].wCount; ++w)
-					{
-						main.layers[l].weights[w] += batches[b].layers[l].weight_gradients[w];
-					}
+					net.reset(new model(layout, a, main.seed, main.printloss, main.logfolder));
+					main.copy(*net.get());
 
-					memset(batches[b].layers[l].bias_gradients.data(), 0, main.layers[l].nCount * sizeof(float));
-					memset(batches[b].layers[l].weight_gradients.data(), 0, main.layers[l].wCount * sizeof(float));
+					layers.reserve(main.layerCount);
+
+					layers.emplace_back(0, 0);
+					for (int i = 1; i < main.layerCount; ++i)
+					{
+						layers.emplace_back(main.layers[i].nCount, main.layers[i].wCount);
+					}
+				}
+			};
+
+			std::vector<const typename dataset<INPUTS, OUTPUTS>::sample*> sample_pointers;
+			std::vector<batch> batches;
+			const int batch_count;
+			const int layerCount;
+
+			backprop_matrix(const float& sample_share, const int& sampleCount, const int& batch_count, const model& main, const dataset<INPUTS, OUTPUTS>& traindata)
+				: batch_count(batch_count), layerCount(main.layerCount)
+			{
+				sample_pointers.resize(sampleCount);
+				batches.reserve(batch_count);
+
+				const typename dataset<INPUTS, OUTPUTS>::sample* sample = &traindata[0];
+				for (int i = 0; i < sampleCount; ++i)
+				{
+					sample_pointers[i] = sample + i;
+				}
+
+				for (int i = 0; i < batch_count; ++i)
+				{
+					batches.emplace_back(main, sample_share);
 				}
 			}
 
-			for (int b = 0; b < batch_count; ++b)
+			inline void apply(model& main)
 			{
-				main.copy(*(batches[b].net.get()));
+				for (int b = 0; b < batch_count; ++b)
+				{
+					for (int l = 1; l < main.layerCount; ++l)
+					{
+						for (int n = 0; n < main.layers[l].nCount; ++n)
+						{
+							main.layers[l].biases[n] += batches[b].layers[l].bias_gradients[n];
+						}
+
+						for (int w = 0; w < main.layers[l].wCount; ++w)
+						{
+							main.layers[l].weights[w] += batches[b].layers[l].weight_gradients[w];
+						}
+
+						memset(batches[b].layers[l].bias_gradients.data(), 0, main.layers[l].nCount * sizeof(float));
+						memset(batches[b].layers[l].weight_gradients.data(), 0, main.layers[l].wCount * sizeof(float));
+					}
+				}
+
+				for (int b = 0; b < batch_count; ++b)
+				{
+					main.copy(*(batches[b].net.get()));
+				}
 			}
-		}
 
-		void shuffle()
-		{
-			std::random_device rm_seed;
-			std::shuffle(sample_pointers.begin(), sample_pointers.end(), std::mt19937(rm_seed()));
-		}
-	};
-
-	template <int INPUTS, int OUTPUTS>
-	static inline void backprop(const float& n, const float& m,
-		typename backprop_matrix<INPUTS, OUTPUTS>::batch& thread, const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
-	{
-		seayon& net = *thread.net.get();
-		const int LASTL = net.layerCount - 1;
-
-		net.pulse<INPUTS, OUTPUTS>(sample);
-
-		{
-			const int& ncount = net.layers[LASTL].nCount;
-			const auto& func = net.layers[LASTL].derivative;
-
-			for (int n2 = 0; n2 < ncount; ++n2)
+			void shuffle()
 			{
-				thread.layers[LASTL].deltas[n2] = func(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+				std::random_device rm_seed;
+				std::shuffle(sample_pointers.begin(), sample_pointers.end(), std::mt19937(rm_seed()));
 			}
-		}
+		};
 
-		for (int l2 = LASTL; l2 >= 2; --l2)
+		template <int INPUTS, int OUTPUTS>
+		static inline void backprop(const float& n, const float& m,
+			typename backprop_matrix<INPUTS, OUTPUTS>::batch& thread, const typename dataset<INPUTS, OUTPUTS>::sample& sample)
 		{
-			const int l1 = l2 - 1;
-			const int& n1count = net.layers[l1].nCount;
-			const int& n2count = net.layers[l2].nCount;
-			const auto& func = net.layers[l1].derivative;
+			model& net = *thread.net.get();
+			const int LASTL = net.layerCount - 1;
 
-			for (int n1 = 0; n1 < n1count; ++n1)
+			net.pulse<INPUTS, OUTPUTS>(sample);
+
 			{
-				float delta = 0;
-				for (int n2 = 0; n2 < n2count; ++n2)
-					delta += net.layers[l2].weights[n2 * n1count + n1] * thread.layers[l2].deltas[n2];
+				const int& ncount = net.layers[LASTL].nCount;
+				const auto& func = net.layers[LASTL].derivative;
 
-				thread.layers[l1].deltas[n1] = func(net.layers[l1].neurons[n1]) * delta;
+				for (int n2 = 0; n2 < ncount; ++n2)
+				{
+					thread.layers[LASTL].deltas[n2] = func(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+				}
 			}
-		}
 
-		for (int l2 = LASTL; l2 >= 1; --l2)
-		{
-			const int l1 = l2 - 1;
-			const int& n1count = net.layers[l1].nCount;
-			const int& n2count = net.layers[l2].nCount;
-
-			for (int n2 = 0; n2 < n2count; ++n2)
+			for (int l2 = LASTL; l2 >= 2; --l2)
 			{
-				const float dn = -thread.layers[l2].deltas[n2];
-				const float step = n * dn;
+				const int l1 = l2 - 1;
+				const int& n1count = net.layers[l1].nCount;
+				const int& n2count = net.layers[l2].nCount;
+				const auto& func = net.layers[l1].derivative;
 
-				thread.layers[l2].bias_gradients[n2] += (step + m * thread.layers[l2].last_gb[n2]) * thread.sample_share;
-				thread.layers[l2].last_gb[n2] = step;
-
-				const int row = n2 * n1count;
 				for (int n1 = 0; n1 < n1count; ++n1)
 				{
-					const int windex = row + n1;
-					const float dw = dn * net.layers[l1].neurons[n1];
-					const float stepw = n * dw;
+					float delta = 0;
+					for (int n2 = 0; n2 < n2count; ++n2)
+						delta += net.layers[l2].weights[n2 * n1count + n1] * thread.layers[l2].deltas[n2];
 
-					thread.layers[l2].weight_gradients[windex] += (stepw + m * thread.layers[l2].last_gw[windex]) * thread.sample_share;
-					thread.layers[l2].last_gw[windex] = stepw;
+					thread.layers[l1].deltas[n1] = func(net.layers[l1].neurons[n1]) * delta;
+				}
+			}
+
+			for (int l2 = LASTL; l2 >= 1; --l2)
+			{
+				const int l1 = l2 - 1;
+				const int& n1count = net.layers[l1].nCount;
+				const int& n2count = net.layers[l2].nCount;
+
+				for (int n2 = 0; n2 < n2count; ++n2)
+				{
+					const float dn = -thread.layers[l2].deltas[n2];
+					const float step = n * dn;
+
+					thread.layers[l2].bias_gradients[n2] += (step + m * thread.layers[l2].last_gb[n2]) * thread.sample_share;
+					thread.layers[l2].last_gb[n2] = step;
+
+					const int row = n2 * n1count;
+					for (int n1 = 0; n1 < n1count; ++n1)
+					{
+						const int windex = row + n1;
+						const float dw = dn * net.layers[l1].neurons[n1];
+						const float stepw = n * dw;
+
+						thread.layers[l2].weight_gradients[windex] += (stepw + m * thread.layers[l2].last_gw[windex]) * thread.sample_share;
+						thread.layers[l2].last_gw[windex] = stepw;
+					}
 				}
 			}
 		}
-	}
 
-	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-	void stochastic(const int& max_iterations, const float& n, const float& m, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
-	{
-		std::vector<std::vector<float>> bias_gradients(layerCount);
-		std::vector<std::vector<float>> weight_gradients(layerCount);
-
-		for (int l = 1; l < layerCount; ++l)
+		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
+		void stochastic(const int& max_iterations, const float& n, const float& m, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata)
 		{
-			bias_gradients[l].resize(layers[l].nCount);
-			weight_gradients[l].resize(layers[l].wCount);
-		}
+			std::vector<std::vector<float>> bias_gradients(layerCount);
+			std::vector<std::vector<float>> weight_gradients(layerCount);
 
-		backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f, traindata.size(), 1, *this, traindata);
-
-		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
-
-		for (int run = 1; run <= max_iterations; ++run)
-		{
-			for (int i = 0; i < traindata.size(); ++i)
+			for (int l = 1; l < layerCount; ++l)
 			{
-				backprop<INPUTS, OUTPUTS>(n, m, matrix.batches[0], traindata[i]);
-				matrix.apply(*this);
+				bias_gradients[l].resize(layers[l].nCount);
+				weight_gradients[l].resize(layers[l].wCount);
 			}
 
-			if (logger.log(run) == 0.0f)
-				break;
+			backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f, traindata.size(), 1, *this, traindata);
+
+			fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
+
+			for (int run = 1; run <= max_iterations; ++run)
+			{
+				for (int i = 0; i < traindata.size(); ++i)
+				{
+					backprop<INPUTS, OUTPUTS>(n, m, matrix.batches[0], traindata[i]);
+					matrix.apply(*this);
+				}
+
+				if (logger.log(run) == 0.0f)
+					break;
+			}
+
+			printf("\n\n");
 		}
 
-		printf("\n\n");
-	}
-
-	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, const int& total_threads, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
-	{
-		const int sampleCount = batch_size * total_threads;
-
-		std::vector<std::thread> threads(total_threads);
-
-		backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)sampleCount, sampleCount, total_threads, *this, traindata);
-
-		fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
-
-		for (int run = 1; run <= max_iterations; ++run)
+		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
+		void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, const int& total_threads, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata)
 		{
-			for (int b = 0; b < total_threads; ++b)
-			{
-				threads[b] = std::thread([&, b, n, m, batch_size]
-					{
-						const int begin = b * batch_size;
-						const int end = begin + batch_size - 1;
+			const int sampleCount = batch_size * total_threads;
 
-						for (int i = begin; i <= end; ++i)
+			std::vector<std::thread> threads(total_threads);
+
+			backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)sampleCount, sampleCount, total_threads, *this, traindata);
+
+			fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
+
+			for (int run = 1; run <= max_iterations; ++run)
+			{
+				for (int b = 0; b < total_threads; ++b)
+				{
+					threads[b] = std::thread([&, b, n, m, batch_size]
 						{
-							backprop<INPUTS, OUTPUTS>(n, m, matrix.batches[b], *matrix.sample_pointers[i]);
-						}
-					});
+							const int begin = b * batch_size;
+							const int end = begin + batch_size - 1;
+
+							for (int i = begin; i <= end; ++i)
+							{
+								backprop<INPUTS, OUTPUTS>(n, m, matrix.batches[b], *matrix.sample_pointers[i]);
+							}
+						});
+				}
+
+				for (int b = 0; b < total_threads; ++b)
+				{
+					threads[b].join();
+				}
+
+				matrix.apply(*this);
+				matrix.shuffle();
+
+				if (logger.log(run) == 0.0f)
+					break;
 			}
 
-			for (int b = 0; b < total_threads; ++b)
-			{
-				threads[b].join();
-			}
-
-			matrix.apply(*this);
-			matrix.shuffle();
-
-			if (logger.log(run) == 0.0f)
-				break;
+			printf("\n\n");
 		}
+	};
+}
 
-		printf("\n\n");
-	}
-};
+#endif

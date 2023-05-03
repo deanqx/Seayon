@@ -3,7 +3,7 @@
 #include <chrono>
 #include <vector>
 #include "../../include/cuda_seayon.cuh"
-#include "../../SeayonMnist/src/import.cpp"
+#include "../../examples/digit_recognition/src/import.cpp"
 
 int main()
 {
