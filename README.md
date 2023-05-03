@@ -2,6 +2,7 @@
 
 # Version 1.2 Early Access
 
+:x: Cuda/GPU support is currently not supported
 :heavy_check_mark: ...
 
 # Quick start

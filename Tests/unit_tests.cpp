@@ -3,88 +3,88 @@
 
 namespace
 {
-    static trainingdata<2, 2> data =
+    using namespace seayon;
+
+    static dataset<2, 2> data =
     {
         {{1.0f, 0.0f}, {0.0f, 1.0f}},
          {{0.0f, 1.0f}, {1.0f, 0.0f}}
     };
 
     static std::vector<int> layout = { 2, 3, 4, 2 };
-    static std::vector<ActivFunc> funcs = { ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
+    static std::vector<ActivFunc> funcs = { ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
 
     float pulse()
     {
-        seayon nn(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472, false);
 
-        nn.pulse<2, 2>(data[0]);
+        m.pulse<2, 2>(data[0]);
 
-        return nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+        return m.layers[3].neurons[0] + m.layers[3].neurons[1];
     }
     float fit()
     {
-        seayon nn(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472, false);
 
         float sum = 0.0f;
 
-        nn.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f);
-        nn.pulse<2, 2>(data[0]);
-        sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+        // TODO test batch_size
 
-        nn.fit(20, data, data, Optimizer::MINI_BATCH, 0.5f, 0.5f, 2);
-        nn.pulse<2, 2>(data[0]);
-        sum += nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+        m.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f);
+        m.pulse<2, 2>(data[0]);
+        sum += m.layers[3].neurons[0] + m.layers[3].neurons[1];
 
         return sum;
     }
 
     float accruacy()
     {
-        seayon nn(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472, false);
 
-        return nn.accruacy(data);
+        return m.accruacy(data);
     }
     float loss()
     {
-        seayon nn(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472, false);
 
-        return nn.loss(data);
+        return m.loss(data);
     }
 
     bool equals()
     {
-        seayon nn(layout, funcs, 1472, false);
-        seayon nn2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472, false);
+        model m2(layout, funcs, 1471, false);
 
-        return nn.equals(nn) == true && nn.equals(nn2) == false;
+        return m.equals(m) == true && m.equals(m2) == false;
     }
     float combine()
     {
-        seayon nn(layout, funcs, 1472, false);
-        seayon nn2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472, false);
+        model m2(layout, funcs, 1471, false);
 
-        nn.combine(&nn2, 1);
+        m.combine(&m2, 1);
 
-        return nn.layers[3].neurons[0] + nn.layers[3].neurons[1];
+        return m.layers[3].neurons[0] + m.layers[3].neurons[1];
     }
     bool copy()
     {
-        seayon nn(layout, funcs, 1472, false);
-        seayon nn2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472, false);
+        model m2(layout, funcs, 1471, false);
 
-        nn.copy(nn2);
+        m.copy(m2);
 
-        return nn.equals(nn2);
+        return m.equals(m2);
     }
     bool save_load()
     {
-        seayon nn(layout, funcs, 1472, false);
-        seayon nn2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472, false);
+        model m2(layout, funcs, 1471, false);
 
         std::vector<char> buffer;
-        nn.save(buffer);
-        nn2.load(buffer.data());
+        m.save(buffer);
+        m2.load(buffer.data());
 
-        return nn.equals(nn2);
+        return m.equals(m2);
     }
 }
 
@@ -94,7 +94,7 @@ TEST(Basis, Activation)
 }
 TEST(Basis, Training)
 {
-    EXPECT_EQ(fit(), 2.01234579f);
+    EXPECT_EQ(fit(), 1.01121223f);
 }
 
 TEST(Analysis, Accruacy)
@@ -103,7 +103,7 @@ TEST(Analysis, Accruacy)
 }
 TEST(Analysis, Loss)
 {
-    EXPECT_EQ(loss(), 0.53441453f);
+    EXPECT_EQ(loss(), 0.267207265f);
 }
 
 TEST(Management, Equals)

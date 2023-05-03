@@ -67,34 +67,34 @@ enum class ParallelOptimizer
 	ADAM
 };
 
-class cuda_seayon: public seayon
+class cuda_seayon : public seayon::model
 {
 private:
-	using seayon::manageMemory;
-	using seayon::printloss;
-	using seayon::seed;
-	using seayon::logfolder;
+	using model::manageMemory;
+	using model::printloss;
+	using model::seed;
+	using model::logfolder;
 public:
-	using seayon::layers;
-	using seayon::layerCount;
+	using model::layers;
+	using model::layerCount;
 
-	using seayon::seayon;
-	using seayon::save;
-	using seayon::load;
-	using seayon::copy;
-	using seayon::combine;
-	using seayon::equals;
-	using seayon::pulse;
-	using seayon::print;
-	using seayon::printo;
-	using seayon::loss;
-	using seayon::accruacy;
+	using model::model;
+	using model::save;
+	using model::load;
+	using model::copy;
+	using model::combine;
+	using model::equals;
+	using model::pulse;
+	using model::print;
+	using model::printo;
+	using model::loss;
+	using model::accruacy;
 private:
-	using seayon::fitlog;
+	using model::fitlog;
 
 public:
 	cuda_seayon(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printloss = true, std::string logfolder = std::string())
-		: seayon(layout, a, seed, printloss, logfolder)
+		: model(layout, a, seed, printloss, logfolder)
 	{
 		cudaMemcpyFromSymbol(&h_Sigmoid, d_Sigmoid, sizeof(ActivFunc_t));
 		cudaMemcpyFromSymbol(&h_dSigmoid, d_dSigmoid, sizeof(ActivFunc_t));
@@ -142,13 +142,13 @@ public:
 			std::unique_ptr<device> linker_device;
 
 			std::vector<batch> batches;
-			std::vector<const typename trainingdata<INPUTS, OUTPUTS>::sample*> device_sample_pointers;
+			std::vector<const typename dataset<INPUTS, OUTPUTS>::sample*> device_sample_pointers;
 
 			const int batch_count;
 			const float n;
 			const float m;
 
-			host(const int batch_count, const float n, const float m, const int sampleCount, const cuda_seayon& main): batch_count(batch_count), n(n), m(m)
+			host(const int batch_count, const float n, const float m, const int sampleCount, const cuda_seayon& main) : batch_count(batch_count), n(n), m(m)
 			{
 				batches.reserve(batch_count);
 				device_sample_pointers.resize(sampleCount);
@@ -175,7 +175,7 @@ public:
 					const size_t nSize;
 					const size_t wSize;
 
-					layer(const int nCount, const int wCount): nSize(nCount * sizeof(float)), wSize(wCount * sizeof(float))
+					layer(const int nCount, const int wCount) : nSize(nCount * sizeof(float)), wSize(wCount * sizeof(float))
 					{
 						cudaMalloc(&deltas, nSize);
 						cudaMalloc(&last_gb, nSize);
@@ -211,7 +211,7 @@ public:
 
 				const float sample_share;
 
-				batch(const batch& b): sample_share(0.0f)
+				batch(const batch& b) : sample_share(0.0f)
 				{
 					printf("\n\n--- cuda error ---\n\n");
 				}
@@ -307,11 +307,11 @@ public:
 			};
 
 			batch* batches;
-			trainingdata<INPUTS, OUTPUTS>* traindata;
-			const typename trainingdata<INPUTS, OUTPUTS>::sample** sample_pointers;
+			dataset<INPUTS, OUTPUTS>* traindata;
+			const typename dataset<INPUTS, OUTPUTS>::sample** sample_pointers;
 
 			std::vector<batch> linker_batches;
-			std::unique_ptr<trainingdata<INPUTS, OUTPUTS>> linker_traindata;
+			std::unique_ptr<dataset<INPUTS, OUTPUTS>> linker_traindata;
 
 			const int layerCount;
 			const int batch_count;
@@ -319,15 +319,15 @@ public:
 			const float n;
 			const float m;
 
-			device(const int& batch_count, const int& batch_size, const float& n, const float& m, const cuda_seayon& main, const trainingdata<INPUTS, OUTPUTS>& host_traindata)
+			device(const int& batch_count, const int& batch_size, const float& n, const float& m, const cuda_seayon& main, const dataset<INPUTS, OUTPUTS>& host_traindata)
 				: layerCount(main.layerCount), batch_count(batch_count), batch_size(batch_size), n(n), m(m)
 			{
 				const int used_size = batch_count * batch_size;
 				const float sample_share = 1.0f / (float)used_size;
 
 				cudaMalloc(&batches, batch_count * sizeof(batch));
-				cudaMalloc(&traindata, sizeof(trainingdata<INPUTS, OUTPUTS>));
-				cudaMalloc(&sample_pointers, host_traindata.size() * sizeof(const typename trainingdata<INPUTS, OUTPUTS>::sample*));
+				cudaMalloc(&traindata, sizeof(dataset<INPUTS, OUTPUTS>));
+				cudaMalloc(&sample_pointers, host_traindata.size() * sizeof(const typename dataset<INPUTS, OUTPUTS>::sample*));
 				linker_batches.reserve(batch_count);
 
 				for (size_t i = 0; i < batch_count; ++i)
@@ -337,12 +337,12 @@ public:
 
 				cudaMemcpy(batches, linker_batches.data(), batch_count * sizeof(batch), cudaMemcpyHostToDevice);
 
-				typename trainingdata<INPUTS, OUTPUTS>::sample* samples;
-				cudaMalloc(&samples, used_size * sizeof(typename trainingdata<INPUTS, OUTPUTS>::sample));;
-				cudaMemcpy(samples, &host_traindata[0], used_size * sizeof(typename trainingdata<INPUTS, OUTPUTS>::sample), cudaMemcpyHostToDevice);
-				linker_traindata.reset(new trainingdata<INPUTS, OUTPUTS>(samples, used_size, false));
+				typename dataset<INPUTS, OUTPUTS>::sample* samples;
+				cudaMalloc(&samples, used_size * sizeof(typename dataset<INPUTS, OUTPUTS>::sample));;
+				cudaMemcpy(samples, &host_traindata[0], used_size * sizeof(typename dataset<INPUTS, OUTPUTS>::sample), cudaMemcpyHostToDevice);
+				linker_traindata.reset(new dataset<INPUTS, OUTPUTS>(samples, used_size, false));
 
-				cudaMemcpy(traindata, linker_traindata.get(), sizeof(trainingdata<INPUTS, OUTPUTS>), cudaMemcpyHostToDevice);
+				cudaMemcpy(traindata, linker_traindata.get(), sizeof(dataset<INPUTS, OUTPUTS>), cudaMemcpyHostToDevice);
 			}
 
 			void reset(const cuda_seayon& main)
@@ -365,19 +365,19 @@ public:
 		host on_host;
 		device* on_device;
 
-		backprop_matrix(const cuda_seayon& main, const trainingdata<INPUTS, OUTPUTS>& traindata, const int& batch_count, const int& batch_size, const float& n, const float& m)
+		backprop_matrix(const cuda_seayon& main, const dataset<INPUTS, OUTPUTS>& traindata, const int& batch_count, const int& batch_size, const float& n, const float& m)
 			: on_host(batch_count, n, m, traindata.size(), main)
 		{
 			cudaMalloc(&on_device, sizeof(device));
 			on_host.linker_device.reset(new device(batch_count, batch_size, n, m, main, traindata));
 
-			const typename trainingdata<INPUTS, OUTPUTS>::sample* device_samples = &(*on_host.linker_device->linker_traindata)[0];
+			const typename dataset<INPUTS, OUTPUTS>::sample* device_samples = &(*on_host.linker_device->linker_traindata)[0];
 			for (int i = 0; i < traindata.size(); ++i)
 			{
 				on_host.device_sample_pointers[i] = device_samples + i;
 			}
 
-			cudaMemcpy(on_host.linker_device->sample_pointers, on_host.device_sample_pointers.data(), traindata.size() * sizeof(typename trainingdata<INPUTS, OUTPUTS>::sample*), cudaMemcpyHostToDevice);
+			cudaMemcpy(on_host.linker_device->sample_pointers, on_host.device_sample_pointers.data(), traindata.size() * sizeof(typename dataset<INPUTS, OUTPUTS>::sample*), cudaMemcpyHostToDevice);
 			cudaMemcpy(on_device, on_host.linker_device.get(), sizeof(device), cudaMemcpyHostToDevice);
 		}
 
@@ -413,7 +413,7 @@ public:
 
 			cudaMemcpy(on_host.linker_device->sample_pointers,
 				on_host.device_sample_pointers.data(),
-				on_host.device_sample_pointers.size() * sizeof(typename trainingdata<INPUTS, OUTPUTS>::sample*),
+				on_host.device_sample_pointers.size() * sizeof(typename dataset<INPUTS, OUTPUTS>::sample*),
 				cudaMemcpyHostToDevice);
 		}
 
@@ -425,11 +425,11 @@ public:
 
 private:
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int total_threads, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata);
+	void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int total_threads, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata);
 
 public:
 	template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-	void fit(int max_iterations, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata, ParallelOptimizer optimizer = ParallelOptimizer::MINI_BATCH, float learningRate = 0.03f, float momentum = 0.1f, int total_threads = 128)
+	void fit(int max_iterations, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata, ParallelOptimizer optimizer = ParallelOptimizer::MINI_BATCH, float learningRate = 0.03f, float momentum = 0.1f, int total_threads = 128)
 	{
 		if (!check(traindata) || !check(testdata))
 		{
@@ -460,7 +460,7 @@ public:
 };
 
 template <int INPUTS, int OUTPUTS>
-__device__ void cuda_pulse(cuda_seayon& net, const typename trainingdata<INPUTS, OUTPUTS>::sample& sample)
+__device__ void cuda_pulse(cuda_seayon& net, const typename dataset<INPUTS, OUTPUTS>::sample& sample)
 {
 	for (int n = 0; n < INPUTS; ++n)
 		net.layers[0].neurons[n] = sample.inputs[n];
@@ -495,7 +495,7 @@ __device__ void cuda_gradient_descent(const int& b, typename cuda_seayon::backpr
 
 	for (int i = 0; i < mm.batch_size; ++i)
 	{
-		const typename trainingdata<INPUTS, OUTPUTS>::sample& sample = *mm.sample_pointers[b * mm.batch_size + i];
+		const typename dataset<INPUTS, OUTPUTS>::sample& sample = *mm.sample_pointers[b * mm.batch_size + i];
 		cuda_pulse<INPUTS, OUTPUTS>(net, sample);
 
 		{
@@ -561,7 +561,7 @@ __global__ void kernel(typename cuda_seayon::backprop_matrix<INPUTS, OUTPUTS>::d
 }
 
 template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int total_threads, const trainingdata<INPUTS, OUTPUTS>& traindata, const trainingdata<T_INPUTS, T_OUTPUTS>& testdata)
+void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int total_threads, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata)
 {
 	const int LASTL = layerCount - 1;
 	const int block_count = total_threads / 512 + 1;      // Optimal: power of 2
