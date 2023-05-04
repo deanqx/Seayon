@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <random>
 #include <thread>
+
+#define NOMINMAX
 #include <windows.h>
 #include <conio.h>
 
@@ -256,6 +258,69 @@ namespace seayon
 		}
 	};
 
+	struct model_parameters
+	{
+		bool printloss{};
+		int seed{};
+		std::vector<int> layout{};
+		std::vector<ActivFunc> a{};
+		std::string logfolder{};
+
+		void load_parameters(const char* buffer)
+		{
+			const char* pointer = buffer + sizeof(uint32_t);
+
+			memcpy(&printloss, pointer, sizeof(uint8_t));
+			pointer += sizeof(uint8_t);
+			memcpy(&seed, pointer, sizeof(int32_t));
+			pointer += sizeof(int32_t);
+
+			uint32_t layerCount{};
+			uint32_t logLenght{};
+
+			memcpy(&layerCount, pointer, sizeof(uint32_t));
+			pointer += sizeof(uint32_t);
+			memcpy(&logLenght, pointer, sizeof(uint32_t));
+			pointer += sizeof(uint32_t);
+
+			layout.resize(layerCount);
+			a.resize(layerCount - 1);
+			logfolder.resize(logLenght);
+
+			std::vector<uint32_t> _layout(layerCount);
+
+			memcpy(_layout.data(), pointer, layerCount * sizeof(uint32_t));
+			pointer += layerCount * sizeof(uint32_t);
+			memcpy(a.data(), pointer, a.size() * sizeof(ActivFunc));
+			pointer += a.size() * sizeof(ActivFunc);
+			memcpy(logfolder.data(), pointer, logLenght * sizeof(char));
+			// pointer += logLenght * sizeof(char);
+
+			for (int i = 0; i < layerCount; ++i)
+			{
+				layout[i] = (int)_layout[i];
+			}
+		}
+
+		bool load_parameters(std::ifstream& file)
+		{
+			if (file.is_open())
+			{
+				file.seekg(0, file.end);
+				int N = (int)file.tellg();
+				file.seekg(0, file.beg);
+
+				std::vector<char> buffer(N);
+				file.read(buffer.data(), N);
+				load_parameters(buffer.data());
+
+				return true;
+			}
+
+			return false;
+		}
+	};
+
 	// Open source Neural Network library in C++
 	class model
 	{
@@ -361,7 +426,7 @@ namespace seayon
 		const int layerCount;
 		layer* const layers;
 
-		model(layer* layers,
+		model(layer* const layers,
 			const int layerCount,
 			const bool printloss,
 			const int seed,
@@ -408,6 +473,10 @@ namespace seayon
 			}
 		}
 
+		model(const model_parameters& para) : model(para.layout, para.a, para.seed, para.printloss, para.logfolder)
+		{
+		}
+
 		~model()
 		{
 			if (manageMemory)
@@ -420,11 +489,79 @@ namespace seayon
 		}
 
 		/**
+		 * Stores all weights and biases in one binary buffer
+		 * @return size of buffer
+		 */
+		size_t save(std::vector<char>& buffer) const
+		{
+			size_t buffersize{};
+
+			const uint8_t _printloss = (uint8_t)printloss;
+			const int32_t _seed = (int32_t)seed;
+			const uint32_t _layerCount = layerCount;
+			const uint32_t _logLenght = logfolder.size();
+			std::vector<uint32_t> layout(layerCount);
+			std::vector<ActivFunc> a(layerCount - 1);
+			uint32_t parameters_size = sizeof(uint8_t) + sizeof(int32_t) + (layerCount + 2) * sizeof(uint32_t) + a.size() * sizeof(ActivFunc) + _logLenght * sizeof(char);
+
+			std::vector<size_t> nSize(layerCount);
+			std::vector<size_t> wSize(layerCount);
+			for (int i = 0; i < layerCount; ++i)
+			{
+				layout[i] = (uint32_t)layers[i].nCount;
+				if (i > 0)
+				{
+					a[i - 1] = layers[i].func;
+
+					nSize[i] = layers[i].nCount * sizeof(float);
+					wSize[i] = layers[i].wCount * sizeof(float);
+					buffersize += nSize[i] + wSize[i];
+				}
+			}
+
+			buffersize += sizeof(uint32_t) + parameters_size;
+			buffer.resize(buffersize);
+
+			printf("para_size: %i\n", (int)parameters_size);
+
+			char* pointer = buffer.data();
+
+			memcpy(buffer.data(), &parameters_size, sizeof(uint32_t));
+			pointer += sizeof(uint32_t);
+
+			memcpy(pointer, &_printloss, sizeof(uint8_t));
+			pointer += sizeof(uint8_t);
+			memcpy(pointer, &_seed, sizeof(int32_t));
+			pointer += sizeof(int32_t);
+
+			memcpy(pointer, &_layerCount, sizeof(uint32_t));
+			pointer += sizeof(uint32_t);
+			memcpy(pointer, &_logLenght, sizeof(uint32_t));
+			pointer += sizeof(uint32_t);
+
+			memcpy(pointer, layout.data(), layerCount * sizeof(uint32_t));
+			pointer += layerCount * sizeof(uint32_t);
+			memcpy(pointer, a.data(), a.size() * sizeof(ActivFunc));
+			pointer += a.size() * sizeof(ActivFunc);
+			memcpy(pointer, logfolder.data(), _logLenght * sizeof(char));
+			pointer += _logLenght * sizeof(char);
+
+			for (int i = 1; i < layerCount; ++i)
+			{
+				memcpy(pointer, layers[i].weights, wSize[i]);
+				pointer += wSize[i];
+				memcpy(pointer, layers[i].biases, nSize[i]);
+				pointer += nSize[i];
+			}
+
+			return buffersize;
+		}
+		/**
 		 * Stores all weights and biases in one binary file
 		 * @param file use std::ios::binary
 		 * @return size of buffer
 		 */
-		size_t save(std::ofstream& file)
+		size_t save(std::ofstream& file) const
 		{
 			std::vector<char> buffer;
 			size_t buffersize = save(buffer);
@@ -437,34 +574,34 @@ namespace seayon
 
 			return buffersize;
 		}
-		// TODO save and load layout too
 		/**
-		 * Stores all weights and biases in one binary buffer
-		 * @return size of buffer
+		 * Loads binary network buffer
+		 * @exception Currupt data can through an error
 		 */
-		size_t save(std::vector<char>& buffer)
+		void load(const char* buffer)
 		{
-			size_t buffersize = 0;
 			std::vector<size_t> nSize(layerCount);
 			std::vector<size_t> wSize(layerCount);
 			for (int i = 1; i < layerCount; ++i)
 			{
-				nSize[i] = sizeof(float) * layers[i].nCount;
-				wSize[i] = sizeof(float) * layers[i].wCount;
-				buffersize += nSize[i] + wSize[i];
+				nSize[i] = layers[i].nCount * sizeof(float); // WARN float is not const size
+				wSize[i] = layers[i].wCount * sizeof(float);
 			}
-			buffer.resize(buffersize);
 
-			char* pointer = buffer.data();
+			const char* pointer = buffer;
+
+			uint32_t parameters_size{};
+
+			memcpy(&parameters_size, pointer, sizeof(uint32_t));
+			pointer += sizeof(uint32_t) + parameters_size;
+
 			for (int i = 1; i < layerCount; ++i)
 			{
-				memcpy(pointer, layers[i].weights, wSize[i]);
+				memcpy(layers[i].weights, pointer, wSize[i]);
 				pointer += wSize[i];
-				memcpy(pointer, layers[i].biases, nSize[i]);
+				memcpy(layers[i].biases, pointer, nSize[i]);
 				pointer += nSize[i];
 			}
-
-			return buffersize;
 		}
 		/**
 		 * Loads binary network file
@@ -488,29 +625,6 @@ namespace seayon
 			}
 
 			return false;
-		}
-		/**
-		 * Loads binary network buffer
-		 * @exception Currupt data can through an error
-		 */
-		void load(char* buffer)
-		{
-			std::vector<size_t> nSize(layerCount);
-			std::vector<size_t> wSize(layerCount);
-			for (int i = 1; i < layerCount; ++i)
-			{
-				nSize[i] = sizeof(float) * layers[i].nCount;
-				wSize[i] = sizeof(float) * layers[i].wCount;
-			}
-
-			char* pointer = buffer;
-			for (int i = 1; i < layerCount; ++i)
-			{
-				memcpy(layers[i].weights, pointer, wSize[i]);
-				pointer += wSize[i];
-				memcpy(layers[i].biases, pointer, nSize[i]);
-				pointer += nSize[i];
-			}
 		}
 		// Copies weights and biases to a different instance
 		inline void copy(model& to) const
@@ -1006,7 +1120,7 @@ namespace seayon
 					if (l > -1.0f)
 						message << "loss: " << std::fixed << std::setprecision(5) << l;
 
-					const int cleared = max(0, (int)lastLogLenght - (int)message.str().length());
+					const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
 					std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
 					lastLogLenght = message.str().length() + cleared;
 

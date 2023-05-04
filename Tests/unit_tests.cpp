@@ -78,10 +78,14 @@ namespace
     bool save_load()
     {
         model m(layout, funcs, 1472, false);
-        model m2(layout, funcs, 1471, false);
 
         std::vector<char> buffer;
         m.save(buffer);
+
+        model_parameters para;
+        para.load_parameters(buffer.data());
+
+        model m2(para);
         m2.load(buffer.data());
 
         return m.equals(m2);
