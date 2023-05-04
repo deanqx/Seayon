@@ -14,7 +14,9 @@
 #include <random>
 #include <thread>
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #include <conio.h>
 
@@ -522,8 +524,6 @@ namespace seayon
 			buffersize += sizeof(uint32_t) + parameters_size;
 			buffer.resize(buffersize);
 
-			printf("para_size: %i\n", (int)parameters_size);
-
 			char* pointer = buffer.data();
 
 			memcpy(buffer.data(), &parameters_size, sizeof(uint32_t));
@@ -724,6 +724,137 @@ namespace seayon
 			return layers[layerCount - 1].neurons;
 		}
 
+		/**
+		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
+		 * @param sample Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float loss(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		{
+			pulse<INPUTS, OUTPUTS>(sample);
+
+			const int LASTL = layerCount - 1;
+
+			float c = 0;
+			for (int n = 0; n < OUTPUTS; ++n)
+			{
+				const float x = layers[LASTL].neurons[n] - sample.outputs[n];
+				c += x * x;
+			}
+
+			return c / (float)OUTPUTS;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
+		 * @param data Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float loss(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float c = 0;
+			for (int i = 0; i < data.size(); ++i)
+			{
+				c += loss<INPUTS, OUTPUTS>(data[i]);
+			}
+
+			return c / (float)data.size();
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
+		 * @param sample Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float diff(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		{
+			pulse<INPUTS, OUTPUTS>(sample);
+
+			const int LASTL = layerCount - 1;
+
+			float c = 0;
+			for (int n = 0; n < OUTPUTS; ++n)
+			{
+				c += std::abs(layers[LASTL].neurons[n] - sample.outputs[n]);
+			}
+
+			return c / (float)OUTPUTS;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
+		 * @param data Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float diff(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float c = 0;
+			for (int i = 0; i < data.size(); ++i)
+			{
+				c += diff<INPUTS, OUTPUTS>(data[i]);
+			}
+
+			return c / (float)data.size();
+		}
+		/**
+		 * for each sample: does highest output matches optimal highest
+		 * @param data Optimal outputs (testdata)
+		 * @return percentage, higher means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float accruacy(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			const int LASTL = layerCount - 1;
+
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float a = 0;
+			for (int i = 0; i < data.size(); ++i)
+			{
+				pulse<INPUTS, OUTPUTS>(data[i]);
+
+				if (std::max_element(layers[LASTL].neurons, layers[LASTL].neurons + layers[LASTL].nCount) - layers[LASTL].neurons == std::max_element(data[i].outputs, data[i].outputs + OUTPUTS) - data[i].outputs)
+				{
+					++a;
+				}
+			}
+
+			return a / (float)data.size();
+		}
+
+		/**
+		 * Prints all rating functions
+		 * @return difference value "diff()"
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float evaluate(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			float d = diff(data);
+
+			printf("\t\tLoss        %f\n", loss(data));
+			printf("\t\tDifference  %f\n", d);
+			printf("\t\tAccruacy    %.1f%%\n", accruacy(data) * 100.0f);
+			printf("\t-----------------------------------------------\n\n");
+
+			return d;
+		}
 		// Prints all values. pulse() should be called before
 		void print()
 		{
@@ -812,20 +943,15 @@ namespace seayon
 		}
 		/**
 		 * Prints all values with the loss() and the accruacy()
-		 * @return loss value
+		 * @return difference value "diff()"
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float print(dataset<INPUTS, OUTPUTS>& data, int sample)
+		float print(const dataset<INPUTS, OUTPUTS>& data, int sample)
 		{
 			pulse<INPUTS, OUTPUTS>(data[sample]);
 			print();
 
-			float c = loss(data);
-			printf("\t\tLoss\t\t%.5f\n", c);
-			printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
-			printf("\t-----------------------------------------------\n\n");
-
-			return c;
+			return evaluate(data);
 		}
 		// Prints only the output layer. pulse() should be called before
 		void printo()
@@ -876,7 +1002,7 @@ namespace seayon
 		}
 		/**
 		 * Prints only the output layer with the loss() and the accruacy()
-		 * @return loss value
+		 * @return difference value "diff()"
 		 */
 		template <int INPUTS, int OUTPUTS>
 		float printo(const dataset<INPUTS, OUTPUTS>& data, const int sample)
@@ -884,84 +1010,33 @@ namespace seayon
 			pulse<INPUTS, OUTPUTS>(data[sample]);
 			printo();
 
-			float c = loss(data);
-			printf("\t\tLoss\t\t%.5f\n", c);
-			printf("\t\tAccruacy\t%.1f%%\n", accruacy(data) * 100.0f);
-			printf("\t-----------------------------------------------\n\n");
+			return evaluate(data);
+		}
+		// Prints output layer in one line. pulse() should be called before
+		void print_one()
+		{
+			const layer& last = layers[layerCount - 1];
+			const int lastn = last.nCount - 1;
 
-			return c;
+			printf("[");
+			for (int i = 0; i < lastn; ++i)
+			{
+				printf("%.5f, ", last.neurons[i]);
+			}
+			printf("%.5f", last.neurons[lastn]);
+			printf("]\n");
 		}
 		/**
-		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
-		 * @param sample Optimal outputs (testdata)
-		 * @return lower means better
+		 * Prints output layer in one line
+		 * @return difference value "diff()"
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float loss(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		float print_one(const dataset<INPUTS, OUTPUTS>& data, const int sample)
 		{
-			pulse<INPUTS, OUTPUTS>(sample);
+			pulse<INPUTS, OUTPUTS>(data[sample]);
+			print_one();
 
-			const int LASTL = layerCount - 1;
-
-			float c = 0;
-			for (int n = 0; n < OUTPUTS; ++n)
-			{
-				const float x = layers[LASTL].neurons[n] - sample.outputs[n];
-				c += x * x;
-			}
-
-			return c / (float)OUTPUTS;
-		}
-		/**
-		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
-		 * @param data Optimal outputs (testdata)
-		 * @return lower means better
-		 */
-		template <int INPUTS, int OUTPUTS>
-		float loss(const dataset<INPUTS, OUTPUTS>& data)
-		{
-			if (!check(data))
-			{
-				printf("\tCurrupt training data!\n");
-				return .0f;
-			}
-
-			float c = 0;
-			for (int i = 0; i < data.size(); ++i)
-			{
-				c += loss<INPUTS, OUTPUTS>(data[i]);
-			}
-
-			return c / (float)data.size();
-		}
-		/**
-		 * for each sample: does highest output matches optimal highest
-		 * @param data Optimal outputs (testdata)
-		 * @return percentage, higher means better
-		 */
-		template <int INPUTS, int OUTPUTS>
-		float accruacy(const dataset<INPUTS, OUTPUTS>& data)
-		{
-			const int LASTL = layerCount - 1;
-
-			if (!check(data))
-			{
-				printf("\tCurrupt training data!\n");
-				return .0f;
-			}
-
-			float a = 0;
-			for (int i = 0; i < data.size(); ++i)
-			{
-				pulse<INPUTS, OUTPUTS>(data[i]);
-
-				if (std::max_element(layers[LASTL].neurons, layers[LASTL].neurons + layers[LASTL].nCount) - layers[LASTL].neurons == std::max_element(data[i].outputs, data[i].outputs + OUTPUTS) - data[i].outputs)
-				{
-					++a;
-				}
-			}
-
-			return a / (float)data.size();
+			return evaluate(data);
 		}
 
 		/**
