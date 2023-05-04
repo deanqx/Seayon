@@ -64,5 +64,18 @@ int main()
 	out = m.pulse<2, 2>(data[1]);
 	printf("%f, %f\n", out[0], out[1]);
 
+	{
+		std::vector<char> buffer;
+		m.save(buffer);
+
+		model_parameters para;
+		para.load_parameters(buffer.data());
+		model m2(para);
+		m2.load(buffer.data());
+
+		printf("equals: %i seed: %i\n", m.equals(m2), para.seed);
+	}
+	printf("out of scope\n");
+
 	return 0;
 }
