@@ -1,4 +1,4 @@
-if(BUILD_TESTING)
+# if(BUILD_TESTING)
     get_filename_component(ProjectId ${CMAKE_CURRENT_SOURCE_DIR} NAME)
     string(REPLACE " " "_" ProjectId ${ProjectId})
     project(${ProjectId})
@@ -13,5 +13,4 @@ if(BUILD_TESTING)
     target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gtest_main)
     include(GoogleTest)
     gtest_discover_tests(${PROJECT_NAME})
-
-endif()
+# endif()

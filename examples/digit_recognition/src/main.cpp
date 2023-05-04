@@ -26,8 +26,15 @@ int main()
 
 	if (load)
 	{
-		std::ifstream file("../../../../examples/digit_recognition/res.bin", std::ios::binary);
-		m.load(file);
+		std::ifstream file("../../../../examples/digit_recognition/saved.bin", std::ios::binary);
+
+		model_parameters para;
+		para.load_parameters(file);
+
+		model imported(para);
+		imported.load(file);
+
+		imported.printo(testdata, 0);
 	}
 	else
 	{
@@ -57,7 +64,7 @@ int main()
 			m.printo(testdata, 0);
 		}
 
-		std::ofstream file("../../../../examples/digit_recognition/res.bin", std::ios::binary);
+		std::ofstream file("../../../../examples/digit_recognition/saved.bin", std::ios::binary);
 		m.save(file);
 	}
 
