@@ -41,11 +41,8 @@ int main()
 	// testdata | sample (printo: Prints only the output layer to the console)
 	// m.printo(data, 1);
 
-	printf("loss: %f\n", m.loss(data));
-	float* out = m.pulse<2, 2>(data[0]);
-	printf("%f, %f\n", out[0], out[1]);
-	out = m.pulse<2, 2>(data[1]);
-	printf("%f, %f\n", out[0], out[1]);
+	m.print_one(data, 0);
+	m.print_one(data, 1);
 
 	// 20 iterations | training and test data | Stochastic Gradient Descent | 0.5f learning rate | 0.5f momentum
 	m.fit(1, data, data, Optimizer::STOCHASTIC, 0.5f, 0.0f);
@@ -58,11 +55,8 @@ int main()
 	// testdata | sample (printo: Prints only the output layer to the console)
 	// m.printo(data, 1);
 
-	printf("loss: %f\n", m.loss(data));
-	out = m.pulse<2, 2>(data[0]);
-	printf("%f, %f\n", out[0], out[1]);
-	out = m.pulse<2, 2>(data[1]);
-	printf("%f, %f\n", out[0], out[1]);
+	m.print_one(data, 0);
+	m.print_one(data, 1);
 
 	{
 		std::vector<char> buffer;
