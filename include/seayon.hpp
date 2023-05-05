@@ -735,14 +735,14 @@ namespace seayon
 
 			const int LASTL = layerCount - 1;
 
-			float c = 0;
-			for (int n = 0; n < OUTPUTS; ++n)
+			float d = 0.0;
+			for (int i = 0; i < OUTPUTS; ++i)
 			{
-				const float x = layers[LASTL].neurons[n] - sample.outputs[n];
-				c += x * x;
+				const float x = layers[LASTL].neurons[i] - sample.outputs[i];
+				d += x * x;
 			}
 
-			return c / (float)OUTPUTS;
+			return d / (float)OUTPUTS;
 		}
 		/**
 		 * sum of (1 / PARAMETERS) * (x - OPTIMAL)^2
@@ -758,13 +758,13 @@ namespace seayon
 				return .0f;
 			}
 
-			float c = 0;
+			float d = 0.0;
 			for (int i = 0; i < data.size(); ++i)
 			{
-				c += loss<INPUTS, OUTPUTS>(data[i]);
+				d += loss<INPUTS, OUTPUTS>(data[i]);
 			}
 
-			return c / (float)data.size();
+			return d / (float)data.size();
 		}
 		/**
 		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
@@ -778,13 +778,13 @@ namespace seayon
 
 			const int LASTL = layerCount - 1;
 
-			float c = 0;
-			for (int n = 0; n < OUTPUTS; ++n)
+			float d = 0.0;
+			for (int i = 0; i < OUTPUTS; ++i)
 			{
-				c += std::abs(layers[LASTL].neurons[n] - sample.outputs[n]);
+				d += std::abs(layers[LASTL].neurons[i] - sample.outputs[i]);
 			}
 
-			return c / (float)OUTPUTS;
+			return d / (float)OUTPUTS;
 		}
 		/**
 		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
@@ -800,13 +800,105 @@ namespace seayon
 				return .0f;
 			}
 
-			float c = 0;
+			float d = 0.0;
 			for (int i = 0; i < data.size(); ++i)
 			{
-				c += diff<INPUTS, OUTPUTS>(data[i]);
+				d += diff<INPUTS, OUTPUTS>(data[i]);
 			}
 
-			return c / (float)data.size();
+			return d / (float)data.size();
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
+		 * @param sample Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float diff_max(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		{
+			pulse(sample.inputs, INPUTS);
+
+			const int LASTL = layerCount - 1;
+
+			float d = 0.0f;
+			for (int i = 0; i < OUTPUTS; ++i)
+			{
+				const float x = std::abs(layers[LASTL].neurons[i] - sample.outputs[i]);
+				if (d < x)
+					d = x;
+			}
+
+			return d;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
+		 * @param data Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float diff_max(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float d = 0.0f;
+			for (int i = 0; i < data.size(); ++i)
+			{
+				const float x = diff_max<INPUTS, OUTPUTS>(data[i]);
+				if (d < x)
+					d = x;
+			}
+
+			return d;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
+		 * @param sample Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float diff_min(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		{
+			pulse(sample.inputs, INPUTS);
+
+			const int LASTL = layerCount - 1;
+
+			float d = std::abs(layers[LASTL].neurons[0] - sample.outputs[0]);
+			for (int i = 1; i < OUTPUTS; ++i)
+			{
+				const float x = std::abs(layers[LASTL].neurons[i] - sample.outputs[i]);
+				if (d < x)
+					d = x;
+			}
+
+			return d;
+		}
+		/**
+		 * sum of (1 / PARAMETERS) * abs(x - OPTIMAL)
+		 * @param data Optimal outputs (testdata)
+		 * @return lower means better
+		 */
+		template <int INPUTS, int OUTPUTS>
+		float diff_min(const dataset<INPUTS, OUTPUTS>& data)
+		{
+			if (!check(data))
+			{
+				printf("\tCurrupt training data!\n");
+				return .0f;
+			}
+
+			float d = diff_min<INPUTS, OUTPUTS>(data[0]);
+			for (int i = 1; i < data.size(); ++i)
+			{
+				const float x = diff_min<INPUTS, OUTPUTS>(data[i]);
+				if (d > x)
+					d = x;
+			}
+
+			return d;
 		}
 		/**
 		 * for each sample: does highest output matches optimal highest
@@ -847,9 +939,11 @@ namespace seayon
 		{
 			float d = diff(data);
 
-			printf("\t\tLoss        %f\n", loss(data));
-			printf("\t\tDifference  %f\n", d);
-			printf("\t\tAccruacy    %.1f%%\n", accruacy(data) * 100.0f);
+			printf("\tLoss           %f\n", loss(data));
+			printf("\tDifference     %f\n", d);
+			printf("\tMax Difference %f\n", d);
+			printf("\tMin Difference %f\n", d);
+			printf("\tAccruacy       %.1f%%\n", accruacy(data) * 100.0f);
 			printf("\t-----------------------------------------------\n\n");
 
 			return d;
