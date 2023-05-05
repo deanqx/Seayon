@@ -24,11 +24,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
     # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2")  
-
-    set_source_files_properties("include/seayon.hpp" PROPERTIES LANGUAGE CXX)
-    add_library(seayon SHARED "include/seayon.hpp")
-    set_target_properties(seayon PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/Release/seayon") # TODO remove bin/Release/seayon/Release
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2")
 endif()
 
 message(STATUS " build: '${CMAKE_BUILD_TYPE}'")
