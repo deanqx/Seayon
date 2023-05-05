@@ -295,7 +295,7 @@ namespace seayon
 			pointer += layerCount * sizeof(uint32_t);
 			memcpy(a.data(), pointer, a.size() * sizeof(ActivFunc));
 			pointer += a.size() * sizeof(ActivFunc);
-			memcpy(logfolder.data(), pointer, logLenght * sizeof(char));
+			memcpy((void*)logfolder.data(), pointer, logLenght * sizeof(char));
 			// pointer += logLenght * sizeof(char);
 
 			for (int i = 0; i < layerCount; ++i)
@@ -452,7 +452,7 @@ namespace seayon
 		 * @param logfolder Write log file for training progress (keep empty to disable)
 		 */
 		model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, const bool printloss = true, std::string logfolder = std::string())
-			: manageMemory(true), seed(seed), printloss(printloss),
+			: manageMemory(true), seed(seed < 0 ? (unsigned int)time(NULL) : seed), printloss(printloss),
 			logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 			layerCount((int)layout.size()), layers((layer*)malloc(layerCount * sizeof(layer)))
 		{
@@ -461,10 +461,11 @@ namespace seayon
 				printf("--- error: layer and activation array not matching ---\n");
 				return;
 			}
+
 			if (seed < 0)
-				srand((unsigned int)time(NULL));
-			else
-				srand(seed);
+				printf("--- Generating with Seed: %i ---\n", this->seed);
+
+			srand(this->seed);
 
 			new (&layers[0]) layer(0, layout[0], ActivFunc::LINEAR);
 			for (int l2 = 1; l2 < layerCount; ++l2)
@@ -694,14 +695,12 @@ namespace seayon
 		}
 
 		/**
-		 * Calculates network's outputs
+		 * Calculates network's outputs (aka predict)
 		 * @return Pointer to output layer/array
 		 */
-		template <int INPUTS, int OUTPUTS>
-		inline float* pulse(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		inline float* pulse(const float* inputs, const int& N)
 		{
-			for (int n = 0; n < INPUTS; ++n)
-				layers[0].neurons[n] = sample.inputs[n];
+			memcpy(layers[0].neurons, inputs, N * sizeof(float));
 
 			for (int l2 = 1; l2 < layerCount; ++l2)
 			{
@@ -732,7 +731,7 @@ namespace seayon
 		template <int INPUTS, int OUTPUTS>
 		float loss(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
 		{
-			pulse<INPUTS, OUTPUTS>(sample);
+			pulse(sample.inputs, INPUTS);
 
 			const int LASTL = layerCount - 1;
 
@@ -775,7 +774,7 @@ namespace seayon
 		template <int INPUTS, int OUTPUTS>
 		float diff(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
 		{
-			pulse<INPUTS, OUTPUTS>(sample);
+			pulse(sample.inputs, INPUTS);
 
 			const int LASTL = layerCount - 1;
 
@@ -828,7 +827,7 @@ namespace seayon
 			float a = 0;
 			for (int i = 0; i < data.size(); ++i)
 			{
-				pulse<INPUTS, OUTPUTS>(data[i]);
+				pulse(data[i].inputs, INPUTS);
 
 				if (std::max_element(layers[LASTL].neurons, layers[LASTL].neurons + layers[LASTL].nCount) - layers[LASTL].neurons == std::max_element(data[i].outputs, data[i].outputs + OUTPUTS) - data[i].outputs)
 				{
@@ -948,7 +947,7 @@ namespace seayon
 		template <int INPUTS, int OUTPUTS>
 		float print(const dataset<INPUTS, OUTPUTS>& data, int sample)
 		{
-			pulse<INPUTS, OUTPUTS>(data[sample]);
+			pulse(data[sample].inputs, INPUTS);
 			print();
 
 			return evaluate(data);
@@ -1007,7 +1006,7 @@ namespace seayon
 		template <int INPUTS, int OUTPUTS>
 		float printo(const dataset<INPUTS, OUTPUTS>& data, const int sample)
 		{
-			pulse<INPUTS, OUTPUTS>(data[sample]);
+			pulse(data[sample].inputs, INPUTS);
 			printo();
 
 			return evaluate(data);
@@ -1033,7 +1032,7 @@ namespace seayon
 		template <int INPUTS, int OUTPUTS>
 		float print_one(const dataset<INPUTS, OUTPUTS>& data, const int sample)
 		{
-			pulse<INPUTS, OUTPUTS>(data[sample]);
+			pulse(data[sample].inputs, INPUTS);
 			print_one();
 
 			return evaluate(data);
@@ -1091,6 +1090,9 @@ namespace seayon
 
 				if (momentum <= 0.0f)
 					momentum = 0.0001f;
+
+				if (total_threads > traindata.size())
+					total_threads = 1;
 
 				const int batch_size = traindata.size() / total_threads;
 				const int unused = traindata.size() - batch_size * total_threads;
@@ -1383,7 +1385,7 @@ namespace seayon
 			model& net = *thread.net.get();
 			const int LASTL = net.layerCount - 1;
 
-			net.pulse<INPUTS, OUTPUTS>(sample);
+			net.pulse(sample.inputs, INPUTS);
 
 			{
 				const int& ncount = net.layers[LASTL].nCount;
