@@ -18,7 +18,7 @@ namespace
     {
         model m(layout, funcs, 1472, false);
 
-        m.pulse<2, 2>(data[0]);
+        m.pulse(data[0].inputs, 2);
 
         return m.layers[3].neurons[0] + m.layers[3].neurons[1];
     }
@@ -31,7 +31,7 @@ namespace
         // TODO test batch_size
 
         m.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f);
-        m.pulse<2, 2>(data[0]);
+        m.pulse(data[0].inputs, 2);
         sum += m.layers[3].neurons[0] + m.layers[3].neurons[1];
 
         return sum;
