@@ -1229,7 +1229,7 @@ namespace seayon
 			std::chrono::high_resolution_clock::time_point sampleTimeLast;
 			std::chrono::high_resolution_clock::time_point last;
 
-			float lastLoss[5]{};
+			float lastLoss[10]{};
 			int lastLossIndex = 0;
 
 			inline void resolveTime(long long seconds, int* resolved) const
@@ -1289,7 +1289,7 @@ namespace seayon
 						<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 
 					if (l > -1.0f)
-						message << "loss: " << std::fixed << std::setprecision(5) << l;
+						message << "loss: " << std::scientific << l;
 
 					const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
 					std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
@@ -1302,7 +1302,12 @@ namespace seayon
 						&& lastLoss[1] <= l
 						&& lastLoss[2] <= l
 						&& lastLoss[3] <= l
-						&& lastLoss[4] <= l && run > 10 || kbhit() && getch() == 'q')
+						&& lastLoss[4] <= l
+						&& lastLoss[5] <= l
+						&& lastLoss[6] <= l
+						&& lastLoss[7] <= l
+						&& lastLoss[8] <= l
+						&& lastLoss[9] <= l && run > 10 || kbhit() && getch() == 'q')
 					{
 						return 0.0f;
 					}
