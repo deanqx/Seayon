@@ -1521,6 +1521,9 @@ namespace seayon
 			const int per_thread = batch_count / thread_count;
 			const int sampleCount = batch_size * batch_count;
 
+			const int unused_begin = thread_count * per_thread * batch_size;
+			const int unused_end = traindata.size() - unused_begin - 1;
+
 			std::vector<std::thread> threads(thread_count);
 
 			// backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)batch_size, sampleCount, 1, *this, traindata);
@@ -1532,7 +1535,7 @@ namespace seayon
 			{
 				for (int t = 0; t < thread_count; ++t)
 				{
-					threads[t] = std::thread([&, t, n, m, batch_size]
+					threads[t] = std::thread([&, t]
 						{
 							const int begin = t * per_thread;
 							const int end = begin + per_thread - 1;
@@ -1548,6 +1551,8 @@ namespace seayon
 							}
 						});
 				}
+
+
 
 				for (int t = 0; t < thread_count; ++t)
 				{
