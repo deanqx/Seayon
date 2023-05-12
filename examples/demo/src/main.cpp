@@ -44,8 +44,8 @@ int main()
 	m.print_one(data, 0);
 	m.print_one(data, 1);
 
-	// 20 iterations | training and test data | Stochastic Gradient Descent | 0.5f learning rate | 0.5f momentum
-	m.fit(1, data, data, Optimizer::STOCHASTIC, 0.5f, 0.0f);
+	// training and test data | 20 iterations
+	m.fit(data, data, 20);
 
 	// ### After training ###
 

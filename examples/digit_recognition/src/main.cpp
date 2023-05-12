@@ -10,11 +10,11 @@ int main()
 	constexpr bool load = false;
 	constexpr bool printloss = true;
 
-	constexpr int runCount = 4;
-	constexpr float learningRate = 0.03f;
-	constexpr float momentum = 0.5f;
+	constexpr int runCount = 100;
+	constexpr float learning_rate = 0.001f;
+	constexpr float momentum = 0.9f;
 	constexpr int batch_size = 1;
-	constexpr int thread_count = 1;
+	constexpr int thread_count = 10;
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
@@ -54,14 +54,14 @@ int main()
 
 			printf("\n");
 			m.printo(traindata, 0);
-			m.fit(runCount, traindata, testdata, Optimizer::ADAM, learningRate, momentum, batch_size, thread_count);
+			m.fit(traindata, testdata, runCount, batch_size, thread_count, learning_rate, momentum);
 			m.printo(traindata, 0);
 		}
 		else
 		{
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(runCount, testdata, testdata, Optimizer::STOCHASTIC, learningRate, momentum, batch_size, thread_count);
+			m.fit(testdata, testdata, runCount, batch_size, thread_count, learning_rate, momentum);
 			m.printo(testdata, 0);
 		}
 

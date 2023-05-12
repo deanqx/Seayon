@@ -75,14 +75,6 @@ namespace seayon
 		LEAKYRELU
 	};
 
-	enum class Optimizer
-	{
-		// Stochastic Gradient Descent
-		STOCHASTIC,
-		// ADAM algorithm
-		ADAM
-	};
-
 	/**
 	 * Stores and manages dataset in memory
 	 * @param INPUTS Input layer neurons
@@ -1145,41 +1137,6 @@ namespace seayon
 			return out;
 		}
 
-		/**
-		 * Trains the network with Gradient Descent to minimize the loss function (you can cancel with 'q')
-		 * @param max_iterations Begin small
-		 * @param traindata The large dataset
-		 * @param testdata The small dataset which the network never saw before
-		 * @param optimizer Search online for further information
-		 * @param learningRate Lower values generate more reliable but also slower results
-		 * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
-		 * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
-		 */
-		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-		void fit(int max_iterations, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
-			Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.9f, int batch_size = 1, int total_threads = 1)
-		{
-			if (!check(traindata) || !check(testdata))
-			{
-				printf("\tCurrupt training data!\n");
-				return;
-			}
-
-			if (batch_size < 1)
-				batch_size = 1;
-
-			if (total_threads < 1)
-				total_threads = 1;
-
-			if (optimizer == Optimizer::STOCHASTIC)
-			{
-				stochastic(traindata, testdata, max_iterations, learningRate, momentum, batch_size, total_threads);
-			}
-			else
-			{
-			}
-		}
-
 	protected:
 		template <int INPUTS, int OUTPUTS>
 		inline bool check(const dataset<INPUTS, OUTPUTS>& data) const
@@ -1257,7 +1214,7 @@ namespace seayon
 					resolveTime(eta.count(), etaResolved);
 
 					std::ostringstream message;
-					message << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
+					message << run << "/" << max_iterations << std::setw(9)
 						<< samplesPerSecond << "k Samples/s " << std::setw(13)
 						<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
 						<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
@@ -1270,7 +1227,7 @@ namespace seayon
 					lastLogLenght = message.str().length() + cleared;
 
 					if (file.get() != nullptr)
-						*file << progress << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
+						*file << run << ',' << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
 
 					if (lastLoss[0] <= l
 						&& lastLoss[1] <= l
@@ -1324,7 +1281,7 @@ namespace seayon
 					}
 
 					file.reset(new std::ofstream(path));
-					*file << "Progress,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
+					*file << "run,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
 				}
 
 				printf("\n");
@@ -1345,8 +1302,10 @@ namespace seayon
 				struct layer
 				{
 					std::vector<float> deltas;
-					std::vector<float> last_db;
-					std::vector<float> last_dw;
+					std::vector<float> bias_velocities;
+					std::vector<float> weight_velocities;
+					std::vector<float> bias_rms;
+					std::vector<float> weight_rms;
 					std::vector<float> bias_gradients;
 					std::vector<float> weight_gradients;
 
@@ -1357,8 +1316,10 @@ namespace seayon
 						: nCount(nCount), wCount(wCount)
 					{
 						deltas.resize(nCount);
-						last_db.resize(nCount);
-						last_dw.resize(wCount);
+						bias_velocities.resize(nCount);
+						weight_velocities.resize(wCount);
+						bias_rms.resize(nCount);
+						weight_rms.resize(wCount);
 						bias_gradients.resize(nCount);
 						weight_gradients.resize(wCount);
 					}
@@ -1428,11 +1389,14 @@ namespace seayon
 					}
 				}
 
-				void apply(const float& alpha, const float& beta)
+				void apply(const float& alpha, const float& beta1, const float& beta2)
 				{
+					constexpr float epsilon = 1e-8f;
+
 					model& mo = *net.get();
 					const int LASTL = mo.layerCount - 1;
-					const float ibeta = 1.0f - beta;
+					const float ibeta1 = 1.0f - beta1;
+					const float ibeta2 = 1.0f - beta2;
 
 					for (int l2 = LASTL; l2 >= 1; --l2)
 					{
@@ -1442,20 +1406,21 @@ namespace seayon
 
 						for (int n2 = 0; n2 < n2count; ++n2)
 						{
-							const float dn = -layers[l2].deltas[n2];
-							const float db = beta * layers[l2].last_db[n2] + ibeta * dn;
+							const float& db = layers[l2].deltas[n2];
 
-							mo.layers[l2].biases[n2] += alpha * db * sample_share;
-							layers[l2].last_db[n2] = db;
+							layers[l2].bias_velocities[n2] = beta1 * layers[l2].bias_velocities[n2] + ibeta1 * db;
+							layers[l2].bias_rms[n2] = beta2 * layers[l2].bias_rms[n2] + ibeta2 * db * db;
+							mo.layers[l2].biases[n2] -= alpha * (layers[l2].bias_velocities[n2] / (sqrt(layers[l2].bias_rms[n2]) + epsilon));
 
 							const int row = n2 * n1count;
 							for (int n1 = 0; n1 < n1count; ++n1)
 							{
 								const int windex = row + n1;
-								const float dw = beta * layers[l2].last_dw[windex] + ibeta * dn * mo.layers[l1].neurons[n1];
+								const float dw = db * mo.layers[l1].neurons[n1];
 
-								mo.layers[l2].weights[windex] += alpha * dw * sample_share;
-								layers[l2].last_dw[windex] = dw;
+								layers[l2].weight_velocities[n2] = beta1 * layers[l2].weight_velocities[n2] + ibeta1 * dw;
+								layers[l2].weight_rms[n2] = beta2 * layers[l2].weight_rms[n2] + ibeta2 * dw * dw;
+								mo.layers[l2].weights[windex] -= alpha * (layers[l2].weight_velocities[n2] / (sqrt(layers[l2].weight_rms[n2]) + epsilon));
 							}
 						}
 
@@ -1512,10 +1477,32 @@ namespace seayon
 			}
 		};
 
+	public:
+		/**
+		 * Trains the network with Gradient Descent to minimize the loss function (you can cancel with 'q')
+		 * @param max_iterations Begin small
+		 * @param traindata The large dataset
+		 * @param testdata The small dataset which the network never saw before
+		 * @param learningRate Lower values generate more reliable but also slower results
+		 * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
+		 * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
+		 */
 		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-		void stochastic(const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
-			const int& max_iterations, const float& n, const float& m, const int& batch_size, const int& thread_count)
+		void fit(const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
+			int max_iterations, int batch_size = 1, int thread_count = 1, float learning_rate = 0.01f, float momentum = 0.9f, float beta2 = 0.999f)
 		{
+			if (!check(traindata) || !check(testdata))
+			{
+				printf("\tCurrupt training data!\n");
+				return;
+			}
+
+			if (batch_size < 1)
+				batch_size = 1;
+
+			if (thread_count < 1)
+				thread_count = 1;
+
 			const int batch_count = traindata.size() / batch_size;
 			const int per_thread = batch_count / thread_count;
 			const int sampleCount = batch_size * batch_count;
@@ -1546,12 +1533,10 @@ namespace seayon
 									matrix.threads[t].backprop(traindata[b * batch_size + i]);
 								}
 
-								matrix.threads[t].apply(n, m);
+								matrix.threads[t].apply(learning_rate, momentum, beta2);
 							}
 						});
 				}
-
-
 
 				for (int t = 0; t < thread_count; ++t)
 				{

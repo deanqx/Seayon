@@ -28,7 +28,7 @@ namespace
 
         float sum = 0.0f;
 
-        m.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f, 2, 2);
+        m.fit(data, data, 20, 2, 2);
         m.pulse(data[0].inputs, 2);
         sum += m.layers[3].neurons[0] + m.layers[3].neurons[1];
 
