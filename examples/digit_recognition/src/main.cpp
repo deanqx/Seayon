@@ -10,7 +10,7 @@ int main()
 	constexpr bool load = false;
 	constexpr bool printloss = true;
 
-	constexpr int runCount = 50;
+	constexpr int runCount = 4;
 	constexpr float learningRate = 0.03f;
 	constexpr float momentum = 0.5f;
 	constexpr int batch_size = 1;

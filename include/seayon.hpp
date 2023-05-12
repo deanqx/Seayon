@@ -1157,7 +1157,7 @@ namespace seayon
 		 */
 		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
 		void fit(int max_iterations, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
-			Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int batch_size = 1, int total_threads = 1)
+			Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.9f, int batch_size = 1, int total_threads = 1)
 		{
 			if (!check(traindata) || !check(testdata))
 			{
@@ -1264,7 +1264,6 @@ namespace seayon
 
 					if (l > -1.0f)
 						message << "loss: " << std::setprecision(2) << std::defaultfloat << l;
-					// message << "loss: " << std::scientific << l;
 
 					const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
 					std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
@@ -1346,8 +1345,8 @@ namespace seayon
 				struct layer
 				{
 					std::vector<float> deltas;
-					std::vector<float> last_gb;
-					std::vector<float> last_gw;
+					std::vector<float> last_db;
+					std::vector<float> last_dw;
 					std::vector<float> bias_gradients;
 					std::vector<float> weight_gradients;
 
@@ -1358,8 +1357,8 @@ namespace seayon
 						: nCount(nCount), wCount(wCount)
 					{
 						deltas.resize(nCount);
-						last_gb.resize(nCount);
-						last_gw.resize(wCount);
+						last_db.resize(nCount);
+						last_dw.resize(wCount);
 						bias_gradients.resize(nCount);
 						weight_gradients.resize(wCount);
 					}
@@ -1429,10 +1428,11 @@ namespace seayon
 					}
 				}
 
-				void apply(const float& n, const float& m)
+				void apply(const float& alpha, const float& beta)
 				{
 					model& mo = *net.get();
 					const int LASTL = mo.layerCount - 1;
+					const float ibeta = 1.0f - beta;
 
 					for (int l2 = LASTL; l2 >= 1; --l2)
 					{
@@ -1443,20 +1443,19 @@ namespace seayon
 						for (int n2 = 0; n2 < n2count; ++n2)
 						{
 							const float dn = -layers[l2].deltas[n2];
-							const float step = n * dn;
+							const float db = beta * layers[l2].last_db[n2] + ibeta * dn;
 
-							mo.layers[l2].biases[n2] += (step + m * layers[l2].last_gb[n2]) * sample_share;
-							layers[l2].last_gb[n2] = step;
+							mo.layers[l2].biases[n2] += alpha * db * sample_share;
+							layers[l2].last_db[n2] = db;
 
 							const int row = n2 * n1count;
 							for (int n1 = 0; n1 < n1count; ++n1)
 							{
 								const int windex = row + n1;
-								const float dw = dn * mo.layers[l1].neurons[n1];
-								const float stepw = n * dw;
+								const float dw = beta * layers[l2].last_dw[windex] + ibeta * dn * mo.layers[l1].neurons[n1];
 
-								mo.layers[l2].weights[windex] += (stepw + m * layers[l2].last_gw[windex]) * sample_share;
-								layers[l2].last_gw[windex] = stepw;
+								mo.layers[l2].weights[windex] += alpha * dw * sample_share;
+								layers[l2].last_dw[windex] = dw;
 							}
 						}
 
