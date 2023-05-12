@@ -1,6 +1,7 @@
 {
         "files.associations": {
                 "*.cpp": "cpp",
+                "*.mq5": "mq4",
                 "xutility": "cpp",
                 "algorithm": "cpp",
                 "random": "cpp",
@@ -85,6 +86,8 @@
                 "string_view": "cpp",
                 "numbers": "cpp",
                 "semaphore": "cpp",
-                "cinttypes": "cpp"
+                "cinttypes": "cpp",
+                "complex": "cpp",
+                "typeindex": "cpp"
         }
 }

@@ -4,6 +4,3 @@
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest
-[submodule "external/libnpy"]
-	path = external/libnpy
-	url = https://github.com/llohse/libnpy.git

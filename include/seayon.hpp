@@ -637,11 +637,11 @@ namespace seayon
 			}
 		}
 		/**
-		 * Combines array of networks by averaging the values.
-		 * @param with Array of networks
+		 * Combines array of networks by averaging the values. And overwrites current main
+		 * @param with Array of pointers to networks
 		 * @param count How many networks
 		 */
-		void combine(model* with, int count)
+		void combine_into(model** with, int count)
 		{
 			for (int l2 = 1; l2 < layerCount; ++l2)
 			{
@@ -649,29 +649,21 @@ namespace seayon
 
 				for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
 				{
-					float an = layers[l2].neurons[n2];
+					float ab = 0.0f;
 					for (int i = 0; i < count; ++i)
-						an += with[i].layers[l2].neurons[n2];
+						ab += with[i]->layers[l2].biases[n2];
 
-					layers[l2].neurons[n2] = an / (count + 1);
+					layers[l2].biases[n2] = ab / count;
 
 					for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
 					{
-						float aw = layers[l2].weights[n2 * layers[l1].nCount + n1];
+						float aw = 0.0f;
 						for (int i = 0; i < count; ++i)
-							aw += with[i].layers[l2].weights[n2 * layers[l1].nCount + n1];
+							aw += with[i]->layers[l2].weights[n2 * layers[l1].nCount + n1];
 
-						layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / (count + 1);
+						layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / count;
 					}
 				}
-			}
-			for (int n1 = 0; n1 < layers[0].nCount; ++n1)
-			{
-				float an = layers[0].neurons[n1];
-				for (int i = 0; i < count; ++i)
-					an += with[i].layers[0].neurons[n1];
-
-				layers[0].neurons[n1] = an / (count + 1);
 			}
 		}
 		/**
@@ -941,8 +933,8 @@ namespace seayon
 
 			printf("\tLoss           %f\n", loss(data));
 			printf("\tDifference     %f\n", d);
-			printf("\tMax Difference %f\n", d);
-			printf("\tMin Difference %f\n", d);
+			printf("\tMax Difference %f\n", diff_max(data));
+			printf("\tMin Difference %f\n", diff_min(data));
 			printf("\tAccruacy       %.1f%%\n", accruacy(data) * 100.0f);
 			printf("\t-----------------------------------------------\n\n");
 
@@ -1165,7 +1157,7 @@ namespace seayon
 		 */
 		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
 		void fit(int max_iterations, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
-			Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int total_threads = 32)
+			Optimizer optimizer = Optimizer::STOCHASTIC, float learningRate = 0.03f, float momentum = 0.1f, int batch_size = 1, int total_threads = 1)
 		{
 			if (!check(traindata) || !check(testdata))
 			{
@@ -1173,36 +1165,18 @@ namespace seayon
 				return;
 			}
 
+			if (batch_size < 1)
+				batch_size = 1;
+
+			if (total_threads < 1)
+				total_threads = 1;
+
 			if (optimizer == Optimizer::STOCHASTIC)
 			{
-				stochastic(max_iterations, learningRate, momentum, traindata, testdata);
+				stochastic(traindata, testdata, max_iterations, learningRate, momentum, batch_size, total_threads);
 			}
 			else
 			{
-				if (learningRate <= 0.0f)
-					learningRate = 0.0001f;
-
-				if (momentum <= 0.0f)
-					momentum = 0.0001f;
-
-				if (total_threads > traindata.size())
-					total_threads = 1;
-
-				const int batch_size = traindata.size() / total_threads;
-				const int unused = traindata.size() - batch_size * total_threads;
-
-				printf("Mini batches launching with:\n");
-				printf("%i batches | ", total_threads);
-				printf("%i samples per batch | ", batch_size);
-				printf("%i/%i unused samples\n", unused, traindata.size());
-
-				if (total_threads > traindata.size() / batch_size || total_threads < 0)
-					total_threads = 1;
-
-				if (optimizer == Optimizer::ADAM)
-				{
-					mini_batch(max_iterations, learningRate, momentum, batch_size, total_threads, traindata, testdata);
-				}
 			}
 		}
 
@@ -1282,14 +1256,15 @@ namespace seayon
 					int etaResolved[3];
 					resolveTime(eta.count(), etaResolved);
 
-					std::stringstream message;
+					std::ostringstream message;
 					message << std::setw(4) << "Progress: " << std::fixed << std::setprecision(1) << progress << "% " << std::setw(9)
 						<< samplesPerSecond << "k Samples/s " << std::setw(13)
 						<< "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
 						<< "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 
 					if (l > -1.0f)
-						message << "loss: " << std::scientific << l;
+						message << "loss: " << std::setprecision(2) << std::defaultfloat << l;
+					// message << "loss: " << std::scientific << l;
 
 					const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
 					std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
@@ -1366,7 +1341,7 @@ namespace seayon
 		template <int INPUTS, int OUTPUTS>
 		struct backprop_matrix
 		{
-			struct batch
+			struct thread
 			{
 				struct layer
 				{
@@ -1395,7 +1370,7 @@ namespace seayon
 
 				const float sample_share;
 
-				batch(const model& main, const float& sample_share)
+				thread(const model& main, const float& sample_share)
 					: sample_share(sample_share)
 				{
 					std::vector<int> layout(main.layerCount);
@@ -1418,18 +1393,90 @@ namespace seayon
 						layers.emplace_back(main.layers[i].nCount, main.layers[i].wCount);
 					}
 				}
+
+				void backprop(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+				{
+					model& mo = *net.get();
+					const int LASTL = mo.layerCount - 1;
+
+					mo.pulse(sample.inputs, INPUTS);
+
+					{
+						const int& ncount = mo.layers[LASTL].nCount;
+						const auto& func = mo.layers[LASTL].derivative;
+
+						for (int n2 = 0; n2 < ncount; ++n2)
+						{
+							layers[LASTL].deltas[n2] += func(mo.layers[LASTL].neurons[n2]) * 2.0f * (mo.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+						}
+					}
+
+					for (int l2 = LASTL; l2 >= 2; --l2)
+					{
+						const int l1 = l2 - 1;
+						const int& n1count = mo.layers[l1].nCount;
+						const int& n2count = mo.layers[l2].nCount;
+						const auto& func = mo.layers[l1].derivative;
+
+						for (int n1 = 0; n1 < n1count; ++n1)
+						{
+							float delta = 0;
+							for (int n2 = 0; n2 < n2count; ++n2)
+								delta += mo.layers[l2].weights[n2 * n1count + n1] * layers[l2].deltas[n2];
+
+							layers[l1].deltas[n1] += func(mo.layers[l1].neurons[n1]) * delta;
+						}
+					}
+				}
+
+				void apply(const float& n, const float& m)
+				{
+					model& mo = *net.get();
+					const int LASTL = mo.layerCount - 1;
+
+					for (int l2 = LASTL; l2 >= 1; --l2)
+					{
+						const int l1 = l2 - 1;
+						const int& n1count = mo.layers[l1].nCount;
+						const int& n2count = mo.layers[l2].nCount;
+
+						for (int n2 = 0; n2 < n2count; ++n2)
+						{
+							const float dn = -layers[l2].deltas[n2];
+							const float step = n * dn;
+
+							mo.layers[l2].biases[n2] += (step + m * layers[l2].last_gb[n2]) * sample_share;
+							layers[l2].last_gb[n2] = step;
+
+							const int row = n2 * n1count;
+							for (int n1 = 0; n1 < n1count; ++n1)
+							{
+								const int windex = row + n1;
+								const float dw = dn * mo.layers[l1].neurons[n1];
+								const float stepw = n * dw;
+
+								mo.layers[l2].weights[windex] += (stepw + m * layers[l2].last_gw[windex]) * sample_share;
+								layers[l2].last_gw[windex] = stepw;
+							}
+						}
+
+						memset(layers[l2].deltas.data(), 0, layers[l2].nCount * sizeof(float));
+						memset(layers[l2].bias_gradients.data(), 0, layers[l2].nCount * sizeof(float));
+						memset(layers[l2].weight_gradients.data(), 0, layers[l2].wCount * sizeof(float));
+					}
+				}
 			};
 
 			std::vector<const typename dataset<INPUTS, OUTPUTS>::sample*> sample_pointers;
-			std::vector<batch> batches;
-			const int batch_count;
+			std::vector<thread> threads;
+			const int thread_count;
 			const int layerCount;
 
-			backprop_matrix(const float& sample_share, const int& sampleCount, const int& batch_count, const model& main, const dataset<INPUTS, OUTPUTS>& traindata)
-				: batch_count(batch_count), layerCount(main.layerCount)
+			backprop_matrix(const float& sample_share, const int& sampleCount, const int& thread_count, const model& main, const dataset<INPUTS, OUTPUTS>& traindata)
+				: thread_count(thread_count), layerCount(main.layerCount)
 			{
 				sample_pointers.resize(sampleCount);
-				batches.reserve(batch_count);
+				threads.reserve(thread_count);
 
 				const typename dataset<INPUTS, OUTPUTS>::sample* sample = &traindata[0];
 				for (int i = 0; i < sampleCount; ++i)
@@ -1437,36 +1484,25 @@ namespace seayon
 					sample_pointers[i] = sample + i;
 				}
 
-				for (int i = 0; i < batch_count; ++i)
+				for (int i = 0; i < thread_count; ++i)
 				{
-					batches.emplace_back(main, sample_share);
+					threads.emplace_back(main, sample_share);
 				}
 			}
 
-			inline void apply(model& main)
+			void sync(model& main)
 			{
-				for (int b = 0; b < batch_count; ++b)
+				std::vector<model*> links(thread_count);
+				for (int i = 0; i < thread_count; ++i)
 				{
-					for (int l = 1; l < main.layerCount; ++l)
-					{
-						for (int n = 0; n < main.layers[l].nCount; ++n)
-						{
-							main.layers[l].biases[n] += batches[b].layers[l].bias_gradients[n];
-						}
-
-						for (int w = 0; w < main.layers[l].wCount; ++w)
-						{
-							main.layers[l].weights[w] += batches[b].layers[l].weight_gradients[w];
-						}
-
-						memset(batches[b].layers[l].bias_gradients.data(), 0, main.layers[l].nCount * sizeof(float));
-						memset(batches[b].layers[l].weight_gradients.data(), 0, main.layers[l].wCount * sizeof(float));
-					}
+					links[i] = threads[i].net.get();
 				}
 
-				for (int b = 0; b < batch_count; ++b)
+				main.combine_into(links.data(), thread_count);
+
+				for (int i = 0; i < thread_count; ++i)
 				{
-					main.copy(*(batches[b].net.get()));
+					main.copy(*links[i]);
 				}
 			}
 
@@ -1477,135 +1513,48 @@ namespace seayon
 			}
 		};
 
-		template <int INPUTS, int OUTPUTS>
-		static inline void backprop(const float& n, const float& m,
-			typename backprop_matrix<INPUTS, OUTPUTS>::batch& thread, const typename dataset<INPUTS, OUTPUTS>::sample& sample)
-		{
-			model& net = *thread.net.get();
-			const int LASTL = net.layerCount - 1;
-
-			net.pulse(sample.inputs, INPUTS);
-
-			{
-				const int& ncount = net.layers[LASTL].nCount;
-				const auto& func = net.layers[LASTL].derivative;
-
-				for (int n2 = 0; n2 < ncount; ++n2)
-				{
-					thread.layers[LASTL].deltas[n2] = func(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
-				}
-			}
-
-			for (int l2 = LASTL; l2 >= 2; --l2)
-			{
-				const int l1 = l2 - 1;
-				const int& n1count = net.layers[l1].nCount;
-				const int& n2count = net.layers[l2].nCount;
-				const auto& func = net.layers[l1].derivative;
-
-				for (int n1 = 0; n1 < n1count; ++n1)
-				{
-					float delta = 0;
-					for (int n2 = 0; n2 < n2count; ++n2)
-						delta += net.layers[l2].weights[n2 * n1count + n1] * thread.layers[l2].deltas[n2];
-
-					thread.layers[l1].deltas[n1] = func(net.layers[l1].neurons[n1]) * delta;
-				}
-			}
-
-			for (int l2 = LASTL; l2 >= 1; --l2)
-			{
-				const int l1 = l2 - 1;
-				const int& n1count = net.layers[l1].nCount;
-				const int& n2count = net.layers[l2].nCount;
-
-				for (int n2 = 0; n2 < n2count; ++n2)
-				{
-					const float dn = -thread.layers[l2].deltas[n2];
-					const float step = n * dn;
-
-					thread.layers[l2].bias_gradients[n2] += (step + m * thread.layers[l2].last_gb[n2]) * thread.sample_share;
-					thread.layers[l2].last_gb[n2] = step;
-
-					const int row = n2 * n1count;
-					for (int n1 = 0; n1 < n1count; ++n1)
-					{
-						const int windex = row + n1;
-						const float dw = dn * net.layers[l1].neurons[n1];
-						const float stepw = n * dw;
-
-						thread.layers[l2].weight_gradients[windex] += (stepw + m * thread.layers[l2].last_gw[windex]) * thread.sample_share;
-						thread.layers[l2].last_gw[windex] = stepw;
-					}
-				}
-			}
-		}
-
 		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-		void stochastic(const int& max_iterations, const float& n, const float& m, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata)
+		void stochastic(const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
+			const int& max_iterations, const float& n, const float& m, const int& batch_size, const int& thread_count)
 		{
-			std::vector<std::vector<float>> bias_gradients(layerCount);
-			std::vector<std::vector<float>> weight_gradients(layerCount);
+			const int batch_count = traindata.size() / batch_size;
+			const int per_thread = batch_count / thread_count;
+			const int sampleCount = batch_size * batch_count;
 
-			for (int l = 1; l < layerCount; ++l)
-			{
-				bias_gradients[l].resize(layers[l].nCount);
-				weight_gradients[l].resize(layers[l].wCount);
-			}
+			std::vector<std::thread> threads(thread_count);
 
-			backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f, traindata.size(), 1, *this, traindata);
+			// backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)batch_size, sampleCount, 1, *this, traindata);
+			backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f, sampleCount, thread_count, *this, traindata);
 
-			fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
+			fitlog<T_INPUTS, T_OUTPUTS> logger(*this, sampleCount, testdata, max_iterations, printloss, logfolder);
 
 			for (int run = 1; run <= max_iterations; ++run)
 			{
-				for (int i = 0; i < traindata.size(); ++i)
+				for (int t = 0; t < thread_count; ++t)
 				{
-					backprop<INPUTS, OUTPUTS>(n, m, matrix.batches[0], traindata[i]);
-					matrix.apply(*this);
-				}
-
-				if (logger.log(run) == 0.0f)
-					break;
-			}
-
-			printf("\n\n");
-		}
-
-		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-		void mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, const int& total_threads, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata)
-		{
-			const int sampleCount = batch_size * total_threads;
-
-			std::vector<std::thread> threads(total_threads);
-
-			backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)sampleCount, sampleCount, total_threads, *this, traindata);
-
-			fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
-
-			for (int run = 1; run <= max_iterations; ++run)
-			{
-				for (int b = 0; b < total_threads; ++b)
-				{
-					threads[b] = std::thread([&, b, n, m, batch_size]
+					threads[t] = std::thread([&, t, n, m, batch_size]
 						{
-							const int begin = b * batch_size;
-							const int end = begin + batch_size - 1;
+							const int begin = t * per_thread;
+							const int end = begin + per_thread - 1;
 
-							for (int i = begin; i <= end; ++i)
+							for (int b = begin; b < end; ++b)
 							{
-								backprop<INPUTS, OUTPUTS>(n, m, matrix.batches[b], *matrix.sample_pointers[i]);
+								for (int i = 0; i < batch_size; ++i)
+								{
+									matrix.threads[t].backprop(traindata[b * batch_size + i]);
+								}
+
+								matrix.threads[t].apply(n, m);
 							}
 						});
 				}
 
-				for (int b = 0; b < total_threads; ++b)
+				for (int t = 0; t < thread_count; ++t)
 				{
-					threads[b].join();
+					threads[t].join();
 				}
 
-				matrix.apply(*this);
-				matrix.shuffle();
+				matrix.sync(*this);
 
 				if (logger.log(run) == 0.0f)
 					break;

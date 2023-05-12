@@ -28,9 +28,7 @@ namespace
 
         float sum = 0.0f;
 
-        // TODO test batch_size
-
-        m.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f);
+        m.fit(20, data, data, Optimizer::STOCHASTIC, 0.5f, 0.5f, 2, 2);
         m.pulse(data[0].inputs, 2);
         sum += m.layers[3].neurons[0] + m.layers[3].neurons[1];
 
@@ -62,7 +60,8 @@ namespace
         model m(layout, funcs, 1472, false);
         model m2(layout, funcs, 1471, false);
 
-        m.combine(&m2, 1);
+        model* array[]{ &m, &m2 };
+        m.combine_into(array, 2);
 
         return m.layers[3].neurons[0] + m.layers[3].neurons[1];
     }
@@ -98,7 +97,7 @@ TEST(Basis, Activation)
 }
 TEST(Basis, Training)
 {
-    EXPECT_EQ(fit(), 1.01121223f);
+    EXPECT_EQ(fit(), 1.01069021f);
 }
 
 TEST(Analysis, Accruacy)

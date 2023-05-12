@@ -13,11 +13,12 @@ int main()
 	constexpr int runCount = 50;
 	constexpr float learningRate = 0.03f;
 	constexpr float momentum = 0.5f;
-	constexpr int thread_count = 32;
+	constexpr int batch_size = 1;
+	constexpr int thread_count = 1;
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-	model m(layout, funcs, 1472, printloss, "../../../../examples/digit_recognition/res/logs");
+	model m(layout, funcs, 123, printloss, "../../../../examples/digit_recognition/res/logs");
 
 	dataset<784, 10> testdata;
 
@@ -53,14 +54,14 @@ int main()
 
 			printf("\n");
 			m.printo(traindata, 0);
-			m.fit(runCount, traindata, testdata, Optimizer::ADAM, learningRate, momentum, thread_count);
+			m.fit(runCount, traindata, testdata, Optimizer::ADAM, learningRate, momentum, batch_size, thread_count);
 			m.printo(traindata, 0);
 		}
 		else
 		{
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(runCount, testdata, testdata, Optimizer::STOCHASTIC, learningRate, momentum, thread_count);
+			m.fit(runCount, testdata, testdata, Optimizer::STOCHASTIC, learningRate, momentum, batch_size, thread_count);
 			m.printo(testdata, 0);
 		}
 
