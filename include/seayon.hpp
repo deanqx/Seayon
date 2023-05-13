@@ -756,7 +756,7 @@ namespace seayon
 		 * @return lower means better
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float diff(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		float diff(const typename dataset<INPUTS, OUTPUTS>::sample& sample, std::vector<float> factor)
 		{
 			pulse(sample.inputs, INPUTS);
 
@@ -765,7 +765,7 @@ namespace seayon
 			float d = 0.0;
 			for (int i = 0; i < OUTPUTS; ++i)
 			{
-				d += std::abs(layers[LASTL].neurons[i] - sample.outputs[i]);
+				d += std::abs((layers[LASTL].neurons[i] * factor[i]) - sample.outputs[i]);
 			}
 
 			return d / (float)OUTPUTS;
@@ -776,7 +776,7 @@ namespace seayon
 		 * @return lower means better
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float diff(const dataset<INPUTS, OUTPUTS>& data)
+		float diff(const dataset<INPUTS, OUTPUTS>& data, std::vector<std::vector<float>> factors = std::vector<std::vector<float>>())
 		{
 			if (!check(data))
 			{
@@ -784,10 +784,13 @@ namespace seayon
 				return .0f;
 			}
 
-			float d = 0.0;
+			if (factors.size() == 0)
+				factors = std::vector<std::vector<float>>(data.size(), std::vector<float>(OUTPUTS, 1.0f));
+
+			float d = 0.0f;
 			for (int i = 0; i < data.size(); ++i)
 			{
-				d += diff<INPUTS, OUTPUTS>(data[i]);
+				d += diff<INPUTS, OUTPUTS>(data[i], factors[i]);
 			}
 
 			return d / (float)data.size();
@@ -798,16 +801,16 @@ namespace seayon
 		 * @return lower means better
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float diff_max(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		float diff_max(const typename dataset<INPUTS, OUTPUTS>::sample& sample, std::vector<float> factor)
 		{
 			pulse(sample.inputs, INPUTS);
 
 			const int LASTL = layerCount - 1;
 
-			float d = 0.0f;
-			for (int i = 0; i < OUTPUTS; ++i)
+			float d = std::abs((layers[LASTL].neurons[0] * factor[0]) - sample.outputs[0]);
+			for (int i = 1; i < OUTPUTS; ++i)
 			{
-				const float x = std::abs(layers[LASTL].neurons[i] - sample.outputs[i]);
+				const float x = std::abs((layers[LASTL].neurons[i] * factor[i]) - sample.outputs[i]);
 				if (d < x)
 					d = x;
 			}
@@ -820,7 +823,7 @@ namespace seayon
 		 * @return lower means better
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float diff_max(const dataset<INPUTS, OUTPUTS>& data)
+		float diff_max(const dataset<INPUTS, OUTPUTS>& data, std::vector<std::vector<float>> factors = std::vector<std::vector<float>>())
 		{
 			if (!check(data))
 			{
@@ -828,10 +831,13 @@ namespace seayon
 				return .0f;
 			}
 
-			float d = 0.0f;
+			if (factors.size() == 0)
+				factors = std::vector<std::vector<float>>(data.size(), std::vector<float>(OUTPUTS, 1.0f));
+
+			float d = diff_max<INPUTS, OUTPUTS>(data[0], factors[0]);
 			for (int i = 0; i < data.size(); ++i)
 			{
-				const float x = diff_max<INPUTS, OUTPUTS>(data[i]);
+				const float x = diff_max<INPUTS, OUTPUTS>(data[i], factors[i]);
 				if (d < x)
 					d = x;
 			}
@@ -844,16 +850,16 @@ namespace seayon
 		 * @return lower means better
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float diff_min(const typename dataset<INPUTS, OUTPUTS>::sample& sample)
+		float diff_min(const typename dataset<INPUTS, OUTPUTS>::sample& sample, std::vector<float> factor)
 		{
 			pulse(sample.inputs, INPUTS);
 
 			const int LASTL = layerCount - 1;
 
-			float d = std::abs(layers[LASTL].neurons[0] - sample.outputs[0]);
+			float d = std::abs((layers[LASTL].neurons[0] * factor[0]) - sample.outputs[0]);
 			for (int i = 1; i < OUTPUTS; ++i)
 			{
-				const float x = std::abs(layers[LASTL].neurons[i] - sample.outputs[i]);
+				const float x = std::abs((layers[LASTL].neurons[i] * factor[i]) - sample.outputs[i]);
 				if (d < x)
 					d = x;
 			}
@@ -866,7 +872,7 @@ namespace seayon
 		 * @return lower means better
 		 */
 		template <int INPUTS, int OUTPUTS>
-		float diff_min(const dataset<INPUTS, OUTPUTS>& data)
+		float diff_min(const dataset<INPUTS, OUTPUTS>& data, std::vector<std::vector<float>> factors = std::vector<std::vector<float>>())
 		{
 			if (!check(data))
 			{
@@ -874,10 +880,13 @@ namespace seayon
 				return .0f;
 			}
 
-			float d = diff_min<INPUTS, OUTPUTS>(data[0]);
+			if (factors.size() == 0)
+				factors = std::vector<std::vector<float>>(data.size(), std::vector<float>(OUTPUTS, 1.0f));
+
+			float d = diff_min<INPUTS, OUTPUTS>(data[0], factors[0]);
 			for (int i = 1; i < data.size(); ++i)
 			{
-				const float x = diff_min<INPUTS, OUTPUTS>(data[i]);
+				const float x = diff_min<INPUTS, OUTPUTS>(data[i], factors[i]);
 				if (d > x)
 					d = x;
 			}
@@ -1160,7 +1169,7 @@ namespace seayon
 			std::chrono::high_resolution_clock::time_point sampleTimeLast;
 			std::chrono::high_resolution_clock::time_point last;
 
-			float lastLoss[10]{};
+			float lastLoss[5]{};
 			int lastLossIndex = 0;
 
 			inline void resolveTime(long long seconds, int* resolved) const
@@ -1233,12 +1242,7 @@ namespace seayon
 						&& lastLoss[1] <= l
 						&& lastLoss[2] <= l
 						&& lastLoss[3] <= l
-						&& lastLoss[4] <= l
-						&& lastLoss[5] <= l
-						&& lastLoss[6] <= l
-						&& lastLoss[7] <= l
-						&& lastLoss[8] <= l
-						&& lastLoss[9] <= l && run > 10 || kbhit() && getch() == 'q')
+						&& lastLoss[4] <= l && run > 10 || kbhit() && getch() == 'q')
 					{
 						return 0.0f;
 					}
