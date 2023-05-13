@@ -1227,7 +1227,7 @@ namespace seayon
 					lastLogLenght = message.str().length() + cleared;
 
 					if (file.get() != nullptr)
-						*file << run << ',' << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
+						*file << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
 
 					if (lastLoss[0] <= l
 						&& lastLoss[1] <= l
@@ -1281,7 +1281,7 @@ namespace seayon
 					}
 
 					file.reset(new std::ofstream(path));
-					*file << "run,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
+					*file << "SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
 				}
 
 				printf("\n");
@@ -1301,13 +1301,12 @@ namespace seayon
 			{
 				struct layer
 				{
-					std::vector<float> deltas;
+					std::vector<float> bias_deltas;
 					std::vector<float> bias_velocities;
-					std::vector<float> weight_velocities;
 					std::vector<float> bias_rms;
+					std::vector<float> weight_deltas;
+					std::vector<float> weight_velocities;
 					std::vector<float> weight_rms;
-					std::vector<float> bias_gradients;
-					std::vector<float> weight_gradients;
 
 					const int nCount;
 					const int wCount;
@@ -1315,13 +1314,12 @@ namespace seayon
 					layer(const int& nCount, const int& wCount)
 						: nCount(nCount), wCount(wCount)
 					{
-						deltas.resize(nCount);
+						bias_deltas.resize(nCount);
 						bias_velocities.resize(nCount);
-						weight_velocities.resize(wCount);
 						bias_rms.resize(nCount);
+						weight_deltas.resize(wCount);
+						weight_velocities.resize(wCount);
 						weight_rms.resize(wCount);
-						bias_gradients.resize(nCount);
-						weight_gradients.resize(wCount);
 					}
 				};
 
@@ -1367,7 +1365,7 @@ namespace seayon
 
 						for (int n2 = 0; n2 < ncount; ++n2)
 						{
-							layers[LASTL].deltas[n2] += func(mo.layers[LASTL].neurons[n2]) * 2.0f * (mo.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+							layers[LASTL].bias_deltas[n2] += func(mo.layers[LASTL].neurons[n2]) * 2.0f * (mo.layers[LASTL].neurons[n2] - sample.outputs[n2]);
 						}
 					}
 
@@ -1382,9 +1380,28 @@ namespace seayon
 						{
 							float delta = 0;
 							for (int n2 = 0; n2 < n2count; ++n2)
-								delta += mo.layers[l2].weights[n2 * n1count + n1] * layers[l2].deltas[n2];
+								delta += mo.layers[l2].weights[n2 * n1count + n1] * layers[l2].bias_deltas[n2];
 
-							layers[l1].deltas[n1] += func(mo.layers[l1].neurons[n1]) * delta;
+							layers[l1].bias_deltas[n1] += func(mo.layers[l1].neurons[n1]) * delta;
+						}
+					}
+
+					for (int l2 = LASTL; l2 >= 1; --l2)
+					{
+						const int l1 = l2 - 1;
+						const int& n1count = mo.layers[l1].nCount;
+						const int& n2count = mo.layers[l2].nCount;
+
+						for (int n2 = 0; n2 < n2count; ++n2)
+						{
+							const float& db = layers[l2].bias_deltas[n2];
+
+							const int row = n2 * n1count;
+							for (int n1 = 0; n1 < n1count; ++n1)
+							{
+								const int windex = row + n1;
+								layers[l2].weight_deltas[windex] += db * mo.layers[l1].neurons[n1];
+							}
 						}
 					}
 				}
@@ -1406,7 +1423,7 @@ namespace seayon
 
 						for (int n2 = 0; n2 < n2count; ++n2)
 						{
-							const float& db = layers[l2].deltas[n2];
+							const float& db = layers[l2].bias_deltas[n2];
 
 							layers[l2].bias_velocities[n2] = beta1 * layers[l2].bias_velocities[n2] + ibeta1 * db;
 							layers[l2].bias_rms[n2] = beta2 * layers[l2].bias_rms[n2] + ibeta2 * db * db;
@@ -1416,17 +1433,16 @@ namespace seayon
 							for (int n1 = 0; n1 < n1count; ++n1)
 							{
 								const int windex = row + n1;
-								const float dw = db * mo.layers[l1].neurons[n1];
+								const float& dw = layers[l2].weight_deltas[windex];
 
-								layers[l2].weight_velocities[n2] = beta1 * layers[l2].weight_velocities[n2] + ibeta1 * dw;
-								layers[l2].weight_rms[n2] = beta2 * layers[l2].weight_rms[n2] + ibeta2 * dw * dw;
-								mo.layers[l2].weights[windex] -= alpha * (layers[l2].weight_velocities[n2] / (sqrt(layers[l2].weight_rms[n2]) + epsilon));
+								layers[l2].weight_velocities[windex] = beta1 * layers[l2].weight_velocities[windex] + ibeta1 * dw;
+								layers[l2].weight_rms[windex] = beta2 * layers[l2].weight_rms[windex] + ibeta2 * dw * dw;
+								mo.layers[l2].weights[windex] -= alpha * (layers[l2].weight_velocities[windex] / (sqrt(layers[l2].weight_rms[windex]) + epsilon));
 							}
 						}
 
-						memset(layers[l2].deltas.data(), 0, layers[l2].nCount * sizeof(float));
-						memset(layers[l2].bias_gradients.data(), 0, layers[l2].nCount * sizeof(float));
-						memset(layers[l2].weight_gradients.data(), 0, layers[l2].wCount * sizeof(float));
+						memset(layers[l2].bias_deltas.data(), 0, layers[l2].nCount * sizeof(float));
+						memset(layers[l2].weight_deltas.data(), 0, layers[l2].wCount * sizeof(float));
 					}
 				}
 			};
@@ -1526,7 +1542,7 @@ namespace seayon
 							const int begin = t * per_thread;
 							const int end = begin + per_thread - 1;
 
-							for (int b = begin; b < end; ++b)
+							for (int b = begin; b <= end; ++b)
 							{
 								for (int i = 0; i < batch_size; ++i)
 								{
@@ -1544,6 +1560,7 @@ namespace seayon
 				}
 
 				matrix.sync(*this);
+				matrix.shuffle();
 
 				if (logger.log(run) == 0.0f)
 					break;
