@@ -12,7 +12,7 @@ namespace
     };
 
     static std::vector<int> layout = { 2, 3, 4, 2 };
-    static std::vector<ActivFunc> funcs = { ActivFunc::LEAKYRELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
+    static std::vector<ActivFunc> funcs = { ActivFunc::RELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
 
     float pulse()
     {
@@ -26,13 +26,11 @@ namespace
     {
         model m(layout, funcs, 1472, false);
 
-        float sum = 0.0f;
+        m.fit(data, data, false, 20, 1, 2, 0.1f);
 
-        m.fit(data, data, 20, 2, 2);
-        m.pulse(data[0].inputs, 2);
-        sum += m.layers[3].neurons[0] + m.layers[3].neurons[1];
+        float x = m.loss(data);
 
-        return sum;
+        return x;
     }
 
     float accruacy()
@@ -93,11 +91,14 @@ namespace
 
 TEST(Basis, Activation)
 {
-    EXPECT_EQ(pulse(), 1.01069021f);
+    EXPECT_EQ(pulse(), 1.01520085f);
 }
 TEST(Basis, Training)
 {
-    EXPECT_EQ(fit(), 1.01069021f);
+    const float ret = fit();
+    printf("Return: %f\n", ret);
+
+    EXPECT_TRUE(ret < 0.01f);
 }
 
 TEST(Analysis, Accruacy)
@@ -106,7 +107,7 @@ TEST(Analysis, Accruacy)
 }
 TEST(Analysis, Loss)
 {
-    EXPECT_EQ(loss(), 0.267207265f);
+    EXPECT_EQ(loss(), 0.268624961f);
 }
 
 TEST(Management, Equals)
