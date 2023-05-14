@@ -10,7 +10,7 @@ int main()
 	constexpr bool load = false;
 	constexpr bool printloss = true;
 
-	constexpr int runCount = 100;
+	constexpr int runCount = 20;
 	constexpr float learning_rate = 0.001f;
 	constexpr int batch_size = 1;
 	constexpr int thread_count = 1;
@@ -45,7 +45,7 @@ int main()
 
 		const std::string traindata_path("../../../../examples/digit_recognition/res/mnist_train");
 		std::ifstream exists(traindata_path + ".csv");
-		if (exists.good() && false)
+		if (exists.good() && true)
 		{
 			dataset<784, 10> traindata;
 			if (!ImportMnist(60000, traindata, traindata_path))
@@ -53,14 +53,14 @@ int main()
 
 			printf("\n");
 			m.printo(traindata, 0);
-			m.fit(traindata, testdata, runCount, batch_size, thread_count, learning_rate);
+			m.fit(traindata, testdata, true, runCount, batch_size, thread_count, learning_rate);
 			m.printo(traindata, 0);
 		}
 		else
 		{
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(testdata, testdata, runCount, batch_size, thread_count, learning_rate);
+			m.fit(testdata, testdata, true, runCount, batch_size, thread_count, learning_rate);
 			m.printo(testdata, 0);
 		}
 

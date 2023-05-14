@@ -44,8 +44,8 @@ int main()
 	m.print_one(data, 0);
 	m.print_one(data, 1);
 
-	// training and test data | 20 iterations
-	m.fit(data, data, 20);
+	// training and test data | Training data shuffle is disabled | 20 epochs
+	m.fit(data, data, false, 20);
 
 	// ### After training ###
 

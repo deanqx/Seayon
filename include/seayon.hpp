@@ -455,7 +455,7 @@ namespace seayon
 			}
 
 			if (seed < 0)
-				printf("--- Generating with Seed: %i ---\n", this->seed);
+				printf("Generating with Seed: %i\n", this->seed);
 
 			srand(this->seed);
 
@@ -482,6 +482,22 @@ namespace seayon
 				free(layers);
 			}
 		}
+
+		void whatsetup()
+		{
+			int paras = 0;
+			for (int i = 1; i < layerCount; ++i)
+			{
+				paras += layers[i].wCount;
+				paras += layers[i].nCount;
+			}
+
+			printf("Generating model with:\n");
+			printf("parameters     %i\n", paras);
+			printf("seed           %i\n", this->seed);
+			printf("printing loss  %s\n", printloss ? "True" : "False");
+		}
+
 
 		/**
 		 * Stores all weights and biases in one binary buffer
@@ -1326,10 +1342,7 @@ namespace seayon
 				std::unique_ptr<model> net;
 				std::vector<layer> layers;
 
-				const float sample_share;
-
-				thread(const model& main, const float& sample_share)
-					: sample_share(sample_share)
+				thread(const model& main)
 				{
 					std::vector<int> layout(main.layerCount);
 					std::vector<ActivFunc> a(main.layerCount - 1);
@@ -1406,10 +1419,8 @@ namespace seayon
 					}
 				}
 
-				void apply(const float& alpha, const float& beta1, const float& beta2)
+				void apply(const float& alpha, const float& beta1, const float& beta2, const float& epsilon, const float batch_size)
 				{
-					constexpr float epsilon = 1e-8f;
-
 					model& mo = *net.get();
 					const int LASTL = mo.layerCount - 1;
 					const float ibeta1 = 1.0f - beta1;
@@ -1423,7 +1434,7 @@ namespace seayon
 
 						for (int n2 = 0; n2 < n2count; ++n2)
 						{
-							const float& db = layers[l2].bias_deltas[n2];
+							const float& db = layers[l2].bias_deltas[n2] / batch_size;
 
 							layers[l2].bias_velocities[n2] = beta1 * layers[l2].bias_velocities[n2] + ibeta1 * db;
 							layers[l2].bias_rms[n2] = beta2 * layers[l2].bias_rms[n2] + ibeta2 * db * db;
@@ -1433,7 +1444,7 @@ namespace seayon
 							for (int n1 = 0; n1 < n1count; ++n1)
 							{
 								const int windex = row + n1;
-								const float& dw = layers[l2].weight_deltas[windex];
+								const float& dw = layers[l2].weight_deltas[windex] / batch_size;
 
 								layers[l2].weight_velocities[windex] = beta1 * layers[l2].weight_velocities[windex] + ibeta1 * dw;
 								layers[l2].weight_rms[windex] = beta2 * layers[l2].weight_rms[windex] + ibeta2 * dw * dw;
@@ -1452,7 +1463,7 @@ namespace seayon
 			const int thread_count;
 			const int layerCount;
 
-			backprop_matrix(const float& sample_share, const int& sampleCount, const int& thread_count, const model& main, const dataset<INPUTS, OUTPUTS>& traindata)
+			backprop_matrix(const int& sampleCount, const int& thread_count, const model& main, const dataset<INPUTS, OUTPUTS>& traindata)
 				: thread_count(thread_count), layerCount(main.layerCount)
 			{
 				sample_pointers.resize(sampleCount);
@@ -1466,7 +1477,7 @@ namespace seayon
 
 				for (int i = 0; i < thread_count; ++i)
 				{
-					threads.emplace_back(main, sample_share);
+					threads.emplace_back(main);
 				}
 			}
 
@@ -1504,9 +1515,9 @@ namespace seayon
 		 * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
 		 */
 		template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
-		void fit(const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata,
-			int max_iterations, int batch_size = 1, int thread_count = 1, float learning_rate = 0.01f, float momentum = 0.9f, float beta2 = 0.999f)
-		{
+		void fit(const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata, const bool shuffle,
+			int max_iterations = 1, int batch_size = 1, int thread_count = 1, float learning_rate = 0.001f, float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-7f)
+		{ // WARN thread_count always improves performance(probably loosing data on the way)
 			if (!check(traindata) || !check(testdata))
 			{
 				printf("\tCurrupt training data!\n");
@@ -1528,8 +1539,7 @@ namespace seayon
 
 			std::vector<std::thread> threads(thread_count);
 
-			// backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f / (float)batch_size, sampleCount, 1, *this, traindata);
-			backprop_matrix<INPUTS, OUTPUTS> matrix(1.0f, sampleCount, thread_count, *this, traindata);
+			backprop_matrix<INPUTS, OUTPUTS> matrix(sampleCount, thread_count, *this, traindata);
 
 			fitlog<T_INPUTS, T_OUTPUTS> logger(*this, sampleCount, testdata, max_iterations, printloss, logfolder);
 
@@ -1549,7 +1559,7 @@ namespace seayon
 									matrix.threads[t].backprop(traindata[b * batch_size + i]);
 								}
 
-								matrix.threads[t].apply(learning_rate, momentum, beta2);
+								matrix.threads[t].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
 							}
 						});
 				}
@@ -1560,7 +1570,8 @@ namespace seayon
 				}
 
 				matrix.sync(*this);
-				matrix.shuffle();
+				if (shuffle)
+					matrix.shuffle();
 
 				if (logger.log(run) == 0.0f)
 					break;
