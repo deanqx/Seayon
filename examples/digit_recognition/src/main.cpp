@@ -19,7 +19,7 @@ int main()
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
 	model m(layout, funcs, 1, printloss, "../../../../examples/digit_recognition/res/logs");
 
-	dataset<784, 10> testdata;
+	dataset testdata(784, 10);
 
 	if (!ImportMnist(10000, testdata, "../../../../examples/digit_recognition/res/mnist_test"))
 		return 1;
@@ -47,7 +47,7 @@ int main()
 		std::ifstream exists(traindata_path + ".csv");
 		if (exists.good() && true)
 		{
-			dataset<784, 10> traindata;
+			dataset traindata(784, 10);
 			if (!ImportMnist(60000, traindata, traindata_path))
 				return 1;
 

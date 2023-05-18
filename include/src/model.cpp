@@ -1,0 +1,187 @@
+#include "../seayon.hpp"
+
+size_t seayon::model::save(std::vector<char>& buffer) const
+{
+    size_t buffersize{};
+
+    const uint8_t _printloss = (uint8_t)printloss;
+    const int32_t _seed = (int32_t)seed;
+    const uint32_t _layerCount = layerCount;
+    const uint32_t _logLenght = logfolder.size();
+    std::vector<uint32_t> layout(layerCount);
+    std::vector<ActivFunc> a(layerCount - 1);
+    uint32_t parameters_size = sizeof(uint8_t) + sizeof(int32_t) + (layerCount + 2) * sizeof(uint32_t) + a.size() * sizeof(ActivFunc) + _logLenght * sizeof(char);
+
+    std::vector<size_t> nSize(layerCount);
+    std::vector<size_t> wSize(layerCount);
+    for (int i = 0; i < layerCount; ++i)
+    {
+        layout[i] = (uint32_t)layers[i].nCount;
+        if (i > 0)
+        {
+            a[i - 1] = layers[i].func;
+
+            nSize[i] = layers[i].nCount * sizeof(float);
+            wSize[i] = layers[i].wCount * sizeof(float);
+            buffersize += nSize[i] + wSize[i];
+        }
+    }
+
+    buffersize += sizeof(uint32_t) + parameters_size;
+    buffer.resize(buffersize);
+
+    char* pointer = buffer.data();
+
+    memcpy(buffer.data(), &parameters_size, sizeof(uint32_t));
+    pointer += sizeof(uint32_t);
+
+    memcpy(pointer, &_printloss, sizeof(uint8_t));
+    pointer += sizeof(uint8_t);
+    memcpy(pointer, &_seed, sizeof(int32_t));
+    pointer += sizeof(int32_t);
+
+    memcpy(pointer, &_layerCount, sizeof(uint32_t));
+    pointer += sizeof(uint32_t);
+    memcpy(pointer, &_logLenght, sizeof(uint32_t));
+    pointer += sizeof(uint32_t);
+
+    memcpy(pointer, layout.data(), layerCount * sizeof(uint32_t));
+    pointer += layerCount * sizeof(uint32_t);
+    memcpy(pointer, a.data(), a.size() * sizeof(ActivFunc));
+    pointer += a.size() * sizeof(ActivFunc);
+    memcpy(pointer, logfolder.data(), _logLenght * sizeof(char));
+    pointer += _logLenght * sizeof(char);
+
+    for (int i = 1; i < layerCount; ++i)
+    {
+        memcpy(pointer, layers[i].weights, wSize[i]);
+        pointer += wSize[i];
+        memcpy(pointer, layers[i].biases, nSize[i]);
+        pointer += nSize[i];
+    }
+
+    return buffersize;
+}
+size_t seayon::model::save(std::ofstream& file) const
+{
+    std::vector<char> buffer;
+    size_t buffersize = save(buffer);
+
+    file.write(buffer.data(), buffersize);
+    if (file.fail())
+        buffersize = 0;
+
+    file.flush();
+
+    return buffersize;
+}
+void seayon::model::load(const char* buffer)
+{
+    std::vector<size_t> nSize(layerCount);
+    std::vector<size_t> wSize(layerCount);
+    for (int i = 1; i < layerCount; ++i)
+    {
+        nSize[i] = layers[i].nCount * sizeof(float); // WARN float is not const size
+        wSize[i] = layers[i].wCount * sizeof(float);
+    }
+
+    const char* pointer = buffer;
+
+    uint32_t parameters_size{};
+
+    memcpy(&parameters_size, pointer, sizeof(uint32_t));
+    pointer += sizeof(uint32_t) + parameters_size;
+
+    for (int i = 1; i < layerCount; ++i)
+    {
+        memcpy(layers[i].weights, pointer, wSize[i]);
+        pointer += wSize[i];
+        memcpy(layers[i].biases, pointer, nSize[i]);
+        pointer += nSize[i];
+    }
+}
+bool seayon::model::load(std::ifstream& file)
+{
+    if (file.is_open())
+    {
+        file.seekg(0, file.end);
+        int N = (int)file.tellg();
+        file.seekg(0, file.beg);
+
+        std::vector<char> buffer(N);
+        file.read(buffer.data(), N);
+        load(buffer.data());
+
+        return true;
+    }
+
+    return false;
+}
+void seayon::model::copy(model& to) const
+{
+    for (int l = 1; l < layerCount; ++l)
+    {
+        memcpy(to.layers[l].biases, layers[l].biases, layers[l].nCount * sizeof(float));
+        memcpy(to.layers[l].weights, layers[l].weights, layers[l].wCount * sizeof(float));
+    }
+}
+void seayon::model::combine_into(model** with, int count)
+{
+    for (int l2 = 1; l2 < layerCount; ++l2)
+    {
+        const int l1 = l2 - 1;
+
+        for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
+        {
+            float ab = 0.0f;
+            for (int i = 0; i < count; ++i)
+                ab += with[i]->layers[l2].biases[n2];
+
+            layers[l2].biases[n2] = ab / count;
+
+            for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
+            {
+                float aw = 0.0f;
+                for (int i = 0; i < count; ++i)
+                    aw += with[i]->layers[l2].weights[n2 * layers[l1].nCount + n1];
+
+                layers[l2].weights[n2 * layers[l1].nCount + n1] = aw / count;
+            }
+        }
+    }
+}
+bool seayon::model::equals(model& second)
+{
+    bool equal = true;
+
+    for (int i = 1; equal && i < layerCount; ++i)
+    {
+        for (int w = 0; equal && w < layers[i].wCount; ++w)
+            equal = (layers[i].weights[w] == second.layers[i].weights[w]);
+
+        for (int n = 0; equal && n < layers[i].nCount; ++n)
+            equal = (layers[i].biases[n] == second.layers[i].biases[n]);
+    }
+
+    return equal;
+}
+
+std::vector<float> seayon::model::denormalized(const float max, const float min) const
+{
+    const layer& last = layers[layerCount - 1];
+    const float range = max - min;
+
+    std::vector<float> out(last.nCount);
+
+    for (int i = 0; i < last.nCount; ++i)
+    {
+        out[i] = last.neurons[i] * range + min;
+    }
+
+    return out;
+}
+
+bool seayon::model::check(const dataset& data) const
+{
+    return layers[0].nCount == xsize && layers[layerCount - 1].nCount == ysize;
+}

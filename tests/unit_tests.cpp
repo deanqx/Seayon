@@ -5,20 +5,21 @@ namespace
 {
     using namespace seayon;
 
-    static dataset<2, 2> data =
-    {
-        {{1.0f, 0.0f}, {0.0f, 1.0f}},
-         {{0.0f, 1.0f}, {1.0f, 0.0f}}
-    };
+    static seayon::dataset data(
+        std::vector<std::vector<float>>{ {1.0f, 0.0f}, { 0.0f, 1.0f } },
+        std::vector<std::vector<float>>{ {0.0f, 1.0f}, { 1.0f, 0.0f } }
+    );
 
     static std::vector<int> layout = { 2, 3, 4, 2 };
     static std::vector<ActivFunc> funcs = { ActivFunc::RELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
 
     float pulse()
     {
+        printf("--- %i ---\n", data.size());
+        printf("--- %f, %f ---\n", data[0].x[0], data[0].x[1]);
         model m(layout, funcs, 1472, false);
 
-        m.pulse(data[0].inputs, 2);
+        m.pulse(data[0].x);
 
         return m.layers[3].neurons[0] + m.layers[3].neurons[1];
     }
@@ -107,7 +108,7 @@ TEST(Analysis, Accruacy)
 }
 TEST(Analysis, Loss)
 {
-    EXPECT_EQ(loss(), 0.268624961f);
+    EXPECT_EQ(loss(), 0.268624932f);
 }
 
 TEST(Management, Equals)

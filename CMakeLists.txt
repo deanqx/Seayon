@@ -11,6 +11,9 @@ set(CMAKE_CXX_STANDARD 17)
 option(CUDA_DISABLED ON)
 set(CUDA_DISABLED ON)
 
+# add_library(seayon STATIC "src/seayon.cpp")
+# target_include_directories(seayon PUBLIC "include")
+
 include_directories("include")
 include_directories("external/timez")
 add_subdirectory("examples")

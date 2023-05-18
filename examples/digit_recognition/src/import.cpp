@@ -4,39 +4,41 @@
 #include <thread>
 #include "seayon.hpp"
 
-static void parse_line(const std::string* lines, const int begin, const int end, seayon::dataset<784, 10>& data)
+int parse_value(char* buffer, size_t& pos)
 {
-    // auto start = std::chrono::high_resolution_clock::now();
+    char extracted[3];
 
-    for (int i = begin; i <= end; ++i)
+    if (buffer[pos] == '0')
     {
-        int pos = 0;
-        auto& sample = data[i];
-
-        std::stringstream label;
-        for (; pos < lines[i].size() && lines[i][pos] != ','; ++pos)
-            label << lines[i][pos];
-
-        ++pos;
-
-        sample.outputs[stoi(label.str())] = 1.0f;
-
-        for (int pixelIndex = 0; pixelIndex < 784; ++pixelIndex)
-        {
-            std::stringstream pixel;
-            for (; pos < lines[i].size() && lines[i][pos] != ','; ++pos)
-                pixel << lines[i][pos];
-
-            ++pos;
-
-            sample.inputs[pixelIndex] = (float)stoi(pixel.str()) / 255.0f;
-        }
+        pos += 2;
+        return 0;
     }
 
-    // printf("FINISHED[%i -> %i(%i)] (%ims)\n", begin, end, end + 1 - begin, (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+    extracted[0] = buffer[pos];
+    ++pos;
+    if (buffer[pos] != ',')
+    {
+        extracted[1] = buffer[pos];
+        ++pos;
+        if (buffer[pos] != ',')
+        {
+            extracted[2] = buffer[pos];
+            ++pos;
+        }
+        else
+            extracted[2] = 0;
+    }
+    else
+    {
+        extracted[1] = 0;
+        extracted[2] = 0;
+    }
+    ++pos;
+
+    return atoi(extracted);
 }
 
-bool ImportMnist(const int sampleCount, seayon::dataset<784, 10>& data, const std::string file_without_extension, int thread_count = 1)
+bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string file_without_extension, int thread_count = 1)
 {
     const int per_thread = sampleCount / thread_count;
 
@@ -44,55 +46,52 @@ bool ImportMnist(const int sampleCount, seayon::dataset<784, 10>& data, const st
 
     printf("\tLoading mnist...");
 
-    std::ifstream binary(file_without_extension + ".bin", std::ios::binary);
-
-    if (binary.is_open())
+    std::string path(file_without_extension + ".csv");
+    FILE* file = fopen(path.c_str(), "r");
+    if (file == nullptr)
     {
-        data.reserve(sampleCount);
-        binary.read((char*)&data[0], sampleCount * sizeof(typename seayon::dataset<784, 10>::sample));
+        printf("Cannot open csv file\n");
+        return false;
     }
-    else
+
+    data.reserve(sampleCount);
+
+    constexpr int formatLenght = 785 * 3 - 1;
+    char format[formatLenght];
+    format[formatLenght - 2] = '%';
+    format[formatLenght - 3] = 'd';
+    for (int i = 0; i < formatLenght - 2; i += 3)
     {
-        std::ifstream csv(file_without_extension + ".csv");
-
-        if (!csv.is_open())
-        {
-            printf("Cannot open csv file\n");
-            return false;
-        }
-
-        std::ofstream new_binary(file_without_extension + ".bin", std::ios::binary);
-
-        data.reserve(sampleCount);
-        std::vector<std::string> lines(sampleCount);
-        std::vector<std::thread> threads(thread_count);
-
-        for (int i = 0; i < sampleCount; ++i)
-        {
-            std::getline(csv, lines[i]);
-        }
-
-        for (int t = 0; t < thread_count; ++t)
-        {
-            threads[t] = std::thread([&, t]
-                {
-                    const int begin = t * per_thread;
-                    const int end = begin + per_thread - 1;
-                    parse_line(lines.data(), begin, end, data);
-                });
-        }
-
-        const int begin = thread_count * per_thread;
-        const int end = sampleCount - 1;
-        parse_line(lines.data(), begin, end, data);
-
-        for (int t = 0; t < thread_count; ++t)
-        {
-            threads[t].join();
-        }
-
-        new_binary.write((char*)&data[0], sampleCount * sizeof(typename seayon::dataset<784, 10>::sample));
+        format[i] = '%';
+        format[i + 1] = 'd';
+        format[i + 2] = ',';
     }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    std::vector<char> buffer(size);
+
+    fread(buffer.data(), sizeof(char), size, file);
+
+    size_t pos = 0;
+    for (int i = 0; i < sampleCount; ++i)
+    {
+        memset(data[i].y, 0, 10 * sizeof(float));
+
+        data[i].y[parse_value(buffer.data(), pos)] = 1.0f;
+
+        for (int k = 0; k < 784; ++k)
+        {
+            const int val = parse_value(buffer.data(), pos);
+            if (val == 0)
+                data[i].x[k] = 0;
+            else
+                data[i].x[k] = (float)val / 255.0f;
+        }
+    }
+    fclose(file);
 
     printf("DONE (%ims)\n", (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
 

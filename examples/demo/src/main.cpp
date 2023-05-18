@@ -5,10 +5,9 @@ using namespace seayon;
 
 int main()
 {
-	dataset<2, 2> data = {
-		{ {1.0f, 0.0f}, { 0.0f, 1.0f }},
-		{ {0.0f, 1.0f}, {1.0f, 0.0f} }
-	};
+	std::vector<std::vector<float>> inputs = { {1.0f, 0.0f}, { 0.0f, 1.0f} };
+	std::vector<std::vector<float>> outputs = { {0.0f, 1.0f}, { 1.0f, 0.0f } };
+	dataset data(inputs, outputs);
 
 	// Input layer size: 2
 	// 1. Hidden layer size: 3
@@ -45,7 +44,7 @@ int main()
 	m.print_one(data, 1);
 
 	// training and test data | Training data shuffle is disabled | 20 epochs
-	m.fit(data, data, false, 20);
+	m.fit(data, data, false, 20, 1, 1, 0.1f);
 
 	// ### After training ###
 
@@ -55,21 +54,10 @@ int main()
 	// testdata | sample (printo: Prints only the output layer to the console)
 	// m.printo(data, 1);
 
+	printf("%f | %f\n", data[0].x[0], data[0].x[1]);
+
 	m.print_one(data, 0);
 	m.print_one(data, 1);
-
-	{
-		std::vector<char> buffer;
-		m.save(buffer);
-
-		model_parameters para;
-		para.load_parameters(buffer.data());
-		model m2(para);
-		m2.load(buffer.data());
-
-		printf("equals: %i seed: %i\n", m.equals(m2), para.seed);
-	}
-	printf("out of scope\n");
 
 	return 0;
 }
