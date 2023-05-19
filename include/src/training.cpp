@@ -30,7 +30,7 @@ struct backprop_matrix
             }
         };
 
-        std::unique_ptr<seayon::model> net;
+        std::shared_ptr<seayon::model> net;
         std::vector<layer> layers;
 
         thread(const seayon::model& main)
@@ -44,7 +44,7 @@ struct backprop_matrix
                     a[l - 1] = main.layers[l].func;
             }
 
-            net = std::make_unique<seayon::model>(layout, a, main.seed, main.printloss, main.logfolder);
+            net = std::make_shared<seayon::model>(layout, a, main.seed, main.printloss, main.logfolder);
             main.copy(*net);
 
             layers.reserve(main.layers.size());
@@ -211,50 +211,77 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
         thread_count = 1;
 
     const int batch_count = traindata.samples.size() / batch_size;
-    const int per_thread = batch_count / thread_count;
     const int sampleCount = batch_size * batch_count;
-
-    const int unused_begin = thread_count * per_thread * batch_size;
-    const int unused_end = traindata.samples.size() - unused_begin - 1;
-
-    std::vector<std::thread> threads(thread_count);
 
     backprop_matrix matrix(thread_count, *this, traindata);
 
     fitlog logger(*this, sampleCount, testdata, max_epochs, printloss, logfolder);
 
-    for (int epoch = 1; epoch <= max_epochs; ++epoch)
+    if (thread_count == 1)
     {
-        for (int t = 0; t < thread_count; ++t)
+        matrix.threads[0].net.reset(this, [](seayon::model* obj) {});
+
+        for (int epoch = 1; epoch <= max_epochs; ++epoch)
         {
-            threads[t] = std::thread([&, t]
+            for (int b = 0; b < batch_count; ++b)
+            {
+                const int row = b * batch_size;
+
+                for (int i = 0; i < batch_size; ++i)
                 {
-                    const int begin = t * per_thread;
-                    const int end = begin + per_thread - 1;
+                    matrix.threads[0].backprop(traindata[row + i]);
+                }
 
-                    for (int b = begin; b <= end; ++b)
-                    {
-                        for (int i = 0; i < batch_size; ++i)
-                        {
-                            matrix.threads[t].backprop(traindata[b * batch_size + i]);
-                        }
+                matrix.threads[0].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
+            }
 
-                        matrix.threads[t].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
-                    }
-                });
+            if (logger.log(epoch) == 0.0f)
+                break;
         }
+    }
+    else
+    {
+        const int per_thread = batch_count / thread_count;
+        const int unused_begin = thread_count * per_thread * batch_size;
+        const int unused_end = traindata.samples.size() - unused_begin - 1;
 
-        for (int t = 0; t < thread_count; ++t)
+        std::vector<std::thread> threads(thread_count);
+
+        for (int epoch = 1; epoch <= max_epochs; ++epoch)
         {
-            threads[t].join();
+            for (int t = 0; t < thread_count; ++t)
+            {
+                threads[t] = std::thread([&, t]
+                    {
+                        const int begin = t * per_thread;
+                        const int end = begin + per_thread - 1;
+
+                        for (int b = begin; b <= end; ++b)
+                        {
+                            const int row = b * batch_size;
+
+                            for (int i = 0; i < batch_size; ++i)
+                            {
+                                matrix.threads[t].backprop(traindata[row + i]);
+                            }
+
+                            matrix.threads[t].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
+                        }
+                    });
+            }
+
+            for (int t = 0; t < thread_count; ++t)
+            {
+                threads[t].join();
+            }
+
+            matrix.sync(*this);
+            if (shuffle)
+                matrix.shuffle();
+
+            if (logger.log(epoch) == 0.0f)
+                break;
         }
-
-        matrix.sync(*this);
-        if (shuffle)
-            matrix.shuffle();
-
-        if (logger.log(epoch) == 0.0f)
-            break;
     }
 
     printf("\n\n");
