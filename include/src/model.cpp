@@ -1,4 +1,5 @@
 #include "../seayon.hpp"
+#include <stdio.h>
 
 size_t seayon::model::save(std::vector<char>& buffer) const
 {
@@ -62,16 +63,20 @@ size_t seayon::model::save(std::vector<char>& buffer) const
 
     return buffersize;
 }
-size_t seayon::model::save(std::ofstream& file) const
+size_t seayon::model::save_file(const char* path) const
 {
     std::vector<char> buffer;
     size_t buffersize = save(buffer);
 
-    file.write(buffer.data(), buffersize);
-    if (file.fail())
-        buffersize = 0;
+    FILE* file = fopen(path, "wb");
 
-    file.flush();
+    if (!file)
+    {
+        return 0;
+    }
+
+    fwrite(buffer.data(), sizeof(char), buffersize, file);
+    fclose(file);
 
     return buffersize;
 }
@@ -100,20 +105,23 @@ void seayon::model::load(const char* buffer)
         pointer += nSize[i];
     }
 }
-bool seayon::model::load(std::ifstream& file)
+bool seayon::model::load_file(const char* path)
 {
-    if (file.is_open())
+    FILE* file = fopen(path, "rb");
+    if (!file)
     {
-        file.seekg(0, file.end);
-        int N = (int)file.tellg();
-        file.seekg(0, file.beg);
-
-        std::vector<char> buffer(N);
-        file.read(buffer.data(), N);
-        load(buffer.data());
-
         return true;
     }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    std::vector<char> buffer(size);
+    fread(buffer.data(), sizeof(char), size, file);
+    fclose(file);
+
+    load(buffer.data());
 
     return false;
 }

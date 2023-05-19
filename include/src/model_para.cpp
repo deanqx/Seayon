@@ -1,4 +1,5 @@
 #include "../seayon.hpp"
+#include <stdio.h>
 
 void seayon::model_parameters::load_parameters(const char* buffer)
 {
@@ -36,20 +37,23 @@ void seayon::model_parameters::load_parameters(const char* buffer)
     }
 }
 
-bool seayon::model_parameters::load_parameters(std::ifstream& file)
+bool seayon::model_parameters::load_parameters_file(const char* path)
 {
-    if (file.is_open())
+    FILE* file = fopen(path, "rb");
+    if (!file)
     {
-        file.seekg(0, file.end);
-        int N = (int)file.tellg();
-        file.seekg(0, file.beg);
-
-        std::vector<char> buffer(N);
-        file.read(buffer.data(), N);
-        load_parameters(buffer.data());
-
         return true;
     }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    std::vector<char> buffer(size);
+    fread(buffer.data(), sizeof(char), size, file);
+    fclose(file);
+
+    load_parameters(buffer.data());
 
     return false;
 }

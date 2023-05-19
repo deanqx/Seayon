@@ -1,4 +1,5 @@
 #include "../seayon.hpp"
+#include <stdio.h>
 
 seayon::dataset::dataset(const int inputSize, const int outputSize) : xsize(inputSize), ysize(outputSize)
 {
@@ -10,7 +11,7 @@ seayon::dataset::dataset(const int inputSize, const int outputSize, const int ne
 }
 
 seayon::dataset::dataset(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs)
-    : dataset((int)inputs[0].size(), (int)outputs[0].size())
+    : dataset((int)inputs[0].size(), (int)outputs[0].size(), inputs.size())
 {
     if (inputs.size() != outputs.size())
     {
@@ -47,7 +48,7 @@ inline const seayon::dataset::sample& seayon::dataset::operator[](const int inde
     return samples[index];
 }
 
-size_t seayon::dataset::save(std::vector<char>& out_buffer)
+size_t seayon::dataset::save(std::vector<char>& out_buffer) const
 {
     size_t size = sizeof(int32_t) + samples.size() * xsize * sizeof(float) + samples.size() * ysize * sizeof(float);
 
@@ -70,16 +71,20 @@ size_t seayon::dataset::save(std::vector<char>& out_buffer)
     return size;
 }
 
-size_t seayon::dataset::save(std::ofstream& file)
+size_t seayon::dataset::save_file(const char* path) const
 {
     std::vector<char> buffer;
     size_t buffersize = save(buffer);
 
-    file.write(buffer.data(), buffersize);
-    if (file.fail())
-        buffersize = 0;
+    FILE* file = fopen(path, "wb");
 
-    file.flush();
+    if (!file)
+    {
+        return 0;
+    }
+
+    fwrite(buffer.data(), sizeof(char), buffersize, file);
+    fclose(file);
 
     return buffersize;
 }
@@ -102,20 +107,23 @@ void seayon::dataset::load(const char* buffer)
         pointer += ysize * sizeof(float);
     }
 }
-bool seayon::dataset::load(std::ifstream& file)
+bool seayon::dataset::load_file(const char* path)
 {
-    if (file.is_open())
+    FILE* file = fopen(path, "rb");
+    if (!file)
     {
-        file.seekg(0, file.end);
-        int N = (int)file.tellg();
-        file.seekg(0, file.beg);
-
-        std::vector<char> buffer(N);
-        file.read(buffer.data(), N);
-        load(buffer.data());
-
         return true;
     }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    std::vector<char> buffer(size);
+    fread(buffer.data(), sizeof(char), size, file);
+    fclose(file);
+
+    load(buffer.data());
 
     return false;
 }
@@ -192,7 +200,6 @@ void seayon::dataset::normalize(const float max, const float min)
 
 void seayon::dataset::shuffle()
 {
-    // TODO
-    // std::random_device rm_seed;
-    // std::shuffle(samples, samples + samples.size() - 1, std::mt19937(rm_seed()));
+    std::random_device rm_seed;
+    std::shuffle(samples.begin(), samples.end(), std::mt19937(rm_seed()));
 }

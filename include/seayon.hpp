@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <string>
-#include <fstream>
 #include <chrono>
 #include <memory>
 
@@ -61,10 +60,10 @@ namespace seayon
         dataset(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs);
         void resize(const int newsize);
         inline const sample& operator[](const int index) const;
-        size_t save(std::vector<char>& out_buffer);
-        size_t save(std::ofstream& file);
+        size_t save(std::vector<char>& out_buffer) const;
+        size_t save_file(const char* path) const;
         void load(const char* buffer);
-        bool load(std::ifstream& file);
+        bool load_file(const char* path);
         /**
          * @return Highest value in dataset
          */
@@ -94,7 +93,7 @@ namespace seayon
         std::string logfolder{};
 
         void load_parameters(const char* buffer);
-        bool load_parameters(std::ifstream& file);
+        bool load_parameters_file(const char* path);
     };
 
     // Open source Neural Network library in C++
@@ -151,7 +150,7 @@ namespace seayon
          * @param file use std::ios::binary
          * @return size of buffer
          */
-        size_t save(std::ofstream& file) const;
+        size_t save_file(const char* path) const;
         /**
          * Loads binary network buffer
          * @exception Currupt data can through an error
@@ -163,7 +162,7 @@ namespace seayon
          * @exception Currupt files can through an error
          * @return if successful
          */
-        bool load(std::ifstream& file);
+        bool load_file(const char* path);
         // Copies weights and biases to a different instance
         void copy(model& to) const;
         /**
@@ -284,29 +283,6 @@ namespace seayon
 
     protected:
         bool check(const dataset& data) const;
-
-        class fitlog
-        {
-            model& parent;
-            const int sampleCount;
-            const dataset& testdata;
-            const int max_iterations;
-            const bool printloss;
-
-            std::unique_ptr<std::ofstream> file{};
-            size_t lastLogLenght = 0;
-            int lastLogAt = 0;
-            std::chrono::high_resolution_clock::time_point overall;
-            std::chrono::high_resolution_clock::time_point sampleTimeLast;
-            std::chrono::high_resolution_clock::time_point last;
-
-            float lastLoss[5]{};
-            int lastLossIndex = 0;
-
-        public:
-            float log(int epoch);
-            fitlog(model& parent, const int& sampleCount, const dataset& testdata, const int& max_iterations, const bool& printloss, const std::string& logfolder);
-        };
     };
 }
 
@@ -314,7 +290,6 @@ namespace seayon
 #include "src/basis.cpp"
 #include "src/dataset.cpp"
 #include "src/evaluation.cpp"
-#include "src/fitlog.cpp"
 #include "src/model_para.cpp"
 #include "src/model.cpp"
 #include "src/print.cpp"

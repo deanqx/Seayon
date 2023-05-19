@@ -10,7 +10,7 @@ int main()
 	constexpr bool load = false;
 	constexpr bool printloss = true;
 
-	constexpr int runCount = 20;
+	constexpr int runCount = 1;
 	constexpr float learning_rate = 0.001f;
 	constexpr int batch_size = 1;
 	constexpr int thread_count = 1;
@@ -21,18 +21,18 @@ int main()
 
 	dataset testdata(784, 10);
 
-	if (!ImportMnist(10000, testdata, "../../../../examples/digit_recognition/res/mnist_test"))
+	if (!ImportMnist(10000, testdata, "../../../../examples/digit_recognition/res/mnist_test.csv"))
 		return 1;
+
+	const char* saved_path = "../../../../examples/digit_recognition/saved.bin";
 
 	if (load)
 	{
-		std::ifstream file("../../../../examples/digit_recognition/saved.bin", std::ios::binary);
-
 		model_parameters para;
-		para.load_parameters(file);
+		para.load_parameters_file(saved_path);
 
 		model imported(para);
-		imported.load(file);
+		imported.load_file(saved_path);
 
 		imported.printo(testdata, 0);
 	}
@@ -43,18 +43,20 @@ int main()
 		// 2. Copy the header(first line) from mnist_test.csv
 		// 3. Put mnist_train.csv in the "res/" folder
 
-		const std::string traindata_path("../../../../examples/digit_recognition/res/mnist_train");
-		std::ifstream exists(traindata_path + ".csv");
+		const std::string traindata_path("../../../../examples/digit_recognition/res/mnist_train.csv");
+		std::ifstream exists(traindata_path);
 		if (exists.good() && true)
 		{
+			exists.close();
+
 			dataset traindata(784, 10);
 			if (!ImportMnist(60000, traindata, traindata_path))
 				return 1;
 
 			printf("\n");
-			m.printo(traindata, 0);
+			m.printo(testdata, 0);
 			m.fit(traindata, testdata, true, runCount, batch_size, thread_count, learning_rate);
-			m.printo(traindata, 0);
+			m.printo(testdata, 0);
 		}
 		else
 		{
@@ -64,8 +66,7 @@ int main()
 			m.printo(testdata, 0);
 		}
 
-		std::ofstream file("../../../../examples/digit_recognition/saved.bin", std::ios::binary);
-		m.save(file);
+		m.save_file(saved_path);
 	}
 
 	return 0;

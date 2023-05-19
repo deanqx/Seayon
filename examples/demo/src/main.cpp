@@ -59,5 +59,21 @@ int main()
 	m.print_one(data, 0);
 	m.print_one(data, 1);
 
+	// std::vector<char> buffer;
+	// m.save(buffer);
+	m.save_file("saved2.bin");
+
+	model_parameters para;
+	para.load_parameters_file("saved2.bin");
+	// para.load_parameters(buffer.data());
+	model m2(para);
+	m2.load_file("saved2.bin");
+	// m2.load(buffer.data());
+
+	printf("equals: %i seed: %i\n", m.equals(m2), para.seed);
+
+	m.print_one(data, 0);
+	m.print_one(data, 1);
+
 	return 0;
 }

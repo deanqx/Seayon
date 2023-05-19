@@ -38,13 +38,12 @@ int parse_value(char* buffer, size_t& pos)
     return atoi(extracted);
 }
 
-bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string file_without_extension)
+bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string path)
 {
     auto start = std::chrono::high_resolution_clock::now();
 
     printf("Loading mnist...");
 
-    std::string path(file_without_extension + ".csv");
     FILE* file = fopen(path.c_str(), "r");
     if (file == nullptr)
     {
