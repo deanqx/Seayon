@@ -13,10 +13,9 @@ void seayon::model::whatsetup()
         paras += layers[i].nCount;
     }
 
-    printf("Generating model with:\n");
-    printf("parameters     %i\n", paras);
-    printf("seed           %i\n", this->seed);
-    printf("printing loss  %s\n", printloss ? "True" : "False");
+    printf("--> Generating model with:\n");
+    printf("parameters  %i\n", paras);
+    printf("seed        %i\n", this->seed);
 }
 
 float seayon::model::evaluate(const dataset& data)

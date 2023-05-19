@@ -42,9 +42,8 @@ seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFu
 	}
 }
 
-seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed, bool printloss, std::string logfolder)
+seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed, std::string logfolder)
 	: seed(seed < 0 ? (unsigned int)time(NULL) : seed),
-	printloss(printloss),
 	logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 	xsize(layout.front()),
 	ysize(layout.back())
@@ -70,6 +69,6 @@ seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc>
 	}
 }
 
-seayon::model::model(const model_parameters& para) : model(para.layout, para.a, para.seed, para.printloss, para.logfolder)
+seayon::model::model(const model_parameters& para) : model(para.layout, para.a, para.seed, para.logfolder)
 {
 }

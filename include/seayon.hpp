@@ -86,7 +86,6 @@ namespace seayon
 
     struct model_parameters
     {
-        bool printloss{};
         int seed{};
         std::vector<int> layout{};
         std::vector<ActivFunc> a{};
@@ -121,7 +120,6 @@ namespace seayon
         };
 
         const int seed;
-        const bool printloss;
         const std::string logfolder;
 
         const int xsize;
@@ -137,7 +135,7 @@ namespace seayon
          * @param printloss Print loss() value while training (every second, high performance consumption)
          * @param logfolder Write log file for training progress (keep empty to disable)
          */
-        model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, bool printloss = true, std::string logfolder = std::string());
+        model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, std::string logfolder = std::string());
         model(const model_parameters& para);
 
         /**
@@ -278,8 +276,10 @@ namespace seayon
          * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
          * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
          */
-        void fit(const dataset& traindata, const dataset& testdata, const bool shuffle,
-            int max_epochs = 1, int batch_size = 1, int thread_count = 1, float learning_rate = 0.001f, float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-7f);
+        void fit(const dataset& traindata, const dataset& testdata, const bool shuffle, int batches_per_epoch = -1,
+            int max_epochs = 1, int verbose = 1,
+            int batch_size = 1, int thread_count = 1,
+            float learning_rate = 0.001f, float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-7f);
 
     protected:
         bool check(const dataset& data) const;

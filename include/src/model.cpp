@@ -5,13 +5,12 @@ size_t seayon::model::save(std::vector<char>& buffer) const
 {
     size_t buffersize{};
 
-    const uint8_t _printloss = (uint8_t)printloss;
     const int32_t _seed = (int32_t)seed;
     const uint32_t _layerCount = layers.size();
     const uint32_t _logLenght = logfolder.size();
     std::vector<uint32_t> layout(layers.size());
     std::vector<ActivFunc> a(layers.size() - 1);
-    uint32_t parameters_size = sizeof(uint8_t) + sizeof(int32_t) + (layers.size() + 2) * sizeof(uint32_t) + a.size() * sizeof(ActivFunc) + _logLenght * sizeof(char);
+    uint32_t parameters_size = sizeof(int32_t) + (layers.size() + 2) * sizeof(uint32_t) + a.size() * sizeof(ActivFunc) + _logLenght * sizeof(char);
 
     std::vector<size_t> nSize(layers.size());
     std::vector<size_t> wSize(layers.size());
@@ -36,8 +35,6 @@ size_t seayon::model::save(std::vector<char>& buffer) const
     memcpy(buffer.data(), &parameters_size, sizeof(uint32_t));
     pointer += sizeof(uint32_t);
 
-    memcpy(pointer, &_printloss, sizeof(uint8_t));
-    pointer += sizeof(uint8_t);
     memcpy(pointer, &_seed, sizeof(int32_t));
     pointer += sizeof(int32_t);
 

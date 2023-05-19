@@ -5,8 +5,6 @@ void seayon::model_parameters::load_parameters(const char* buffer)
 {
     const char* pointer = buffer + sizeof(uint32_t);
 
-    memcpy(&printloss, pointer, sizeof(uint8_t));
-    pointer += sizeof(uint8_t);
     memcpy(&seed, pointer, sizeof(int32_t));
     pointer += sizeof(int32_t);
 

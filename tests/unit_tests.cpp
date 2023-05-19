@@ -21,7 +21,7 @@ namespace
     float pulse()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472);
 
         m.pulse(data[0].x.data());
 
@@ -30,7 +30,7 @@ namespace
     float fit()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472);
 
         m.fit(data, data, false, 20, 1, 2, 0.1f);
 
@@ -42,14 +42,14 @@ namespace
     float accruacy()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472);
 
         return m.accruacy(data);
     }
     float loss()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472);
 
         printf("--- %f ---\n", m.loss(data));
         return m.loss(data);
@@ -58,16 +58,16 @@ namespace
     bool equals()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
-        model m2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472);
+        model m2(layout, funcs, 1471);
 
         return m.equals(m) == true && m.equals(m2) == false;
     }
     float combine()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
-        model m2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472);
+        model m2(layout, funcs, 1471);
 
         model* array[]{ &m, &m2 };
         m.combine_into(array, 2);
@@ -77,8 +77,8 @@ namespace
     bool copy()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
-        model m2(layout, funcs, 1471, false);
+        model m(layout, funcs, 1472);
+        model m2(layout, funcs, 1471);
 
         m.copy(m2);
 
@@ -87,7 +87,7 @@ namespace
     bool save_load()
     {
         dataset data = getData();
-        model m(layout, funcs, 1472, false);
+        model m(layout, funcs, 1472);
 
         std::vector<char> buffer;
         m.save(buffer);

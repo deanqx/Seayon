@@ -42,7 +42,7 @@ struct backprop_matrix
                     a[l - 1] = main.layers[l].func;
             }
 
-            net = std::make_shared<seayon::model>(layout, a, main.seed, main.printloss, main.logfolder);
+            net = std::make_shared<seayon::model>(layout, a, main.seed, main.logfolder);
             main.copy(*net);
 
             layers.reserve(main.layers.size());

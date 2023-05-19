@@ -1,5 +1,7 @@
 #include "../seayon.hpp"
 #include <stdio.h>
+#include <random>
+#include <algorithm>
 
 seayon::dataset::dataset(const int inputSize, const int outputSize) : xsize(inputSize), ysize(outputSize)
 {
