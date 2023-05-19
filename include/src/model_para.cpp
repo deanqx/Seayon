@@ -9,28 +9,28 @@ void seayon::model_parameters::load_parameters(const char* buffer)
     memcpy(&seed, pointer, sizeof(int32_t));
     pointer += sizeof(int32_t);
 
-    uint32_t layerCount{};
+    uint32_t sampleCount{};
     uint32_t logLenght{};
 
-    memcpy(&layerCount, pointer, sizeof(uint32_t));
+    memcpy(&sampleCount, pointer, sizeof(uint32_t));
     pointer += sizeof(uint32_t);
     memcpy(&logLenght, pointer, sizeof(uint32_t));
     pointer += sizeof(uint32_t);
 
-    layout.resize(layerCount);
-    a.resize(layerCount - 1);
+    layout.resize(sampleCount);
+    a.resize(sampleCount - 1);
     logfolder.resize(logLenght);
 
-    std::vector<uint32_t> _layout(layerCount);
+    std::vector<uint32_t> _layout(sampleCount);
 
-    memcpy(_layout.data(), pointer, layerCount * sizeof(uint32_t));
-    pointer += layerCount * sizeof(uint32_t);
+    memcpy(_layout.data(), pointer, sampleCount * sizeof(uint32_t));
+    pointer += sampleCount * sizeof(uint32_t);
     memcpy(a.data(), pointer, a.size() * sizeof(ActivFunc));
     pointer += a.size() * sizeof(ActivFunc);
     memcpy((void*)logfolder.data(), pointer, logLenght * sizeof(char));
     // pointer += logLenght * sizeof(char);
 
-    for (int i = 0; i < layerCount; ++i)
+    for (int i = 0; i < sampleCount; ++i)
     {
         layout[i] = (int)_layout[i];
     }

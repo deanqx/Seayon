@@ -76,7 +76,7 @@ private:
 	using model::logfolder;
 public:
 	using model::layers;
-	using model::layerCount;
+	using model::layers.size();
 
 	using model::model;
 	using model::save;
@@ -130,9 +130,9 @@ public:
 
 				batch(const cuda_seayon& main)
 				{
-					layers.reserve(main.layerCount);
+					layers.reserve(main.layers.size());
 
-					for (size_t i = 0; i < main.layerCount; ++i)
+					for (size_t i = 0; i < main.layers.size(); ++i)
 					{
 						layers.emplace_back(main.layers[i].nCount, main.layers[i].wCount);
 					}
@@ -148,10 +148,10 @@ public:
 			const float n;
 			const float m;
 
-			host(const int batch_count, const float n, const float m, const int sampleCount, const cuda_seayon& main) : batch_count(batch_count), n(n), m(m)
+			host(const int batch_count, const float n, const float m, const int samples.size(), const cuda_seayon& main) : batch_count(batch_count), n(n), m(m)
 			{
 				batches.reserve(batch_count);
-				device_sample_pointers.resize(sampleCount);
+				device_sample_pointers.resize(samples.size());
 
 				for (size_t i = 0; i < batch_count; ++i)
 				{
@@ -219,12 +219,12 @@ public:
 				batch(const cuda_seayon& main, const float& sample_share)
 					: sample_share(sample_share)
 				{
-					cudaMalloc(&layers, main.layerCount * sizeof(layer));
+					cudaMalloc(&layers, main.layers.size() * sizeof(layer));
 					cudaMalloc(&net, sizeof(cuda_seayon));
-					linker_layers.reserve(main.layerCount);
-					linker_seayon_layers.reserve(main.layerCount);
+					linker_layers.reserve(main.layers.size());
+					linker_seayon_layers.reserve(main.layers.size());
 
-					for (int i = 0; i < main.layerCount; ++i)
+					for (int i = 0; i < main.layers.size(); ++i)
 					{
 						linker_layers.emplace_back(main.layers[i].nCount, main.layers[i].wCount);
 
@@ -266,12 +266,12 @@ public:
 						linker_seayon_layers.emplace_back(func, activation, derivative, neurons, biases, weights, main.layers[i].nCount, main.layers[i].wCount, false);
 					}
 
-					cudaMemcpy(layers, linker_layers.data(), main.layerCount * sizeof(layer), cudaMemcpyHostToDevice);
+					cudaMemcpy(layers, linker_layers.data(), main.layers.size() * sizeof(layer), cudaMemcpyHostToDevice);
 
 					seayon::layer* seayon_layers;
-					cudaMalloc(&seayon_layers, main.layerCount * sizeof(seayon::layer));
-					cudaMemcpy(seayon_layers, linker_seayon_layers.data(), main.layerCount * sizeof(seayon::layer), cudaMemcpyHostToDevice);
-					linker_net.reset(new cuda_seayon(seayon_layers, main.layerCount, main.printloss, main.seed, main.logfolder, false));
+					cudaMalloc(&seayon_layers, main.layers.size() * sizeof(seayon::layer));
+					cudaMemcpy(seayon_layers, linker_seayon_layers.data(), main.layers.size() * sizeof(seayon::layer), cudaMemcpyHostToDevice);
+					linker_net.reset(new cuda_seayon(seayon_layers, main.layers.size(), main.printloss, main.seed, main.logfolder, false));
 
 					cudaMemcpy(net, linker_net.get(), sizeof(cuda_seayon), cudaMemcpyHostToDevice);
 					reset(main);
@@ -279,7 +279,7 @@ public:
 
 				void reset(const cuda_seayon& main)
 				{
-					for (int i = 0; i < main.layerCount; ++i)
+					for (int i = 0; i < main.layers.size(); ++i)
 					{
 						linker_layers[i].reset();
 
@@ -296,7 +296,7 @@ public:
 				{
 					cudaFree(layers);
 					cudaFree(net);
-					for (int i = 0; i < linker_net->layerCount; ++i)
+					for (int i = 0; i < linker_net->layers.size(); ++i)
 					{
 						cudaFree(linker_seayon_layers[i].neurons);
 						cudaFree(linker_seayon_layers[i].biases);
@@ -313,21 +313,21 @@ public:
 			std::vector<batch> linker_batches;
 			std::unique_ptr<dataset<INPUTS, OUTPUTS>> linker_traindata;
 
-			const int layerCount;
+			const int layers.size();
 			const int batch_count;
 			const int batch_size;
 			const float n;
 			const float m;
 
 			device(const int& batch_count, const int& batch_size, const float& n, const float& m, const cuda_seayon& main, const dataset<INPUTS, OUTPUTS>& host_traindata)
-				: layerCount(main.layerCount), batch_count(batch_count), batch_size(batch_size), n(n), m(m)
+				: layers.size()(main.layers.size()), batch_count(batch_count), batch_size(batch_size), n(n), m(m)
 			{
 				const int used_size = batch_count * batch_size;
 				const float sample_share = 1.0f / (float)used_size;
 
 				cudaMalloc(&batches, batch_count * sizeof(batch));
 				cudaMalloc(&traindata, sizeof(dataset<INPUTS, OUTPUTS>));
-				cudaMalloc(&sample_pointers, host_traindata.size() * sizeof(const typename dataset<INPUTS, OUTPUTS>::sample*));
+				cudaMalloc(&sample_pointers, host_traindata.samples.size() * sizeof(const typename dataset<INPUTS, OUTPUTS>::sample*));
 				linker_batches.reserve(batch_count);
 
 				for (size_t i = 0; i < batch_count; ++i)
@@ -366,18 +366,18 @@ public:
 		device* on_device;
 
 		backprop_matrix(const cuda_seayon& main, const dataset<INPUTS, OUTPUTS>& traindata, const int& batch_count, const int& batch_size, const float& n, const float& m)
-			: on_host(batch_count, n, m, traindata.size(), main)
+			: on_host(batch_count, n, m, traindata.samples.size(), main)
 		{
 			cudaMalloc(&on_device, sizeof(device));
 			on_host.linker_device.reset(new device(batch_count, batch_size, n, m, main, traindata));
 
 			const typename dataset<INPUTS, OUTPUTS>::sample* device_samples = &(*on_host.linker_device->linker_traindata)[0];
-			for (int i = 0; i < traindata.size(); ++i)
+			for (int i = 0; i < traindata.samples.size(); ++i)
 			{
 				on_host.device_sample_pointers[i] = device_samples + i;
 			}
 
-			cudaMemcpy(on_host.linker_device->sample_pointers, on_host.device_sample_pointers.data(), traindata.size() * sizeof(typename dataset<INPUTS, OUTPUTS>::sample*), cudaMemcpyHostToDevice);
+			cudaMemcpy(on_host.linker_device->sample_pointers, on_host.device_sample_pointers.data(), traindata.samples.size() * sizeof(typename dataset<INPUTS, OUTPUTS>::sample*), cudaMemcpyHostToDevice);
 			cudaMemcpy(on_device, on_host.linker_device.get(), sizeof(device), cudaMemcpyHostToDevice);
 		}
 
@@ -386,7 +386,7 @@ public:
 		{
 			for (int b = 0; b < on_host.batch_count; ++b)
 			{
-				for (int l = 0; l < on_host.linker_device->layerCount; ++l)
+				for (int l = 0; l < on_host.linker_device->layers.size(); ++l)
 				{
 					cudaMemcpy(on_host.batches[b].layers[l].bias_gradients.data(),
 						on_host.linker_device->linker_batches[b].linker_layers[l].bias_gradients,
@@ -443,10 +443,10 @@ public:
 		if (momentum <= 0.0f)
 			momentum = 0.0001f;
 
-		const int batch_size = traindata.size() / total_threads;
-		const int unused = traindata.size() - batch_size * total_threads;
+		const int batch_size = traindata.samples.size() / total_threads;
+		const int unused = traindata.samples.size() - batch_size * total_threads;
 
-		if (total_threads > traindata.size() / batch_size || total_threads < 0)
+		if (total_threads > traindata.samples.size() / batch_size || total_threads < 0)
 			total_threads = 1;
 
 		if (optimizer == ParallelOptimizer::MINI_BATCH)
@@ -465,7 +465,7 @@ __device__ void cuda_pulse(cuda_seayon& net, const typename dataset<INPUTS, OUTP
 	for (int n = 0; n < INPUTS; ++n)
 		net.layers[0].neurons[n] = sample.inputs[n];
 
-	for (int l2 = 1; l2 < net.layerCount; ++l2)
+	for (int l2 = 1; l2 < net.layers.size(); ++l2)
 	{
 		const int l1 = l2 - 1;
 		const int& n1count = net.layers[l1].nCount;
@@ -487,7 +487,7 @@ __device__ void cuda_pulse(cuda_seayon& net, const typename dataset<INPUTS, OUTP
 template <int INPUTS, int OUTPUTS>
 __device__ void cuda_gradient_descent(const int& b, typename cuda_seayon::backprop_matrix<INPUTS, OUTPUTS>::device& mm)
 {
-	const int LASTL = mm.layerCount - 1;
+	const int LASTL = mm.layers.size() - 1;
 	typename cuda_seayon::backprop_matrix<INPUTS, OUTPUTS>::device::batch& thread = mm.batches[b];
 	cuda_seayon& net = *thread.net;
 	const float n = mm.n;
@@ -499,12 +499,12 @@ __device__ void cuda_gradient_descent(const int& b, typename cuda_seayon::backpr
 		cuda_pulse<INPUTS, OUTPUTS>(net, sample);
 
 		{
-			const int& ncount = net.layers[LASTL].nCount;
-			const auto& deri = net.layers[LASTL].derivative;
+			const int& ncount = net.layers.back().nCount;
+			const auto& deri = net.layers.back().derivative;
 
 			for (int n2 = 0; n2 < ncount; ++n2)
 			{
-				thread.layers[LASTL].deltas[n2] = deri(net.layers[LASTL].neurons[n2]) * 2.0f * (net.layers[LASTL].neurons[n2] - sample.outputs[n2]);
+				thread.layers.back().deltas[n2] = deri(net.layers.back().neurons[n2]) * 2.0f * (net.layers.back().neurons[n2] - sample.outputs[n2]);
 			}
 		}
 
@@ -563,13 +563,13 @@ __global__ void kernel(typename cuda_seayon::backprop_matrix<INPUTS, OUTPUTS>::d
 template <int INPUTS, int OUTPUTS, int T_INPUTS, int T_OUTPUTS>
 void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const float& m, const int& batch_size, int total_threads, const dataset<INPUTS, OUTPUTS>& traindata, const dataset<T_INPUTS, T_OUTPUTS>& testdata)
 {
-	const int LASTL = layerCount - 1;
+	const int LASTL = layers.size() - 1;
 	const int block_count = total_threads / 512 + 1;      // Optimal: power of 2
 	const int thread_count = total_threads / block_count; // Optimal: multiple of 32, range 128 and 512
 	total_threads = block_count * thread_count;
-	const int sampleCount = batch_size * total_threads;
+	const int samples.size() = batch_size * total_threads;
 
-	// const int per_thread = traindata.size() / batch_size / total_threads;
+	// const int per_thread = traindata.samples.size() / batch_size / total_threads;
 	// int batch_count = per_thread * total_threads;
 
 	// total_threads = batch_count / per_thread;
@@ -577,13 +577,13 @@ void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const fl
 	// int thread_count = total_threads / block_count; // Optimal: multiple of 32, range 128 and 512
 	// total_threads = block_count * thread_count;
 
-	// int unused = traindata.size() - total_threads * per_thread * batch_size;
+	// int unused = traindata.samples.size() - total_threads * per_thread * batch_size;
 	// total_threads += unused / (per_thread * batch_size);
 	// block_count = total_threads / 512 + 1;
 	// thread_count = total_threads / block_count;
 	// total_threads = block_count * thread_count;
 
-	// unused = traindata.size() - total_threads * per_thread * batch_size;
+	// unused = traindata.samples.size() - total_threads * per_thread * batch_size;
 	// batch_count = per_thread * total_threads;
 
 	auto start = std::chrono::high_resolution_clock::now();
@@ -619,11 +619,11 @@ void cuda_seayon::mini_batch(const int& max_iterations, const float& n, const fl
 	printf("%i blocks | ", block_count);
 	printf("%i threads | ", thread_count);
 	printf("%i samples per thread | ", batch_size);
-	printf("%i/%i unused samples\n\n", traindata.size() - total_threads * batch_size, traindata.size());
+	printf("%i/%i unused samples\n\n", traindata.samples.size() - total_threads * batch_size, traindata.samples.size());
 
 	printf("GPU memory usage: %llumb used | %llumb used by seayon | %llumb free\n", used_bytes, used_by_bytes, free_bytes);
 
-	fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.size(), testdata, max_iterations, printloss, logfolder);
+	fitlog<T_INPUTS, T_OUTPUTS> logger(*this, traindata.samples.size(), testdata, max_iterations, printloss, logfolder);
 
 	for (int run = 1; run <= max_iterations; ++run)
 	{

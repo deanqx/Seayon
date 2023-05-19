@@ -5,26 +5,31 @@ namespace
 {
     using namespace seayon;
 
-    static seayon::dataset data(
-        std::vector<std::vector<float>>{ {1.0f, 0.0f}, { 0.0f, 1.0f } },
-        std::vector<std::vector<float>>{ {0.0f, 1.0f}, { 1.0f, 0.0f } }
-    );
+    // PERF bad but quick solution
+    static dataset getData()
+    {
+        std::vector<std::vector<float>> inputs{{1.0f, 0.0f}, { 0.0f, 1.0f }};
+        std::vector<std::vector<float>> outputs{{0.0f, 1.0f}, { 1.0f, 0.0f }};
+        dataset data(inputs, outputs);
+
+        return data;
+    }
 
     static std::vector<int> layout = { 2, 3, 4, 2 };
     static std::vector<ActivFunc> funcs = { ActivFunc::RELU, ActivFunc::LEAKYRELU, ActivFunc::SIGMOID };
 
     float pulse()
     {
-        printf("--- %i ---\n", data.size());
-        printf("--- %f, %f ---\n", data[0].x[0], data[0].x[1]);
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
 
-        m.pulse(data[0].x);
+        m.pulse(data[0].x.data());
 
         return m.layers[3].neurons[0] + m.layers[3].neurons[1];
     }
     float fit()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
 
         m.fit(data, data, false, 20, 1, 2, 0.1f);
@@ -36,19 +41,23 @@ namespace
 
     float accruacy()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
 
         return m.accruacy(data);
     }
     float loss()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
 
+        printf("--- %f ---\n", m.loss(data));
         return m.loss(data);
     }
 
     bool equals()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
         model m2(layout, funcs, 1471, false);
 
@@ -56,6 +65,7 @@ namespace
     }
     float combine()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
         model m2(layout, funcs, 1471, false);
 
@@ -66,6 +76,7 @@ namespace
     }
     bool copy()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
         model m2(layout, funcs, 1471, false);
 
@@ -75,6 +86,7 @@ namespace
     }
     bool save_load()
     {
+        dataset data = getData();
         model m(layout, funcs, 1472, false);
 
         std::vector<char> buffer;
@@ -108,6 +120,7 @@ TEST(Analysis, Accruacy)
 }
 TEST(Analysis, Loss)
 {
+    // TODO Github return different number (check u.b. and segmentation fault)
     EXPECT_EQ(loss(), 0.268624932f);
 }
 

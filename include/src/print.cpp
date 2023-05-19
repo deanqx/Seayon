@@ -7,7 +7,7 @@
 void seayon::model::whatsetup()
 {
     int paras = 0;
-    for (int i = 1; i < layerCount; ++i)
+    for (int i = 1; i < layers.size(); ++i)
     {
         paras += layers[i].wCount;
         paras += layers[i].nCount;
@@ -38,7 +38,7 @@ void seayon::model::print()
 
     int normalColor;
 
-    for (int l1 = 0; l1 < layerCount; ++l1)
+    for (int l1 = 0; l1 < layers.size(); ++l1)
     {
         const int l2 = l1 + 1;
 
@@ -49,7 +49,7 @@ void seayon::model::print()
 
             printf("\n  Input Layer:\n");
         }
-        else if (l1 == layerCount - 1)
+        else if (l1 == layers.size() - 1)
         {
             normalColor = 11;
             SetConsoleTextAttribute(cmd, 11);
@@ -64,11 +64,11 @@ void seayon::model::print()
             printf("  Hidden Layer[%i]:\n", l1 - 1);
         }
 
-        size_t largest = std::max_element(layers[l1].neurons, layers[l1].neurons + layers[l1].nCount) - layers[l1].neurons;
+        size_t largest = std::max_element(layers[l1].neurons.begin(), layers[l1].neurons.end()) - layers[l1].neurons.begin();
         for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
         {
             printf("\t\tNeuron[%02i]   ", n1);
-            if (l1 == layerCount - 1)
+            if (l1 == layers.size() - 1)
             {
                 if (n1 == largest)
                     SetConsoleTextAttribute(cmd, 95);
@@ -96,7 +96,7 @@ void seayon::model::print()
             else
                 printf("\n");
 
-            if (l2 < layerCount)
+            if (l2 < layers.size())
                 for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
                 {
                     printf("\t\t  Weight[%02i] ", n2);
@@ -120,7 +120,7 @@ void seayon::model::print()
 
 float seayon::model::print(const dataset& data, int sample)
 {
-    pulse(data[sample].x);
+    pulse(data[sample].x.data());
     print();
 
     return evaluate(data);
@@ -132,16 +132,16 @@ void seayon::model::printo()
 
     int normalColor = 11;
 
-    int l = layerCount - 1;
+    int l = layers.size() - 1;
 
     SetConsoleTextAttribute(cmd, 11);
     printf("  Output Layer:\n");
 
-    size_t largest = std::max_element(layers[l].neurons, layers[l].neurons + layers[l].nCount) - layers[l].neurons;
+    size_t largest = std::max_element(layers[l].neurons.begin(), layers[l].neurons.end()) - layers[l].neurons.begin();
     for (int n = 0; n < layers[l].nCount; ++n)
     {
         printf("\t\tNeuron[%02i]   ", n);
-        if (l == layerCount - 1)
+        if (l == layers.size() - 1)
         {
             if (n == largest)
                 SetConsoleTextAttribute(cmd, 95);
@@ -175,7 +175,7 @@ void seayon::model::printo()
 
 float seayon::model::printo(const dataset& data, const int sample)
 {
-    pulse(data[sample].x);
+    pulse(data[sample].x.data());
     printo();
 
     return evaluate(data);
@@ -183,7 +183,7 @@ float seayon::model::printo(const dataset& data, const int sample)
 
 void seayon::model::print_one()
 {
-    const layer& last = layers[layerCount - 1];
+    const layer& last = layers[layers.size() - 1];
     const int lastn = last.nCount - 1;
 
     printf("[");
@@ -197,7 +197,7 @@ void seayon::model::print_one()
 
 float seayon::model::print_one(const dataset& data, const int sample)
 {
-    pulse(data[sample].x);
+    pulse(data[sample].x.data());
     print_one();
 
     return evaluate(data);

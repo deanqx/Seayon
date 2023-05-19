@@ -35,9 +35,9 @@ struct backprop_matrix
 
         thread(const seayon::model& main)
         {
-            std::vector<int> layout(main.layerCount);
-            std::vector<seayon::ActivFunc> a(main.layerCount - 1);
-            for (int l = 0; l < main.layerCount; ++l)
+            std::vector<int> layout(main.layers.size());
+            std::vector<seayon::ActivFunc> a(main.layers.size() - 1);
+            for (int l = 0; l < main.layers.size(); ++l)
             {
                 layout[l] = main.layers[l].nCount;
                 if (l > 0)
@@ -47,10 +47,10 @@ struct backprop_matrix
             net = std::make_unique<seayon::model>(layout, a, main.seed, main.printloss, main.logfolder);
             main.copy(*net);
 
-            layers.reserve(main.layerCount);
+            layers.reserve(main.layers.size());
 
             layers.emplace_back(0, 0);
-            for (int i = 1; i < main.layerCount; ++i)
+            for (int i = 1; i < main.layers.size(); ++i)
             {
                 layers.emplace_back(main.layers[i].nCount, main.layers[i].wCount);
             }
@@ -59,17 +59,17 @@ struct backprop_matrix
         void backprop(const typename seayon::dataset::sample& sample)
         {
             seayon::model& mo = *net;
-            const int LASTL = mo.layerCount - 1;
+            const int LASTL = mo.layers.size() - 1;
 
-            mo.pulse(sample.x);
+            mo.pulse(sample.x.data());
 
             {
-                const int& ncount = mo.layers[LASTL].nCount;
-                const auto& func = mo.layers[LASTL].derivative;
+                const int& ncount = mo.layers.back().nCount;
+                const auto& func = mo.layers.back().derivative;
 
                 for (int n2 = 0; n2 < ncount; ++n2)
                 {
-                    layers[LASTL].bias_deltas[n2] += func(mo.layers[LASTL].neurons[n2]) * 2.0f * (mo.layers[LASTL].neurons[n2] - sample.y[n2]);
+                    layers.back().bias_deltas[n2] += func(mo.layers.back().neurons[n2]) * 2.0f * (mo.layers.back().neurons[n2] - sample.y[n2]);
                 }
             }
 
@@ -113,7 +113,7 @@ struct backprop_matrix
         void apply(const float& alpha, const float& beta1, const float& beta2, const float& epsilon, const float batch_size)
         {
             seayon::model& mo = *net;
-            const int LASTL = mo.layerCount - 1;
+            const int LASTL = mo.layers.size() - 1;
             const float ibeta1 = 1.0f - beta1;
             const float ibeta2 = 1.0f - beta2;
 
@@ -154,14 +154,14 @@ struct backprop_matrix
     const int thread_count;
     const int layerCount;
 
-    backprop_matrix(const int& sampleCount, const int& thread_count, const seayon::model& main, const seayon::dataset& traindata)
-        : thread_count(thread_count), layerCount(main.layerCount)
+    backprop_matrix(const int& thread_count, const seayon::model& main, const seayon::dataset& traindata)
+        : thread_count(thread_count), layerCount(main.layers.size())
     {
-        sample_pointers.resize(sampleCount);
+        sample_pointers.resize(traindata.samples.size());
         threads.reserve(thread_count);
 
         const typename seayon::dataset::sample* sample = &traindata[0];
-        for (int i = 0; i < sampleCount; ++i)
+        for (int i = 0; i < traindata.samples.size(); ++i)
         {
             sample_pointers[i] = sample + i;
         }
@@ -210,16 +210,16 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
     if (thread_count < 1)
         thread_count = 1;
 
-    const int batch_count = traindata.size() / batch_size;
+    const int batch_count = traindata.samples.size() / batch_size;
     const int per_thread = batch_count / thread_count;
     const int sampleCount = batch_size * batch_count;
 
     const int unused_begin = thread_count * per_thread * batch_size;
-    const int unused_end = traindata.size() - unused_begin - 1;
+    const int unused_end = traindata.samples.size() - unused_begin - 1;
 
     std::vector<std::thread> threads(thread_count);
 
-    backprop_matrix matrix(sampleCount, thread_count, *this, traindata);
+    backprop_matrix matrix(thread_count, *this, traindata);
 
     fitlog logger(*this, sampleCount, testdata, max_epochs, printloss, logfolder);
 

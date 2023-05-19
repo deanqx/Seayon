@@ -6,14 +6,17 @@ inline float randf(float min, float max)
 }
 
 seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFunc func)
-	: nCount(NEURONS), wCount(NEURONS* PREVIOUS), func(func), manageMemory(true),
-	neurons(new float[nCount]()), biases(wCount > 0 ? new float[nCount]() : nullptr), weights(wCount > 0 ? new float[wCount]() : nullptr)
+	: nCount(NEURONS), wCount(NEURONS* PREVIOUS), func(func)
 {
+	neurons.resize(nCount);
+
 	if (wCount > 0)
 	{
+		biases.resize(nCount);
+		weights.reserve(wCount);
 		for (int i = 0; i < wCount; ++i)
 		{
-			weights[i] = randf(-1.0f, 1.0f);
+			weights.push_back(randf(-1.0f, 1.0f));
 		}
 	}
 
@@ -39,28 +42,12 @@ seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFu
 	}
 }
 
-seayon::model::layer::~layer()
-{
-	if (manageMemory)
-	{
-		delete[] neurons;
-		if (wCount > 0)
-		{
-			delete[] biases;
-			delete[] weights;
-		}
-	}
-}
-
 seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed, bool printloss, std::string logfolder)
-	: manageMemory(true),
-	seed(seed < 0 ? (unsigned int)time(NULL) : seed),
+	: seed(seed < 0 ? (unsigned int)time(NULL) : seed),
 	printloss(printloss),
 	logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 	xsize(layout.front()),
-	ysize(layout.back()),
-	layerCount((int)layout.size()),
-	layers((layer*)malloc(layerCount * sizeof(layer)))
+	ysize(layout.back())
 {
 	if (layout.size() != a.size() + 1)
 	{
@@ -73,25 +60,16 @@ seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc>
 
 	srand(this->seed);
 
-	new (&layers[0]) layer(0, layout[0], ActivFunc::LINEAR);
-	for (int l2 = 1; l2 < layerCount; ++l2)
+	layers.reserve(layout.size());
+
+	layers.emplace_back(0, layout[0], ActivFunc::LINEAR);
+	for (int l2 = 1; l2 < layout.size(); ++l2)
 	{
 		const int l1 = l2 - 1;
-
-		new (&layers[l2]) layer(layout[l1], layout[l2], a[l1]);
+		layers.emplace_back(layout[l1], layout[l2], a[l1]);
 	}
 }
 
-seayon::model::~model()
+seayon::model::model(const model_parameters& para) : model(para.layout, para.a, para.seed, para.printloss, para.logfolder)
 {
-	if (manageMemory)
-	{
-		for (int i = 0; i < layerCount; ++i)
-		{
-			layers[i].~layer();
-		}
-		printf("\n");
-
-		free(layers);
-	}
 }

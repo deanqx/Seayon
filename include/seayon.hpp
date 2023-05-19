@@ -37,58 +37,34 @@ namespace seayon
     {
         struct sample
         {
-            float* const x;
-            float* const y;
+            std::vector<float> x;
+            std::vector<float> y;
 
-            sample(const int inputSize, const int outputSize) : x(new float[inputSize]), y(new float[outputSize])
-            {}
-            sample(float* const inputs, float* const outputs) : x(inputs), y(outputs)
-            {}
-
-            void clear();
+            sample(const int inputSize, const int outputSize)
+            {
+                x.resize(inputSize);
+                y.resize(outputSize);
+            }
+            sample(std::vector<float>& inputs, std::vector<float>& outputs)
+            {
+                x.swap(inputs);
+                y.swap(outputs);
+            }
         };
 
-    private:
-        sample* samples = nullptr;
-        int sampleCount = 0;
-        const bool manageMemory;
-
-    public:
+        std::vector<sample> samples;
         const int xsize;
         const int ysize;
 
-        dataset(const int inputSize, const int outputSize, bool manageMemory = false) : xsize(inputSize), ysize(outputSize), manageMemory(manageMemory)
-        {}
-        dataset(const int inputSize, const int outputSize, const int reserved) : xsize(inputSize), ysize(outputSize), manageMemory(true)
-        {
-            reserve(reserved);
-        }
-        /**
-         * Introduced for cuda
-         * @param manageMemory When enabled sample array will be deleted
-         */
-        dataset(const int inputSize, const int outputSize, sample* samples, const int sampleCount, const bool manageMemory)
-            : samples(samples), sampleCount(sampleCount), manageMemory(manageMemory), xsize(inputSize), ysize(outputSize)
-        {}
-        dataset(const std::vector<std::vector<float>>& inputs, const std::vector<std::vector<float>>& outputs);
-        /**
-         * Allocates new memory without clearing it (size() is updated)
-         * @param reserved New sample count
-         */
-        void reserve(const int reserved);
-        /**
-         * Introduced for cuda
-         * @param manageMemory When enabled sample array will be deleted
-         */
-        int size() const;
-        sample& operator[](const int i) const;
-        sample* get(const int i) const;
+        dataset(const int inputSize, const int outputSize);
+        dataset(const int inputSize, const int outputSize, const int newsize);
+        dataset(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs);
+        void resize(const int newsize);
+        inline const sample& operator[](const int index) const;
         size_t save(std::vector<char>& out_buffer);
         size_t save(std::ofstream& file);
         void load(const char* buffer);
         bool load(std::ifstream& file);
-        // has to be same constructor values
-        void swap(dataset* with);
         /**
          * @return Highest value in dataset
          */
@@ -107,8 +83,6 @@ namespace seayon
          * Randomizes order of samples
          */
         void shuffle();
-        void clear();
-        ~dataset();
     };
 
     struct model_parameters
@@ -129,9 +103,6 @@ namespace seayon
     public:
         struct layer
         {
-        protected:
-            const bool manageMemory;
-        public:
             const ActivFunc func;
             ActivFunc_t activation;
             ActivFunc_t derivative;
@@ -143,39 +114,13 @@ namespace seayon
             * Goes from second to first
             * @tparam layers[l2].weights [n2 * n1Count + n1]
             */
-            float* const weights;
-            float* const neurons;
-            float* const biases;
-
-            // layer(): manageMemory(false), func(ActivFunc::SIGMOID), nCount(0), wCount(0), neurons(nullptr), biases(nullptr), weights(nullptr)
-            // {
-            // }
-
-            layer(const ActivFunc func,
-                ActivFunc_t activation,
-                ActivFunc_t derivative,
-                float* const neurons,
-                float* const biases,
-                float* const weights,
-                const int nCount,
-                const int wCount,
-                const bool manageMemory) :
-                func(func),
-                activation(activation),
-                derivative(derivative),
-                neurons(neurons),
-                biases(biases),
-                weights(weights),
-                nCount(nCount),
-                wCount(wCount),
-                manageMemory(manageMemory)
-            {}
+            std::vector<float> neurons;
+            std::vector<float> biases;
+            std::vector<float> weights;
 
             layer(const int PREVIOUS, const int NEURONS, const ActivFunc func);
-            ~layer();
         };
 
-        const bool manageMemory;
         const int seed;
         const bool printloss;
         const std::string logfolder;
@@ -183,29 +128,7 @@ namespace seayon
         const int xsize;
         const int ysize;
 
-        const int layerCount;
-        layer* const layers;
-
-        model(const bool manageMemory,
-            const int seed,
-            const bool printloss,
-            const std::string logfolder,
-            const int logLenght,
-            const int xsize,
-            const int ysize,
-            const int layerCount,
-            layer* const layers,
-            const float* const* inl,
-            const float* const* outl) :
-            manageMemory(manageMemory),
-            seed(seed),
-            printloss(printloss),
-            logfolder(logfolder),
-            xsize(xsize),
-            ysize(ysize),
-            layerCount(layerCount),
-            layers(layers)
-        {}
+        std::vector<layer> layers;
 
         /**
          * Creates network where every neuron is connected to each neuron in the next layer.
@@ -216,10 +139,7 @@ namespace seayon
          * @param logfolder Write log file for training progress (keep empty to disable)
          */
         model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed = -1, bool printloss = true, std::string logfolder = std::string());
-        model(const model_parameters& para) : model(para.layout, para.a, para.seed, para.printloss, para.logfolder)
-        {}
-        ~model();
-        void whatsetup();
+        model(const model_parameters& para);
 
         /**
          * Stores all weights and biases in one binary buffer
@@ -323,6 +243,7 @@ namespace seayon
          * @return percentage, higher means better
          */
         float accruacy(const dataset& data);
+        void whatsetup();
         /**
          * Prints all rating functions
          * @return difference value "diff()"

@@ -38,10 +38,8 @@ int parse_value(char* buffer, size_t& pos)
     return atoi(extracted);
 }
 
-bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string file_without_extension, int thread_count = 1)
+bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string file_without_extension)
 {
-    const int per_thread = sampleCount / thread_count;
-
     auto start = std::chrono::high_resolution_clock::now();
 
     printf("\tLoading mnist...");
@@ -54,18 +52,7 @@ bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string
         return false;
     }
 
-    data.reserve(sampleCount);
-
-    constexpr int formatLenght = 785 * 3 - 1;
-    char format[formatLenght];
-    format[formatLenght - 2] = '%';
-    format[formatLenght - 3] = 'd';
-    for (int i = 0; i < formatLenght - 2; i += 3)
-    {
-        format[i] = '%';
-        format[i + 1] = 'd';
-        format[i + 2] = ',';
-    }
+    data.resize(sampleCount);
 
     fseek(file, 0, SEEK_END);
     long size = ftell(file);
@@ -78,17 +65,15 @@ bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string
     size_t pos = 0;
     for (int i = 0; i < sampleCount; ++i)
     {
-        memset(data[i].y, 0, 10 * sizeof(float));
-
-        data[i].y[parse_value(buffer.data(), pos)] = 1.0f;
+        data.samples[i].y[parse_value(buffer.data(), pos)] = 1.0f;
 
         for (int k = 0; k < 784; ++k)
         {
             const int val = parse_value(buffer.data(), pos);
             if (val == 0)
-                data[i].x[k] = 0;
+                data.samples[i].x[k] = 0.0f;
             else
-                data[i].x[k] = (float)val / 255.0f;
+                data.samples[i].x[k] = (float)val / 255.0f;
         }
     }
     fclose(file);

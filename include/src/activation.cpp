@@ -40,9 +40,9 @@ float seayon::dLeakyReLu(const float a)
 
 float* seayon::model::pulse(const float* inputs)
 {
-    memcpy(layers[0].neurons, inputs, xsize * sizeof(float));
+    memcpy(layers[0].neurons.data(), inputs, xsize * sizeof(float));
 
-    for (int l2 = 1; l2 < layerCount; ++l2)
+    for (int l2 = 1; l2 < layers.size(); ++l2)
     {
         const int l1 = l2 - 1;
         const int& n1count = layers[l1].nCount;
@@ -62,5 +62,5 @@ float* seayon::model::pulse(const float* inputs)
         }
     }
 
-    return layers[layerCount - 1].neurons;
+    return layers.back().neurons.data();
 }

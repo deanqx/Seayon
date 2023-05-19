@@ -23,6 +23,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CUDA_DISABLED ON)
 
     set(CMAKE_CXX_FLAGS_DEBUG "-g")
+    set(CMAKE_CXX_FLAGS_DEBUG "-wall")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3")
     # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
     # set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -ftree-vectorize -ftree-parallelize-loops=4")

@@ -1,13 +1,16 @@
 #include "../seayon.hpp"
 
-void seayon::dataset::sample::clear()
+seayon::dataset::dataset(const int inputSize, const int outputSize) : xsize(inputSize), ysize(outputSize)
 {
-    delete[] x;
-    delete[] y;
 }
 
-seayon::dataset::dataset(const std::vector<std::vector<float>>& inputs, const std::vector<std::vector<float>>& outputs)
-    : dataset((int)inputs[0].size(), (int)outputs[0].size(), (int)inputs.size())
+seayon::dataset::dataset(const int inputSize, const int outputSize, const int newsize) : xsize(inputSize), ysize(outputSize)
+{
+    resize(newsize);
+}
+
+seayon::dataset::dataset(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs)
+    : dataset((int)inputs[0].size(), (int)outputs[0].size())
 {
     if (inputs.size() != outputs.size())
     {
@@ -15,65 +18,52 @@ seayon::dataset::dataset(const std::vector<std::vector<float>>& inputs, const st
         return;
     }
 
-    for (int i = 0; i < sampleCount; ++i)
+    for (int i = 0; i < inputs.size(); ++i)
     {
-        for (int k = 0; k < xsize; ++k)
-        {
-            samples[i].x[k] = inputs[i][k];
-        }
-
-        for (int k = 0; k < ysize; ++k)
-        {
-            samples[i].y[k] = outputs[i][k];
-        }
+        samples[i].x.swap(inputs[i]);
+        samples[i].y.swap(outputs[i]);
     }
 }
 
-void seayon::dataset::reserve(const int reserved)
+void seayon::dataset::resize(const int newsize)
 {
-    clear();
-
-    sampleCount = reserved;
-    samples = (sample*)malloc(sampleCount * sizeof(sample));
-
-    for (int i = 0; i < sampleCount; ++i)
+    if (samples.size() < newsize)
     {
-        new (&samples[i]) sample(xsize, ysize);
+        samples.reserve(newsize);
+
+        for (int i = samples.size(); i < newsize; ++i)
+        {
+            samples.emplace_back(xsize, ysize);
+        }
+    }
+    else
+    {
+        samples.erase(samples.end() - newsize, samples.end()); // TODO test
     }
 }
 
-int seayon::dataset::size() const
+inline const seayon::dataset::sample& seayon::dataset::operator[](const int index) const
 {
-    return sampleCount;
-}
-
-seayon::dataset::sample& seayon::dataset::operator[](const int i) const
-{
-    return samples[i];
-}
-
-seayon::dataset::sample* seayon::dataset::get(const int i) const
-{
-    return samples + i * sizeof(sample);
+    return samples[index];
 }
 
 size_t seayon::dataset::save(std::vector<char>& out_buffer)
 {
-    size_t size = sizeof(int32_t) + sampleCount * xsize * sizeof(float) + sampleCount * ysize * sizeof(float);
+    size_t size = sizeof(int32_t) + samples.size() * xsize * sizeof(float) + samples.size() * ysize * sizeof(float);
 
     out_buffer.resize(size);
 
     char* pointer = out_buffer.data();
 
-    int32_t _sampleCount = sampleCount;
-    memcpy(pointer, &_sampleCount, sizeof(int32_t));
+    int32_t sampleCount = samples.size();
+    memcpy(pointer, &sampleCount, sizeof(int32_t));
     pointer += sizeof(int32_t);
 
-    for (int i = 0; i < sampleCount; ++i)
+    for (int i = 0; i < samples.size(); ++i)
     {
-        memcpy(pointer, samples[i].x, xsize * sizeof(float));
+        memcpy(pointer, samples[i].x.data(), xsize * sizeof(float));
         pointer += xsize * sizeof(float);
-        memcpy(pointer, samples[i].y, ysize * sizeof(float));
+        memcpy(pointer, samples[i].y.data(), ysize * sizeof(float));
         pointer += ysize * sizeof(float);
     }
 
@@ -98,18 +88,17 @@ void seayon::dataset::load(const char* buffer)
 {
     const char* pointer = buffer;
 
-    int32_t _sampleCount{};
-    memcpy(&_sampleCount, pointer, sizeof(int32_t));
+    int32_t sampleCount{};
+    memcpy(&sampleCount, pointer, sizeof(int32_t));
     pointer += sizeof(int32_t);
 
-    sampleCount = (int)_sampleCount;
-    reserve(sampleCount);
+    resize(sampleCount);
 
-    for (int i = 0; i < sampleCount; ++i)
+    for (int i = 0; i < samples.size(); ++i)
     {
-        memcpy(samples[i].x, pointer, xsize * sizeof(float));
+        memcpy(samples[i].x.data(), pointer, xsize * sizeof(float));
         pointer += xsize * sizeof(float);
-        memcpy(samples[i].y, pointer, ysize * sizeof(float));
+        memcpy(samples[i].y.data(), pointer, ysize * sizeof(float));
         pointer += ysize * sizeof(float);
     }
 }
@@ -131,22 +120,11 @@ bool seayon::dataset::load(std::ifstream& file)
     return false;
 }
 
-void seayon::dataset::swap(dataset* with)
-{
-    sample* const p = samples;
-    const int n = sampleCount;
-
-    samples = with->samples;
-    sampleCount = with->sampleCount;
-    with->samples = samples;
-    with->sampleCount = sampleCount;
-}
-
 float seayon::dataset::max_value() const
 {
     float max = samples[0].x[0];
 
-    for (int s = 0; s < sampleCount; ++s)
+    for (int s = 0; s < samples.size(); ++s)
     {
         for (int i = 0; i < xsize; ++i)
         {
@@ -172,7 +150,7 @@ float seayon::dataset::min_value() const
 {
     float min = samples[0].x[0];
 
-    for (int s = 0; s < sampleCount; ++s)
+    for (int s = 0; s < samples.size(); ++s)
     {
         for (int i = 0; i < xsize; ++i)
         {
@@ -198,7 +176,7 @@ void seayon::dataset::normalize(const float max, const float min)
 {
     const float range = max - min;
 
-    for (int i = 0; i < sampleCount; ++i)
+    for (int i = 0; i < samples.size(); ++i)
     {
         for (int in = 0; in < xsize; ++in)
         {
@@ -216,25 +194,5 @@ void seayon::dataset::shuffle()
 {
     // TODO
     // std::random_device rm_seed;
-    // std::shuffle(samples, samples + sampleCount - 1, std::mt19937(rm_seed()));
-}
-
-void seayon::dataset::clear()
-{
-    if (manageMemory)
-    {
-        if (samples != nullptr)
-        {
-            for (int i = 0; i < sampleCount; ++i)
-            {
-                samples[i].clear();
-            }
-            free(samples);
-        }
-    }
-}
-
-seayon::dataset::~dataset()
-{
-    clear();
+    // std::shuffle(samples, samples + samples.size() - 1, std::mt19937(rm_seed()));
 }
