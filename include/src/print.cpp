@@ -21,13 +21,13 @@ void seayon::model::whatsetup()
 
 float seayon::model::evaluate(const dataset& data)
 {
-    printf("\tLoss           %f\n", loss(data));
+    printf("Loss           %f\n", loss(data));
     const float d = diff(data);
-    printf("\tDifference     %f\n", d);
-    printf("\tMax Difference %f\n", diff_max(data));
-    printf("\tMin Difference %f\n", diff_min(data));
-    printf("\tAccruacy       %.1f%%\n", accruacy(data) * 100.0f);
-    printf("\t-----------------------------------------------\n\n");
+    printf("Difference     %f\n", d);
+    printf("Max Difference %f\n", diff_max(data));
+    printf("Min Difference %f\n", diff_min(data));
+    printf("Accruacy       %.1f%%\n", accruacy(data) * 100.0f);
+    printf("-----------------------------------------------\n\n");
 
     return d;
 }
@@ -47,27 +47,27 @@ void seayon::model::print()
             normalColor = 7;
             SetConsoleTextAttribute(cmd, 7);
 
-            printf("\n  Input Layer:\n");
+            printf("\nInput Layer:\n");
         }
         else if (l1 == layers.size() - 1)
         {
             normalColor = 11;
             SetConsoleTextAttribute(cmd, 11);
 
-            printf("  Output Layer:\n");
+            printf("Output Layer:\n");
         }
         else
         {
             normalColor = 8;
             SetConsoleTextAttribute(cmd, 8);
 
-            printf("  Hidden Layer[%i]:\n", l1 - 1);
+            printf("Hidden Layer[%i]:\n", l1 - 1);
         }
 
         size_t largest = std::max_element(layers[l1].neurons.begin(), layers[l1].neurons.end()) - layers[l1].neurons.begin();
         for (int n1 = 0; n1 < layers[l1].nCount; ++n1)
         {
-            printf("\t\tNeuron[%02i]   ", n1);
+            printf("       Neuron[%02i]   ", n1);
             if (l1 == layers.size() - 1)
             {
                 if (n1 == largest)
@@ -84,14 +84,14 @@ void seayon::model::print()
             {
                 if (layers[l1].biases[n1] <= 0.0f)
                 {
-                    printf("\t\t(");
+                    printf("\t(");
                     SetConsoleTextAttribute(cmd, 12);
                     printf("%0.2f", layers[l1].biases[n1]);
                     SetConsoleTextAttribute(cmd, normalColor);
                     printf(")\n");
                 }
                 else
-                    printf("\t\t(%0.2f)\n", layers[l1].biases[n1]);
+                    printf("\t(%0.2f)\n", layers[l1].biases[n1]);
             }
             else
                 printf("\n");
@@ -99,7 +99,7 @@ void seayon::model::print()
             if (l2 < layers.size())
                 for (int n2 = 0; n2 < layers[l2].nCount; ++n2)
                 {
-                    printf("\t\t  Weight[%02i] ", n2);
+                    printf("         Weight[%02i] ", n2);
                     float& w = layers[l2].weights[n2 * layers[l1].nCount + n1];
 
                     if (w <= 0.0f)
@@ -115,7 +115,7 @@ void seayon::model::print()
         }
     }
     SetConsoleTextAttribute(cmd, 7);
-    printf("\t-----------------------------------------------\n\n");
+    printf("-----------------------------------------------\n\n");
 }
 
 float seayon::model::print(const dataset& data, int sample)
@@ -135,12 +135,12 @@ void seayon::model::printo()
     int l = layers.size() - 1;
 
     SetConsoleTextAttribute(cmd, 11);
-    printf("  Output Layer:\n");
+    printf("Output Layer:\n");
 
     size_t largest = std::max_element(layers[l].neurons.begin(), layers[l].neurons.end()) - layers[l].neurons.begin();
     for (int n = 0; n < layers[l].nCount; ++n)
     {
-        printf("\t\tNeuron[%02i]   ", n);
+        printf("       Neuron[%02i]   ", n);
         if (l == layers.size() - 1)
         {
             if (n == largest)
@@ -157,20 +157,20 @@ void seayon::model::printo()
         {
             if (layers[l].biases[n] <= 0.0f)
             {
-                printf("\t\t(");
+                printf("\t(");
                 SetConsoleTextAttribute(cmd, 12);
                 printf("%0.2f", layers[l].biases[n]);
                 SetConsoleTextAttribute(cmd, normalColor);
                 printf(")\n");
             }
             else
-                printf("\t\t(%0.2f)\n", layers[l].biases[n]);
+                printf("\t(%0.2f)\n", layers[l].biases[n]);
         }
         else
             printf("\n\n");
     }
     SetConsoleTextAttribute(cmd, 7);
-    printf("\t-----------------------------------------------\n\n");
+    printf("-----------------------------------------------\n\n");
 }
 
 float seayon::model::printo(const dataset& data, const int sample)

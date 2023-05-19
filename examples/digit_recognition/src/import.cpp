@@ -42,7 +42,7 @@ bool ImportMnist(const int sampleCount, seayon::dataset& data, const std::string
 {
     auto start = std::chrono::high_resolution_clock::now();
 
-    printf("\tLoading mnist...");
+    printf("Loading mnist...");
 
     std::string path(file_without_extension + ".csv");
     FILE* file = fopen(path.c_str(), "r");
