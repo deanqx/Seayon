@@ -24,7 +24,7 @@ class fitlog
     const seayon::dataset& traindata;
     const seayon::dataset& testdata;
     const int max_iterations;
-    const bool printloss;
+    const bool val_loss;
 
     std::unique_ptr<std::ofstream> file{};
     size_t lastLogLenght = 0;
@@ -34,10 +34,8 @@ class fitlog
     std::chrono::high_resolution_clock::time_point last;
 
 public:
-    float log(int epoch)
+    bool log(int epoch, const float l1)
     {
-        float l1 = -1.0f;
-
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
         if (sampleTime.count() > 1000000LL || epoch == max_iterations || epoch == 0)
@@ -48,9 +46,8 @@ public:
 
             float l2 = -1.0f;
 
-            if (printloss)
+            if (val_loss)
             {
-                l1 = parent.loss(traindata);
                 l2 = parent.loss(testdata);
             }
 
@@ -83,10 +80,11 @@ public:
             message << epoch << "/" << max_iterations << std::setw(9)
                 << samplesPerSecond << "k Samples/s " << std::setw(13)
                 << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
-                << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
+                << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9)
+                << "loss: " << std::setprecision(2) << std::defaultfloat << l1;
 
-            if (l1 > -1.0f)
-                message << "loss: " << std::setprecision(2) << std::defaultfloat << l1 << " val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
+            if (l2 > -1.0f)
+                message << " val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
 
             const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
             std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
@@ -97,17 +95,17 @@ public:
 
             if (kbhit() && getch() == 'q')
             {
-                return 0.0f;
+                return true;
             }
 
             lastLogAt = epoch;
             last = std::chrono::high_resolution_clock::now();
         }
 
-        return l1;
+        return false;
     }
-    fitlog(seayon::model& parent, const int& sampleCount, const seayon::dataset& traindata, const seayon::dataset& testdata, const int& max_iterations, const bool& printloss, const std::string& logfolder)
-        : parent(parent), sampleCount(sampleCount), traindata(traindata), testdata(testdata), max_iterations(max_iterations), printloss(printloss)
+    fitlog(seayon::model& parent, const int& sampleCount, const seayon::dataset& traindata, const seayon::dataset& testdata, const int& max_iterations, const bool& val_loss, const std::string& logfolder)
+        : parent(parent), sampleCount(sampleCount), traindata(traindata), testdata(testdata), max_iterations(max_iterations), val_loss(val_loss)
     {
         if (!logfolder.empty())
         {
@@ -132,6 +130,6 @@ public:
         overall = std::chrono::high_resolution_clock::now();
         last = overall;
         sampleTimeLast = overall;
-        log(0);
+        log(0, parent.loss(traindata));
     }
 };

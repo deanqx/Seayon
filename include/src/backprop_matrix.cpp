@@ -54,9 +54,10 @@ struct backprop_matrix
             }
         }
 
-        void backprop(const typename seayon::dataset::sample& sample, const std::vector<float>& dropouts, std::mt19937& gen)
+        float backprop(const typename seayon::dataset::sample& sample, const std::vector<float>& dropouts, std::mt19937& gen)
         {
             seayon::model& mo = *net;
+            float sum = 0.0f;
 
             if (dropouts.size() > 0)
             {
@@ -102,7 +103,10 @@ struct backprop_matrix
 
                 for (int n2 = 0; n2 < ncount; ++n2)
                 {
-                    layers.back().bias_deltas[n2] += func(mo.layers.back().neurons[n2]) * 2.0f * (mo.layers.back().neurons[n2] - sample.y[n2]);
+                    const float error = mo.layers.back().neurons[n2] - sample.y[n2];
+
+                    sum += error * error;
+                    layers.back().bias_deltas[n2] += func(mo.layers.back().neurons[n2]) * 2.0f * error;
                 }
             }
 
@@ -123,7 +127,7 @@ struct backprop_matrix
                 }
             }
 
-            for (int l2 = 1; l2 >= mo.layers.size(); ++l2)
+            for (int l2 = 1; l2 < mo.layers.size(); ++l2)
             {
                 const int l1 = l2 - 1;
                 const int& n1count = mo.layers[l1].nCount;
@@ -141,16 +145,17 @@ struct backprop_matrix
                     }
                 }
             }
+
+            return sum / (float)mo.layers.back().nCount;
         }
 
         void apply(const float& alpha, const float& beta1, const float& beta2, const float& epsilon, const float batch_size)
         {
             seayon::model& mo = *net;
-            const int LASTL = mo.layers.size() - 1;
             const float ibeta1 = 1.0f - beta1;
             const float ibeta2 = 1.0f - beta2;
 
-            for (int l2 = LASTL; l2 >= 1; --l2)
+            for (int l2 = 1; l2 < mo.layers.size(); ++l2)
             {
                 const int l1 = l2 - 1;
                 const int& n1count = mo.layers[l1].nCount;
