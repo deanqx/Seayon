@@ -18,7 +18,7 @@ int main()
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
-	model m(layout, funcs, 1, "../../../../examples/digit_recognition/res/logs");
+	model m(layout, funcs, 1, "../../../../examples/digit_recognition/logs");
 
 	dataset testdata(784, 10);
 

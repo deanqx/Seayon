@@ -56,7 +56,7 @@ void seayon::model::fit(const dataset& traindata,
 
     backprop_matrix matrix(thread_count, *this, traindata);
 
-    fitlog logger(*this, sampleCount, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), logfolder);
+    fitlog logger(*this, sampleCount, traindata, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), logfolder);
 
     if (thread_count == 1)
     {

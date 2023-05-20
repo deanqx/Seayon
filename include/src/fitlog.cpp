@@ -21,6 +21,7 @@ class fitlog
 {
     seayon::model& parent;
     const int sampleCount;
+    const seayon::dataset& traindata;
     const seayon::dataset& testdata;
     const int max_iterations;
     const bool printloss;
@@ -35,7 +36,7 @@ class fitlog
 public:
     float log(int epoch)
     {
-        float l = -1.0f;
+        float l1 = -1.0f;
 
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
@@ -45,8 +46,13 @@ public:
             std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
             std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
 
+            float l2 = -1.0f;
+
             if (printloss)
-                l = parent.loss(testdata);
+            {
+                l1 = parent.loss(traindata);
+                l2 = parent.loss(testdata);
+            }
 
             float progress = (float)epoch * 100.0f / (float)max_iterations;
 
@@ -79,15 +85,15 @@ public:
                 << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
                 << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9);
 
-            if (l > -1.0f)
-                message << "loss: " << std::setprecision(2) << std::defaultfloat << l;
+            if (l1 > -1.0f)
+                message << "loss: " << std::setprecision(2) << std::defaultfloat << l1 << " val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
 
             const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
             std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
             lastLogLenght = message.str().length() + cleared;
 
             if (file.get() != nullptr)
-                *file << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
+                *file << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
 
             if (kbhit() && getch() == 'q')
             {
@@ -98,10 +104,10 @@ public:
             last = std::chrono::high_resolution_clock::now();
         }
 
-        return l;
+        return l1;
     }
-    fitlog(seayon::model& parent, const int& sampleCount, const seayon::dataset& testdata, const int& max_iterations, const bool& printloss, const std::string& logfolder)
-        : parent(parent), sampleCount(sampleCount), testdata(testdata), max_iterations(max_iterations), printloss(printloss)
+    fitlog(seayon::model& parent, const int& sampleCount, const seayon::dataset& traindata, const seayon::dataset& testdata, const int& max_iterations, const bool& printloss, const std::string& logfolder)
+        : parent(parent), sampleCount(sampleCount), traindata(traindata), testdata(testdata), max_iterations(max_iterations), printloss(printloss)
     {
         if (!logfolder.empty())
         {
@@ -119,7 +125,7 @@ public:
             }
 
             file = std::make_unique<std::ofstream>(path);
-            *file << "SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss" << std::endl;
+            *file << "SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss,val_loss" << std::endl;
         }
 
         printf("\n");
