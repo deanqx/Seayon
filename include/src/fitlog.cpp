@@ -93,7 +93,7 @@ public:
             lastLogLenght = message.str().length() + cleared;
 
             if (file.get() != nullptr)
-                *file << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
+                *file << epoch << ',' << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
 
             if (kbhit() && getch() == 'q')
             {
@@ -125,7 +125,7 @@ public:
             }
 
             file = std::make_unique<std::ofstream>(path);
-            *file << "SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss,val_loss" << std::endl;
+            *file << "epoch,SamplesPer(seconds),Runtime(seconds),ETA(seconds),loss,val_loss" << std::endl;
         }
 
         printf("\n");

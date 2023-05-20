@@ -1,5 +1,4 @@
 #include "../seayon.hpp"
-#include <random>
 #include <thread>
 #include "backprop_matrix.cpp"
 #include "fitlog.cpp"
@@ -13,13 +12,20 @@ void seayon::model::fit(const dataset& traindata,
     int steps_per_epoch,
     int thread_count,
     float learning_rate,
+    std::vector<float> dropouts,
     float beta1,
     float beta2,
     float epsilon)
 { // WARN thread_count always improves performance(probably loosing data on the way)
     if (!check(traindata) || !check(testdata))
     {
-        printf("\tCurrupt training data!\n");
+        printf("\t--- error: Currupt training data! ---\n");
+        return;
+    }
+
+    if (dropouts.size() != 0 && dropouts.size() != layers.size() - 2)
+    {
+        printf("\t--- error: can't dropout first or last layer (%llu == %llu) ---\n", dropouts.size(), layers.size() - 2);
         return;
     }
 
@@ -38,11 +44,11 @@ void seayon::model::fit(const dataset& traindata,
     if (verbose > 1)
     {
         printf("--> Training with:\n");
-        printf("traindata          %i samples\n", traindata.samples.size());
+        printf("traindata          %llu samples\n", traindata.samples.size());
         if (traindata.samples.size() == testdata.samples.size())
-            printf("testdata           Disabled\n", testdata.samples.size());
+            printf("testdata           Disabled\n");
         else
-            printf("testdata           %i samples\n", testdata.samples.size());
+            printf("testdata           %llu samples\n", testdata.samples.size());
         printf("shuffle            %s\n", shuffle ? "True" : "False");
         printf("steps_per_epoch    %i\n", steps_per_epoch);
         printf("epochs             %i\n", epochs);
@@ -62,6 +68,8 @@ void seayon::model::fit(const dataset& traindata,
     {
         matrix.threads[0].net.reset(this, [](seayon::model* obj) {});
 
+        std::mt19937 gen(seed);
+
         for (int epoch = 1; epoch <= epochs; ++epoch)
         {
             if (shuffle)
@@ -73,7 +81,7 @@ void seayon::model::fit(const dataset& traindata,
 
                 for (int i = 0; i < batch_size; ++i)
                 {
-                    matrix.threads[0].backprop(traindata[row + i]);
+                    matrix.threads[0].backprop(traindata[row + i], dropouts, gen);
                 }
 
                 matrix.threads[0].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
@@ -91,6 +99,12 @@ void seayon::model::fit(const dataset& traindata,
         const int unused_end = traindata.samples.size() - unused_begin - 1;
 
         std::vector<std::thread> threads(thread_count);
+        std::vector<std::mt19937> gens;
+
+        for (int i = 0; i < thread_count; ++i)
+        {
+            gens.emplace_back(seed);
+        }
 
         for (int epoch = 1; epoch <= epochs; ++epoch)
         {
@@ -110,7 +124,7 @@ void seayon::model::fit(const dataset& traindata,
 
                             for (int i = 0; i < batch_size; ++i)
                             {
-                                matrix.threads[t].backprop(traindata[row + i]);
+                                matrix.threads[t].backprop(traindata[row + i], dropouts, gens[t]);
                             }
 
                             matrix.threads[t].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);

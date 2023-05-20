@@ -56,7 +56,14 @@ int main()
 
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(traindata, testdata, epochs, batch_size, 1, shuffle, steps_per_epoch, thread_count, learning_rate);
+
+			std::vector<float> dropouts
+			{
+				0.0f, 0.8f
+			};
+
+			m.fit(traindata, testdata, 20, 1, 1, shuffle, steps_per_epoch, thread_count, learning_rate, dropouts);
+
 			m.printo(testdata, 0);
 		}
 		else

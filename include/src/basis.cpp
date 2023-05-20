@@ -5,7 +5,7 @@ float randf(float min, float max)
 	return min + (float)rand() / (float)(RAND_MAX / (max - min));
 }
 
-seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFunc func)
+seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFunc func, std::mt19937& gen)
 	: nCount(NEURONS), wCount(NEURONS* PREVIOUS), func(func)
 {
 	neurons.resize(nCount);
@@ -14,9 +14,11 @@ seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFu
 	{
 		biases.resize(nCount);
 		weights.reserve(wCount);
+
+		std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
 		for (int i = 0; i < wCount; ++i)
 		{
-			weights.push_back(randf(-1.0f, 1.0f));
+			weights.push_back(dis(gen));
 		}
 	}
 
@@ -43,8 +45,7 @@ seayon::model::layer::layer(const int PREVIOUS, const int NEURONS, const ActivFu
 }
 
 seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc> a, int seed, std::string logfolder)
-	: seed(seed < 0 ? (unsigned int)time(NULL) : seed),
-	logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
+	: logfolder(logfolder.size() > 0 ? ((logfolder.back() == '\\' || logfolder.back() == '/') ? logfolder : logfolder.append("/")) : logfolder),
 	xsize(layout.front()),
 	ysize(layout.back())
 {
@@ -55,17 +56,23 @@ seayon::model::model(const std::vector<int> layout, const std::vector<ActivFunc>
 	}
 
 	if (seed < 0)
-		printf("Generating with Seed: %i\n", this->seed);
+	{
+		std::random_device rd;
+		seed = rd();
 
-	srand(this->seed);
+		printf("Generating with Seed: %i\n", seed);
+	}
+
+	this->seed = seed;
+	std::mt19937 gen(seed);
 
 	layers.reserve(layout.size());
 
-	layers.emplace_back(0, layout[0], ActivFunc::LINEAR);
+	layers.emplace_back(0, layout[0], ActivFunc::LINEAR, gen);
 	for (int l2 = 1; l2 < layout.size(); ++l2)
 	{
 		const int l1 = l2 - 1;
-		layers.emplace_back(layout[l1], layout[l2], a[l1]);
+		layers.emplace_back(layout[l1], layout[l2], a[l1], gen);
 	}
 }
 

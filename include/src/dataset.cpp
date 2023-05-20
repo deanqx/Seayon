@@ -1,6 +1,5 @@
 #include "../seayon.hpp"
 #include <stdio.h>
-#include <random>
 #include <algorithm>
 
 seayon::dataset::dataset(const int inputSize, const int outputSize) : xsize(inputSize), ysize(outputSize)
@@ -202,8 +201,8 @@ void seayon::dataset::normalize(const float max, const float min)
 
 void seayon::dataset::shuffle()
 {
-    std::random_device rm_seed;
-    std::shuffle(samples.begin(), samples.end(), std::mt19937(rm_seed()));
+    std::random_device rd;
+    std::shuffle(samples.begin(), samples.end(), std::mt19937(rd()));
 }
 
 void seayon::dataset::combine(dataset& from)

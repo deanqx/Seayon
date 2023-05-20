@@ -54,12 +54,47 @@ struct backprop_matrix
             }
         }
 
-        void backprop(const typename seayon::dataset::sample& sample)
+        void backprop(const typename seayon::dataset::sample& sample, const std::vector<float>& dropouts, std::mt19937& gen)
         {
             seayon::model& mo = *net;
-            const int LASTL = mo.layers.size() - 1;
 
-            mo.pulse(sample.x.data());
+            if (dropouts.size() > 0)
+            {
+                std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+
+                memcpy(mo.layers[0].neurons.data(), sample.x.data(), mo.xsize * sizeof(float));
+
+                for (int l2 = 1; l2 < mo.layers.size(); ++l2)
+                {
+                    const int l1 = l2 - 1;
+                    const int& n1count = mo.layers[l1].nCount;
+                    const int& n2count = mo.layers[l2].nCount;
+                    const auto& func = mo.layers[l2].activation;
+
+                    for (int n2 = 0; n2 < n2count; ++n2)
+                    {
+                        if (l2 < (mo.layers.size() - 1) && dropouts[l1] > 0.0f && dis(gen) <= dropouts[l1])
+                        {
+                            mo.layers[l2].neurons[n2] = 0.0f;
+                        }
+                        else
+                        {
+                            const int row = n2 * n1count;
+
+                            float z = 0;
+                            for (int n1 = 0; n1 < n1count; ++n1)
+                                z += mo.layers[l2].weights[row + n1] * mo.layers[l1].neurons[n1];
+                            z += mo.layers[l2].biases[n2];
+
+                            mo.layers[l2].neurons[n2] = func(z);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                mo.pulse(sample.x.data());
+            }
 
             {
                 const int& ncount = mo.layers.back().nCount;
@@ -71,7 +106,7 @@ struct backprop_matrix
                 }
             }
 
-            for (int l2 = LASTL; l2 >= 2; --l2)
+            for (int l2 = mo.layers.size() - 1; l2 >= 2; --l2)
             {
                 const int l1 = l2 - 1;
                 const int& n1count = mo.layers[l1].nCount;
@@ -88,7 +123,7 @@ struct backprop_matrix
                 }
             }
 
-            for (int l2 = LASTL; l2 >= 1; --l2)
+            for (int l2 = 1; l2 >= mo.layers.size(); ++l2)
             {
                 const int l1 = l2 - 1;
                 const int& n1count = mo.layers[l1].nCount;
@@ -151,9 +186,10 @@ struct backprop_matrix
     std::vector<thread> threads;
     const int thread_count;
     const int layerCount;
+    std::mt19937 shuffle_gen;
 
     backprop_matrix(const int& thread_count, const seayon::model& main, const seayon::dataset& traindata)
-        : thread_count(thread_count), layerCount(main.layers.size())
+        : thread_count(thread_count), layerCount(main.layers.size()), shuffle_gen(main.seed)
     {
         sample_pointers.resize(traindata.samples.size());
         threads.reserve(thread_count);
@@ -188,7 +224,6 @@ struct backprop_matrix
 
     void shuffle()
     {
-        std::random_device rm_seed;
-        std::shuffle(sample_pointers.begin(), sample_pointers.end(), std::mt19937(rm_seed()));
+        std::shuffle(sample_pointers.begin(), sample_pointers.end(), shuffle_gen);
     }
 };

@@ -5,6 +5,7 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <random>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -79,7 +80,7 @@ namespace seayon
          */
         void normalize(const float max, const float min);
         /**
-         * Randomizes order of samples
+         * Randomizes order of samples (slow should not be used regularly)
          */
         void shuffle();
         void combine(dataset& from);
@@ -118,10 +119,10 @@ namespace seayon
             std::vector<float> biases;
             std::vector<float> weights;
 
-            layer(const int PREVIOUS, const int NEURONS, const ActivFunc func);
+            layer(const int PREVIOUS, const int NEURONS, const ActivFunc func, std::mt19937& gen);
         };
 
-        const int seed;
+        int seed;
         const std::string logfolder;
 
         const int xsize;
@@ -287,6 +288,7 @@ namespace seayon
             int steps_per_epoch = -1,
             int thread_count = 1,
             float learning_rate = 0.001f,
+            std::vector<float> dropouts = std::vector<float>(),
             float beta1 = 0.9f,
             float beta2 = 0.999f,
             float epsilon = 1e-7f);
