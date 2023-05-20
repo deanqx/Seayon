@@ -4,8 +4,18 @@
 #include "backprop_matrix.cpp"
 #include "fitlog.cpp"
 
-void seayon::model::fit(const dataset& traindata, const dataset& testdata, const bool shuffle, int batches_per_epoch,
-    int max_epochs, int verbose, int batch_size, int thread_count, float learning_rate, float beta1, float beta2, float epsilon)
+void seayon::model::fit(const dataset& traindata,
+    const dataset& testdata,
+    int epochs,
+    int batch_size,
+    int verbose,
+    bool shuffle,
+    int steps_per_epoch,
+    int thread_count,
+    float learning_rate,
+    float beta1,
+    float beta2,
+    float epsilon)
 { // WARN thread_count always improves performance(probably loosing data on the way)
     if (!check(traindata) || !check(testdata))
     {
@@ -22,8 +32,8 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
     const int batch_count = traindata.samples.size() / batch_size;
     const int sampleCount = batch_size * batch_count;
 
-    if (batches_per_epoch < 1 || batches_per_epoch > batch_count)
-        batches_per_epoch = batch_count;
+    if (steps_per_epoch < 1 || steps_per_epoch > batch_count)
+        steps_per_epoch = batch_count;
 
     if (verbose > 1)
     {
@@ -34,8 +44,8 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
         else
             printf("testdata           %i samples\n", testdata.samples.size());
         printf("shuffle            %s\n", shuffle ? "True" : "False");
-        printf("batches_per_epoch  %i\n", batches_per_epoch);
-        printf("max_epochs         %i\n", max_epochs);
+        printf("steps_per_epoch    %i\n", steps_per_epoch);
+        printf("epochs             %i\n", epochs);
         printf("batch_size         %i\n", batch_size);
         printf("thread_count       %i\n", thread_count);
         printf("learning_rate      %f\n", learning_rate);
@@ -46,18 +56,18 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
 
     backprop_matrix matrix(thread_count, *this, traindata);
 
-    fitlog logger(*this, sampleCount, testdata, max_epochs, (traindata.samples.size() != testdata.samples.size()), logfolder);
+    fitlog logger(*this, sampleCount, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), logfolder);
 
     if (thread_count == 1)
     {
         matrix.threads[0].net.reset(this, [](seayon::model* obj) {});
 
-        for (int epoch = 1; epoch <= max_epochs; ++epoch)
+        for (int epoch = 1; epoch <= epochs; ++epoch)
         {
             if (shuffle)
                 matrix.shuffle();
 
-            for (int b = 0; b < batches_per_epoch; ++b)
+            for (int b = 0; b < steps_per_epoch; ++b)
             {
                 const int row = b * batch_size;
 
@@ -82,8 +92,11 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
 
         std::vector<std::thread> threads(thread_count);
 
-        for (int epoch = 1; epoch <= max_epochs; ++epoch)
+        for (int epoch = 1; epoch <= epochs; ++epoch)
         {
+            if (shuffle)
+                matrix.shuffle();
+
             for (int t = 0; t < thread_count; ++t)
             {
                 threads[t] = std::thread([&, t]
@@ -111,8 +124,6 @@ void seayon::model::fit(const dataset& traindata, const dataset& testdata, const
             }
 
             matrix.sync(*this);
-            if (shuffle)
-                matrix.shuffle();
 
             if (verbose > 0)
                 if (logger.log(epoch) == 0.0f)

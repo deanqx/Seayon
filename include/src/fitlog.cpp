@@ -32,9 +32,6 @@ class fitlog
     std::chrono::high_resolution_clock::time_point sampleTimeLast;
     std::chrono::high_resolution_clock::time_point last;
 
-    float lastLoss[5]{};
-    int lastLossIndex = 0;
-
 public:
     float log(int epoch)
     {
@@ -92,17 +89,10 @@ public:
             if (file.get() != nullptr)
                 *file << samplesPerSecond << ',' << runtime.count() << ',' << eta.count() << ',' << l << '\n';
 
-            if (lastLoss[0] <= l
-                && lastLoss[1] <= l
-                && lastLoss[2] <= l
-                && lastLoss[3] <= l
-                && lastLoss[4] <= l && epoch > 10 || kbhit() && getch() == 'q')
+            if (kbhit() && getch() == 'q')
             {
                 return 0.0f;
             }
-            lastLoss[lastLossIndex++] = l;
-            if (lastLossIndex == 5)
-                lastLossIndex = 0;
 
             lastLogAt = epoch;
             last = std::chrono::high_resolution_clock::now();
@@ -136,7 +126,6 @@ public:
         overall = std::chrono::high_resolution_clock::now();
         last = overall;
         sampleTimeLast = overall;
-        lastLoss[lastLossIndex++] = 999999.0f;
         log(0);
     }
 };

@@ -205,3 +205,51 @@ void seayon::dataset::shuffle()
     std::random_device rm_seed;
     std::shuffle(samples.begin(), samples.end(), std::mt19937(rm_seed()));
 }
+
+void seayon::dataset::combine(dataset& from)
+{
+    if (xsize != from.xsize || ysize != from.ysize)
+    {
+        printf("--- error: input or output size not matching ---");
+        return;
+    }
+
+    samples.reserve(samples.size() + from.samples.size());
+    samples.insert(samples.end(), from.samples.begin(), from.samples.end());
+}
+void seayon::dataset::split(dataset& into, const float splitoff)
+{
+    if (xsize != into.xsize || ysize != into.ysize)
+    {
+        printf("--- error: input or output size not matching ---");
+        return;
+    }
+
+    if (into.samples.size() != 0)
+    {
+        printf("--- error: target dataset object has to be empty ---");
+        return;
+    }
+
+    if (splitoff > 1.0f)
+    {
+        printf("--- error: splitoff can't be larger than 1.0 ---");
+        return;
+    }
+
+    const int sampleCount = splitoff * samples.size();
+
+    // into.resize(sampleCount);
+
+    // int b = 0;
+    // for (int a = samples.size() - sampleCount; a < samples.size(); ++a, ++b)
+    // {
+    //     samples[a].x.swap(into.samples[b].x);
+    //     samples[a].y.swap(into.samples[b].y);
+    // }
+
+    into.samples.reserve(sampleCount);
+    into.samples.insert(into.samples.begin(), samples.end() - sampleCount, samples.end());
+
+    samples.erase(samples.end() - sampleCount, samples.end());
+}

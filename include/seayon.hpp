@@ -82,6 +82,8 @@ namespace seayon
          * Randomizes order of samples
          */
         void shuffle();
+        void combine(dataset& from);
+        void split(dataset& into, const float splitoff);
     };
 
     struct model_parameters
@@ -276,10 +278,18 @@ namespace seayon
          * @param momentum Can accelerate training but also produce worse results (disable with 0.0f)
          * @param total_threads aka batch size divides training data into chunks to improve performance for large networks (not used by stochastic g.d.)
          */
-        void fit(const dataset& traindata, const dataset& testdata, const bool shuffle, int batches_per_epoch = -1,
-            int max_epochs = 1, int verbose = 1,
-            int batch_size = 1, int thread_count = 1,
-            float learning_rate = 0.001f, float beta1 = 0.9f, float beta2 = 0.999f, float epsilon = 1e-7f);
+        void fit(const dataset& traindata,
+            const dataset& testdata,
+            int epochs = 1,
+            int batch_size = 1,
+            int verbose = 1,
+            bool shuffle = true,
+            int steps_per_epoch = -1,
+            int thread_count = 1,
+            float learning_rate = 0.001f,
+            float beta1 = 0.9f,
+            float beta2 = 0.999f,
+            float epsilon = 1e-7f);
 
     protected:
         bool check(const dataset& data) const;

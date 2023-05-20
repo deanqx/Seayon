@@ -7,13 +7,14 @@ using namespace seayon;
 
 int main()
 {
-	constexpr bool load = false;
+	constexpr bool load_pretrained = false;
 
-	constexpr int runCount = 2;
-	constexpr float learning_rate = 0.001f;
+	constexpr int epochs = 2;
 	constexpr int batch_size = 1;
+	constexpr bool shuffle = false;
+	constexpr int steps_per_epoch = -1;
 	constexpr int thread_count = 1;
-	constexpr int batches_per_epoch = -1;
+	constexpr float learning_rate = 0.001f;
 
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
@@ -26,7 +27,7 @@ int main()
 
 	const char* saved_path = "../../../../examples/digit_recognition/saved.bin";
 
-	if (load)
+	if (load_pretrained)
 	{
 		model_parameters para;
 		para.load_parameters_file(saved_path);
@@ -55,14 +56,14 @@ int main()
 
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(traindata, testdata, true, batches_per_epoch, runCount, 1, batch_size, thread_count, learning_rate);
+			m.fit(traindata, testdata, epochs, batch_size, 1, shuffle, steps_per_epoch, thread_count, learning_rate);
 			m.printo(testdata, 0);
 		}
 		else
 		{
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(testdata, testdata, true, batches_per_epoch, runCount, 1, batch_size, thread_count, learning_rate);
+			m.fit(testdata, testdata, epochs, batch_size, 1, shuffle, steps_per_epoch, thread_count, learning_rate);
 			m.printo(testdata, 0);
 		}
 
