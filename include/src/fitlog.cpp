@@ -56,11 +56,11 @@ public:
 
             std::string unit = "us/step ";
             unsigned time_per_step = 0;
-            unsigned msPerStep = 0;
+            unsigned usPerStep = 0;
             if (epoch > 0)
             {
                 time_per_step = (unsigned)(sampleTime.count() / (int64_t)sampleCount);
-                msPerStep = time_per_step / 1000;
+                usPerStep = time_per_step;
 
                 if (time_per_step > 1000)
                 {
@@ -103,7 +103,7 @@ public:
 
             if (file.get() != nullptr)
             {
-                *file << msPerStep << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
+                *file << usPerStep << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
                 file->flush();
             }
 
@@ -164,7 +164,7 @@ public:
             }
 
             file = std::make_unique<std::ofstream>(path);
-            *file << "msPerStep,Runtime(sec),ETA(sec),loss,val_loss" << std::endl;
+            *file << "usPerStep,Runtime(sec),ETA(sec),loss,val_loss" << std::endl;
         }
 
         printf("\n");
