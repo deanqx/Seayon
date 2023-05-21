@@ -9,7 +9,7 @@ void seayon::model::fit(const dataset& traindata,
     int batch_size,
     int verbose,
     bool shuffle,
-    int steps_per_epoch,
+    float steps_per_epoch,
     int thread_count,
     float learning_rate,
     std::vector<float> dropouts,
@@ -38,20 +38,21 @@ void seayon::model::fit(const dataset& traindata,
 
     const int batch_count = traindata.samples.size() / batch_size;
     const int sampleCount = batch_size * batch_count;
+    int per_epoch = (int)((float)sampleCount * steps_per_epoch);
 
-    if (steps_per_epoch < 1 || steps_per_epoch > batch_count)
-        steps_per_epoch = batch_count;
+    if (per_epoch < 1 || per_epoch > batch_count)
+        per_epoch = batch_count;
 
     if (verbose == 2 || verbose == 4)
     {
         printf("--> Training with:\n");
-        printf("traindata          %llu samples\n", traindata.samples.size());
+        printf("traindata          %llu used samples\n", sampleCount);
         if (traindata.samples.size() == testdata.samples.size())
             printf("testdata           Disabled\n");
         else
             printf("testdata           %llu samples\n", testdata.samples.size());
         printf("shuffle            %s\n", shuffle ? "True" : "False");
-        printf("steps_per_epoch    %i\n", steps_per_epoch);
+        printf("steps_per_epoch    %i\n", per_epoch);
         printf("epochs             %i\n", epochs);
         printf("batch_size         %i\n", batch_size);
         printf("thread_count       %i\n", thread_count);
@@ -79,7 +80,7 @@ void seayon::model::fit(const dataset& traindata,
 
             float loss_sum = 0.0f;
 
-            for (int b = 0; b < steps_per_epoch; ++b)
+            for (int b = 0; b < per_epoch; ++b)
             {
                 const int row = b * batch_size;
 
@@ -91,13 +92,13 @@ void seayon::model::fit(const dataset& traindata,
                 matrix.threads[0].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
             }
 
-            if (logger.log(epoch, loss_sum / (steps_per_epoch * batch_size)))
+            if (logger.log(epoch, loss_sum / (per_epoch * batch_size)))
                 break;
         }
     }
     else
     {
-        const int per_thread = steps_per_epoch / thread_count;
+        const int per_thread = per_epoch / thread_count;
         const int unused_begin = thread_count * per_thread * batch_size;
         const int unused_end = traindata.samples.size() - unused_begin - 1;
 
@@ -149,7 +150,7 @@ void seayon::model::fit(const dataset& traindata,
                 loss_sum += losses[i];
             }
 
-            if (logger.log(epoch, loss_sum / (steps_per_epoch * batch_size)))
+            if (logger.log(epoch, loss_sum / (per_epoch * batch_size)))
                 break;
         }
     }

@@ -19,7 +19,7 @@ int main()
 	constexpr int epochs = 20;
 	constexpr int batch_size = 1;
 	constexpr bool shuffle = false;
-	constexpr int steps_per_epoch = -1;
+	constexpr float steps_per_epoch = 1.0f;
 	constexpr int thread_count = 1;
 	constexpr float learning_rate = 0.001f;
 
@@ -64,7 +64,7 @@ int main()
 
 			printf("\n");
 			m.printo(testdata, 0);
-			m.fit(traindata, testdata, epochs, batch_size, 1, shuffle, steps_per_epoch, thread_count, learning_rate, dropouts, step_callback);
+			m.fit(traindata, testdata, epochs, batch_size, 2, shuffle, steps_per_epoch, thread_count, learning_rate, dropouts, step_callback);
 			m.printo(testdata, 0);
 		}
 		else

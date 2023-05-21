@@ -287,7 +287,7 @@ namespace seayon
             int batch_size = 1,
             int verbose = 1,
             bool shuffle = true,
-            int steps_per_epoch = -1,
+            float steps_per_epoch = 1.0f,
             int thread_count = 1,
             float learning_rate = 0.001f,
             std::vector<float> dropouts = std::vector<float>(),
