@@ -42,7 +42,7 @@ public:
 
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-        if (verbose > 2 || verbose != 0 && (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0))
+        if (callback || verbose > 2 || verbose != 0 && (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0))
         {
             sampleTimeLast = now;
             std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
@@ -55,7 +55,7 @@ public:
 
             float progress = (float)epoch * 100.0f / (float)epochs;
 
-            std::string unit = "us/step ";
+            std::string unit = "us/step";
             unsigned time_per_step = 0;
             unsigned usPerStep = 0;
             if (epoch > 0)
@@ -65,12 +65,12 @@ public:
 
                 if (time_per_step > 1000)
                 {
-                    unit = "ms/step ";
+                    unit = "ms/step";
                     time_per_step /= 1000;
 
                     if (time_per_step > 1000)
                     {
-                        unit = "s/step ";
+                        unit = "s/step";
                         time_per_step /= 1000;
                     }
                 }
@@ -88,15 +88,27 @@ public:
             int etaResolved[3];
             resolveTime(eta.count(), etaResolved);
 
+            std::ostringstream runtime_str;
+            std::ostringstream eta_str;
+            std::ostringstream loss_str;
+            runtime_str << "   Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s";
+            eta_str << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s";
+            loss_str << "loss: " << std::setprecision(2) << std::defaultfloat << l1;
+
             std::ostringstream message;
-            message << epoch << "/" << epochs << std::setw(9)
-                << time_per_step << unit << std::setw(13)
-                << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(10)
-                << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9)
-                << "loss: " << std::setprecision(2) << std::defaultfloat << l1 << std::setw(13);
+            message << std::setw(3) << std::right << epoch << "/" << epochs
+                << std::setw(7) << std::right << time_per_step << unit
+                << std::setw(25) << std::left << runtime_str.str()
+                << std::setw(18) << std::left << eta_str.str()
+                << std::setw(15) << std::left << loss_str.str();
 
             if (l2 > -1.0f)
-                message << "val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
+            {
+                std::ostringstream loss2_str;
+                loss2_str << "val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
+
+                message << std::setw(19) << std::left << loss2_str.str();
+            }
 
             if (verbose > 2)
             {
@@ -120,6 +132,12 @@ public:
                 return true;
             }
 
+            if (callback)
+            {
+                if (callback(parent, epoch, l1, l2, traindata, testdata))
+                    return true;
+            }
+
             lastLogAt = epoch;
             last = std::chrono::high_resolution_clock::now();
         }
@@ -130,12 +148,6 @@ public:
                 *file << ",,," << l1 << ",\n";
                 file->flush();
             }
-        }
-
-        if (callback)
-        {
-            if (callback(parent, epoch, l1, l2, traindata, testdata))
-                return true;
         }
 
         return false;
