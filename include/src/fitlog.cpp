@@ -56,9 +56,11 @@ public:
 
             std::string unit = "us/step ";
             unsigned time_per_step = 0;
+            unsigned msPerStep = 0;
             if (epoch > 0)
             {
                 time_per_step = (unsigned)(sampleTime.count() / (int64_t)sampleCount);
+                msPerStep = time_per_step / 1000;
 
                 if (time_per_step > 1000)
                 {
@@ -88,9 +90,9 @@ public:
             std::ostringstream message;
             message << epoch << "/" << epochs << std::setw(9)
                 << time_per_step << unit << std::setw(13)
-                << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(9)
+                << "Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s " << std::setw(10)
                 << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s" << std::setw(9)
-                << "loss: " << std::setprecision(2) << std::defaultfloat << l1 << std::setw(12);
+                << "loss: " << std::setprecision(2) << std::defaultfloat << l1 << std::setw(13);
 
             if (l2 > -1.0f)
                 message << "val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
@@ -99,10 +101,11 @@ public:
             std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
             lastLogLenght = message.str().length() + cleared;
 
-            unsigned msPerStep = 0;
-
             if (file.get() != nullptr)
-                *file << epoch << ',' << msPerStep << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
+            {
+                *file << msPerStep << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
+                file->flush();
+            }
 
             if (kbhit() && getch() == 'q')
             {
@@ -111,6 +114,14 @@ public:
 
             lastLogAt = epoch;
             last = std::chrono::high_resolution_clock::now();
+        }
+        else
+        {
+            if (file.get() != nullptr)
+            {
+                *file << ",,," << l1 << ",\n";
+                file->flush();
+            }
         }
 
         if (callback)
@@ -141,7 +152,7 @@ public:
         {
             std::string path(logfolder + "log.csv");
             std::ifstream exists(path);
-            for (int i = 1; i < 16; ++i)
+            for (int i = 1; i < 256; ++i)
             {
                 if (!exists.good())
                 {
@@ -153,7 +164,7 @@ public:
             }
 
             file = std::make_unique<std::ofstream>(path);
-            *file << "epoch,msPerStep,Runtime(seconds),ETA(seconds),loss,val_loss" << std::endl;
+            *file << "msPerStep,Runtime(sec),ETA(sec),loss,val_loss" << std::endl;
         }
 
         printf("\n");
