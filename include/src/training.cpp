@@ -42,7 +42,7 @@ void seayon::model::fit(const dataset& traindata,
     if (steps_per_epoch < 1 || steps_per_epoch > batch_count)
         steps_per_epoch = batch_count;
 
-    if (verbose > 1)
+    if (verbose == 2 || verbose == 4)
     {
         printf("--> Training with:\n");
         printf("traindata          %llu samples\n", traindata.samples.size());
@@ -64,7 +64,7 @@ void seayon::model::fit(const dataset& traindata,
 
     backprop_matrix matrix(thread_count, *this, traindata);
 
-    fitlog logger(*this, sampleCount, traindata, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), logfolder, callback);
+    fitlog logger(*this, sampleCount, traindata, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), verbose, logfolder, callback);
 
     if (thread_count == 1)
     {
@@ -91,9 +91,8 @@ void seayon::model::fit(const dataset& traindata,
                 matrix.threads[0].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
             }
 
-            if (verbose > 0)
-                if (logger.log(epoch, loss_sum / (steps_per_epoch * batch_size)))
-                    break;
+            if (logger.log(epoch, loss_sum / (steps_per_epoch * batch_size)))
+                break;
         }
     }
     else
@@ -150,9 +149,8 @@ void seayon::model::fit(const dataset& traindata,
                 loss_sum += losses[i];
             }
 
-            if (verbose > 0)
-                if (logger.log(epoch, loss_sum / (steps_per_epoch * batch_size)))
-                    break;
+            if (logger.log(epoch, loss_sum / (steps_per_epoch * batch_size)))
+                break;
         }
     }
 

@@ -25,6 +25,7 @@ class fitlog
     const seayon::dataset& testdata;
     const int epochs;
     const bool val_loss;
+    const int verbose;
     seayon::model::step_callback_t callback;
 
     std::unique_ptr<std::ofstream> file{};
@@ -41,7 +42,7 @@ public:
 
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-        if (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0)
+        if (verbose > 0 && (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0))
         {
             sampleTimeLast = now;
             std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
@@ -97,9 +98,16 @@ public:
             if (l2 > -1.0f)
                 message << "val_loss: " << std::setprecision(2) << std::defaultfloat << l2;
 
-            const int cleared = std::max(0, (int)lastLogLenght - (int)message.str().length());
-            std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(cleared, ' ');
-            lastLogLenght = message.str().length() + cleared;
+            if (verbose > 2)
+            {
+                std::cout << message.str() << '\n';
+            }
+            else
+            {
+                const int clear = std::max(0, (int)lastLogLenght - (int)message.str().length());
+                std::cout << std::string(lastLogLenght, '\b') << message.str() << std::string(clear, ' ');
+                lastLogLenght = message.str().length() + clear;
+            }
 
             if (file.get() != nullptr)
             {
@@ -138,6 +146,7 @@ public:
         const seayon::dataset& testdata,
         const int& epochs,
         const bool& val_loss,
+        const int& verbose,
         const std::string& logfolder,
         seayon::model::step_callback_t callback)
         : parent(parent),
@@ -146,6 +155,7 @@ public:
         testdata(testdata),
         epochs(epochs),
         val_loss(val_loss),
+        verbose(verbose),
         callback(callback)
     {
         if (!logfolder.empty())
