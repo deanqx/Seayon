@@ -42,7 +42,7 @@ public:
 
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
-        if (verbose > 0 && (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0))
+        if (verbose > 2 || verbose != 0 && (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0))
         {
             sampleTimeLast = now;
             std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);

@@ -7,7 +7,7 @@ float seayon::model::loss(const typename dataset::sample& sample)
 
     const int LASTL = layers.size() - 1;
 
-    float d = 0.0;
+    float d = 0.0f;
     for (int i = 0; i < ysize; ++i)
     {
         const float x = layers.back().neurons[i] - sample.y[i];
@@ -24,7 +24,7 @@ float seayon::model::loss(const dataset& data)
         return .0f;
     }
 
-    float d = 0.0;
+    float d = 0.0f;
     for (int i = 0; i < data.samples.size(); ++i)
     {
         d += loss(data[i]);
@@ -38,7 +38,7 @@ float seayon::model::diff(const typename dataset::sample& sample, std::vector<fl
 
     const int LASTL = layers.size() - 1;
 
-    float d = 0.0;
+    float d = 0.0f;
     for (int i = 0; i < ysize; ++i)
     {
         d += std::abs((layers.back().neurons[i] * factor[i]) - sample.y[i]);
