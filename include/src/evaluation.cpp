@@ -41,7 +41,7 @@ float seayon::model::diff(const typename dataset::sample& sample, std::vector<fl
     float d = 0.0f;
     for (int i = 0; i < ysize; ++i)
     {
-        d += std::abs((layers.back().neurons[i] * factor[i]) - sample.y[i]);
+        d += std::abs(layers.back().neurons[i] - sample.y[i]) * factor[i];
     }
 
     return d / (float)ysize;
@@ -74,7 +74,7 @@ float seayon::model::diff_max(const typename dataset::sample& sample, std::vecto
     float d = std::abs((layers.back().neurons[0] * factor[0]) - sample.y[0]);
     for (int i = 1; i < ysize; ++i)
     {
-        const float x = std::abs((layers.back().neurons[i] * factor[i]) - sample.y[i]);
+        const float x = std::abs(layers.back().neurons[i] - sample.y[i]) * factor[i];
         if (d < x)
             d = x;
     }
@@ -111,7 +111,7 @@ float seayon::model::diff_min(const typename dataset::sample& sample, std::vecto
     float d = std::abs((layers.back().neurons[0] * factor[0]) - sample.y[0]);
     for (int i = 1; i < ysize; ++i)
     {
-        const float x = std::abs((layers.back().neurons[i] * factor[i]) - sample.y[i]);
+        const float x = std::abs(layers.back().neurons[i] - sample.y[i]) * factor[i];
         if (d < x)
             d = x;
     }
