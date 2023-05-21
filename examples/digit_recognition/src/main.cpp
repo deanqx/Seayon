@@ -5,6 +5,13 @@
 
 using namespace seayon;
 
+bool step_callback(model& main, int epoch, float l, float val_l, const dataset& traindata, const dataset& testdata)
+{
+	// printf("     %f%%\n", main.accruacy(testdata) * 100.0f);
+
+	return false;
+}
+
 int main()
 {
 	constexpr bool load_pretrained = false;
@@ -57,9 +64,7 @@ int main()
 
 			printf("\n");
 			m.printo(testdata, 0);
-
-			m.fit(traindata, testdata, epochs, batch_size, 1, shuffle, steps_per_epoch, thread_count, learning_rate, dropouts);
-
+			m.fit(traindata, testdata, epochs, batch_size, 1, shuffle, steps_per_epoch, thread_count, learning_rate, dropouts, step_callback);
 			m.printo(testdata, 0);
 		}
 		else

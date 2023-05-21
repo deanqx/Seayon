@@ -13,6 +13,7 @@ void seayon::model::fit(const dataset& traindata,
     int thread_count,
     float learning_rate,
     std::vector<float> dropouts,
+    step_callback_t callback,
     float beta1,
     float beta2,
     float epsilon)
@@ -63,7 +64,7 @@ void seayon::model::fit(const dataset& traindata,
 
     backprop_matrix matrix(thread_count, *this, traindata);
 
-    fitlog logger(*this, sampleCount, traindata, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), logfolder);
+    fitlog logger(*this, sampleCount, traindata, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), logfolder, callback);
 
     if (thread_count == 1)
     {

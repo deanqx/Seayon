@@ -25,6 +25,7 @@ class fitlog
     const seayon::dataset& testdata;
     const int epochs;
     const bool val_loss;
+    seayon::model::step_callback_t callback;
 
     std::unique_ptr<std::ofstream> file{};
     size_t lastLogLenght = 0;
@@ -36,6 +37,8 @@ class fitlog
 public:
     bool log(int epoch, const float l1)
     {
+        float l2 = -1.0f;
+
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds sampleTime = std::chrono::duration_cast<std::chrono::microseconds>(now - sampleTimeLast);
         if (sampleTime.count() > 1000000LL || epoch == epochs || epoch == 0)
@@ -43,8 +46,6 @@ public:
             sampleTimeLast = now;
             std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last);
             std::chrono::seconds runtime = std::chrono::duration_cast<std::chrono::seconds>(now - overall);
-
-            float l2 = -1.0f;
 
             if (val_loss)
             {
@@ -112,10 +113,29 @@ public:
             last = std::chrono::high_resolution_clock::now();
         }
 
+        if (callback)
+        {
+            if (callback(parent, epoch, l1, l2, traindata, testdata))
+                return true;
+        }
+
         return false;
     }
-    fitlog(seayon::model& parent, const int& sampleCount, const seayon::dataset& traindata, const seayon::dataset& testdata, const int& epochs, const bool& val_loss, const std::string& logfolder)
-        : parent(parent), sampleCount(sampleCount), traindata(traindata), testdata(testdata), epochs(epochs), val_loss(val_loss)
+    fitlog(seayon::model& parent,
+        const int& sampleCount,
+        const seayon::dataset& traindata,
+        const seayon::dataset& testdata,
+        const int& epochs,
+        const bool& val_loss,
+        const std::string& logfolder,
+        seayon::model::step_callback_t callback)
+        : parent(parent),
+        sampleCount(sampleCount),
+        traindata(traindata),
+        testdata(testdata),
+        epochs(epochs),
+        val_loss(val_loss),
+        callback(callback)
     {
         if (!logfolder.empty())
         {

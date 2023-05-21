@@ -270,6 +270,8 @@ namespace seayon
          * @return difference value "diff()"
          */
         float print_one(const dataset& data, const int sample);
+
+        typedef bool(*step_callback_t)(model& main, int epoch, float l, float val_l, const dataset& traindata, const dataset& testdata);
         /**
          * Trains the network with Gradient Descent to minimize the loss function (you can cancel with 'q')
          * @param max_iterations Begin small
@@ -289,6 +291,7 @@ namespace seayon
             int thread_count = 1,
             float learning_rate = 0.001f,
             std::vector<float> dropouts = std::vector<float>(),
+            step_callback_t callback = nullptr,
             float beta1 = 0.9f,
             float beta2 = 0.999f,
             float epsilon = 1e-7f);
