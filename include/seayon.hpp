@@ -288,7 +288,6 @@ namespace seayon
             int verbose = 1,
             bool shuffle = true,
             float steps_per_epoch = 1.0f,
-            int thread_count = 1,
             float learning_rate = 0.001f,
             std::vector<float> dropouts = std::vector<float>(),
             step_callback_t callback = nullptr,

@@ -93,7 +93,8 @@ public:
             std::ostringstream loss_str;
             runtime_str << "   Runtime: " << runtimeResolved[0] << "h " << runtimeResolved[1] << "m " << runtimeResolved[2] << "s";
             eta_str << "ETA: " << etaResolved[0] << "h " << etaResolved[1] << "m " << etaResolved[2] << "s";
-            loss_str << "loss: " << std::setprecision(2) << std::defaultfloat << l1;
+            if (l1 != 0.0f)
+                loss_str << "loss: " << std::setprecision(2) << std::defaultfloat << l1;
 
             std::ostringstream message;
             message << std::setw(3) << std::right << epoch << "/" << epochs
@@ -123,7 +124,10 @@ public:
 
             if (file.get() != nullptr)
             {
-                *file << usPerStep << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
+                if (l1 != 0.0f)
+                    *file << usPerStep << ',' << runtime.count() << ',' << eta.count() << ',' << l1 << ',' << l2 << '\n';
+                else
+                    *file << usPerStep << ',' << runtime.count() << ',' << eta.count() << ",," << l2 << '\n';
                 file->flush();
             }
 
@@ -145,7 +149,10 @@ public:
         {
             if (file.get() != nullptr)
             {
-                *file << ",,," << l1 << ",\n";
+                if (l1 != 0.0f)
+                    *file << ",,," << l1 << ",\n";
+                else
+                    *file << ",,,,\n";
                 file->flush();
             }
         }
@@ -193,6 +200,6 @@ public:
         overall = std::chrono::high_resolution_clock::now();
         last = overall;
         sampleTimeLast = overall;
-        log(0, parent.loss(traindata));
+        log(0, 0.0f);
     }
 };

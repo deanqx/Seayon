@@ -51,11 +51,11 @@ float* seayon::model::pulse(const float* inputs)
 
         for (int n2 = 0; n2 < n2count; ++n2)
         {
-            const int row = n2 * n1count;
+            const int offset = n2 * n1count;
 
             float z = 0;
             for (int n1 = 0; n1 < n1count; ++n1)
-                z += layers[l2].weights[row + n1] * layers[l1].neurons[n1];
+                z += layers[l2].weights[offset + n1] * layers[l1].neurons[n1];
             z += layers[l2].biases[n2];
 
             layers[l2].neurons[n2] = func(z);

@@ -10,7 +10,6 @@ void seayon::model::fit(const dataset& traindata,
     int verbose,
     bool shuffle,
     float steps_per_epoch,
-    int thread_count,
     float learning_rate,
     std::vector<float> dropouts,
     step_callback_t callback,
@@ -33,44 +32,36 @@ void seayon::model::fit(const dataset& traindata,
     if (batch_size < 1)
         batch_size = 1;
 
-    if (thread_count < 1)
-        thread_count = 1;
-
-    const int batch_count = traindata.samples.size() / batch_size;
+    const bool val_loss = (traindata.samples.size() != testdata.samples.size());
+    const int batch_count = (float)(traindata.samples.size() / batch_size) * steps_per_epoch;
     const int sampleCount = batch_size * batch_count;
-    int per_epoch = (int)((float)sampleCount * steps_per_epoch);
-
-    if (per_epoch < 1 || per_epoch > batch_count)
-        per_epoch = batch_count;
 
     if (verbose == 2 || verbose == 4)
     {
         printf("--> Training with:\n");
-        printf("traindata          %llu used samples\n", sampleCount);
-        if (traindata.samples.size() == testdata.samples.size())
-            printf("testdata           Disabled\n");
-        else
+        printf("traindata          %i/%llu samples\n", sampleCount, traindata.samples.size());
+        if (val_loss)
             printf("testdata           %llu samples\n", testdata.samples.size());
-        printf("shuffle            %s\n", shuffle ? "True" : "False");
-        printf("steps_per_epoch    %i\n", per_epoch);
+        else
+            printf("testdata           Disabled\n");
         printf("epochs             %i\n", epochs);
-        printf("batch_size         %i\n", batch_size);
-        printf("thread_count       %i\n", thread_count);
-        printf("learning_rate      %f\n", learning_rate);
+        printf("threads            %i\n", batch_size);
+        printf("iterations         %i <- %i\n", batch_count, sampleCount);
+        printf("shuffle            %s\n", shuffle ? "True" : "False");
+        printf("steps per epoch    %.1f%%\n", steps_per_epoch * 100.0f);
+        printf("learning rate      %f\n", learning_rate);
         printf("dropout            %s\n", dropouts.size() > 0 ? "Enabled" : "Disabled");
         printf("beta1              %f\n", beta1);
         printf("beta2              %f\n", beta2);
         printf("epsilon            %f\n", epsilon);
     }
 
-    backprop_matrix matrix(thread_count, *this, traindata);
+    backprop_matrix matrix(*this, traindata, batch_size);
 
-    fitlog logger(*this, sampleCount, traindata, testdata, epochs, (traindata.samples.size() != testdata.samples.size()), verbose, logfolder, callback);
+    fitlog logger(*this, sampleCount, traindata, testdata, epochs, val_loss, verbose, logfolder, callback);
 
-    if (thread_count == 1)
+    if (batch_size == 1)
     {
-        matrix.threads[0].net.reset(this, [](seayon::model* obj) {});
-
         std::mt19937 gen(seed);
 
         for (int epoch = 1; epoch <= epochs; ++epoch)
@@ -80,33 +71,24 @@ void seayon::model::fit(const dataset& traindata,
 
             float loss_sum = 0.0f;
 
-            for (int b = 0; b < per_epoch; ++b)
+            for (int i = 0; i < sampleCount; ++i)
             {
-                const int row = b * batch_size;
-
-                for (int i = 0; i < batch_size; ++i)
-                {
-                    loss_sum += matrix.threads[0].backprop(traindata[row + i], dropouts, gen);
-                }
-
-                matrix.threads[0].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
+                loss_sum += matrix.threads[0].backprop_async(traindata[i], dropouts, gen);
+                matrix.threads[0].apply(learning_rate, beta1, beta2, epsilon);
             }
 
-            if (logger.log(epoch, loss_sum / (per_epoch * batch_size)))
+            if (logger.log(epoch, loss_sum / sampleCount))
                 break;
         }
     }
     else
     {
-        const int per_thread = per_epoch / thread_count;
-        const int unused_begin = thread_count * per_thread * batch_size;
-        const int unused_end = traindata.samples.size() - unused_begin - 1;
-
-        std::vector<std::thread> threads(thread_count);
-        std::vector<float> losses(thread_count);
+        std::vector<std::thread> threads(batch_size);
+        std::vector<float> losses(batch_size);
         std::vector<std::mt19937> gens;
+        gens.reserve(batch_size);
 
-        for (int i = 0; i < thread_count; ++i)
+        for (int i = 0; i < batch_size; ++i)
         {
             gens.emplace_back(seed);
         }
@@ -116,41 +98,30 @@ void seayon::model::fit(const dataset& traindata,
             if (shuffle)
                 matrix.shuffle();
 
-            for (int t = 0; t < thread_count; ++t)
-            {
-                threads[t] = std::thread([&, t]
-                    {
-                        const int begin = t * per_thread;
-                        const int end = begin + per_thread - 1;
+            memset(losses.data(), 0, losses.size() * sizeof(float));
 
-                        for (int b = begin; b <= end; ++b)
+            for (int b = 0; b < batch_count; ++b)
+            {
+                const int offset = b * batch_size;
+
+                for (int i = 0; i < batch_size; ++i)
+                {
+                    threads[i] = std::thread([&, i]
                         {
-                            const int row = b * batch_size;
+                            losses[i] += matrix.threads[i].backprop_async(traindata[offset + i], dropouts, gens[i]);
+                        });
+                }
 
-                            for (int i = 0; i < batch_size; ++i)
-                            {
-                                losses[t] += matrix.threads[t].backprop(traindata[row + i], dropouts, gens[t]);
-                            }
+                for (int i = 0; i < batch_size; ++i)
+                {
+                    threads[i].join();
+                    matrix.threads[i].apply(learning_rate, beta1, beta2, epsilon);
+                }
 
-                            matrix.threads[t].apply(learning_rate, beta1, beta2, epsilon, (float)batch_size);
-                        }
-                    });
+                matrix.sync();
             }
 
-            for (int t = 0; t < thread_count; ++t)
-            {
-                threads[t].join();
-            }
-
-            matrix.sync(*this);
-
-            float loss_sum = 0.0f;
-            for (int i = 0; i < thread_count; ++i)
-            {
-                loss_sum += losses[i];
-            }
-
-            if (logger.log(epoch, loss_sum / (per_epoch * batch_size)))
+            if (logger.log(epoch, std::accumulate(losses.begin(), losses.end(), 0.0f) / sampleCount))
                 break;
         }
     }
