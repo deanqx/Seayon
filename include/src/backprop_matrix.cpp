@@ -165,8 +165,7 @@ struct backprop_matrix
 
                 for (int n2 = 0; n2 < n2count; ++n2)
                 {
-                    const float& db = layers[l2].bias_deltas[n2];
-                    // const float& db = layers[l2].bias_deltas[n2] / batch_size; // TODO check
+                    const float& db = layers[l2].bias_deltas[n2] / batch_size;
 
                     layers[l2].bias_velocities[n2] = beta1 * layers[l2].bias_velocities[n2] + ibeta1 * db;
                     layers[l2].bias_rms[n2] = beta2 * layers[l2].bias_rms[n2] + ibeta2 * db * db;
@@ -176,8 +175,7 @@ struct backprop_matrix
                     for (int n1 = 0; n1 < n1count; ++n1)
                     {
                         const int windex = offset + n1;
-                        const float& dw = layers[l2].weight_deltas[windex];
-                        // const float& dw = layers[l2].weight_deltas[windex] / batch_size; // TODO check
+                        const float& dw = layers[l2].weight_deltas[windex] / batch_size;
 
                         layers[l2].weight_velocities[windex] = beta1 * layers[l2].weight_velocities[windex] + ibeta1 * dw;
                         layers[l2].weight_rms[windex] = beta2 * layers[l2].weight_rms[windex] + ibeta2 * dw * dw;
