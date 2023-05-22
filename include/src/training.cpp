@@ -23,11 +23,20 @@ void seayon::model::fit(const dataset& traindata,
         return;
     }
 
-    if (dropouts.size() != 0 && dropouts.size() != layers.size() - 2)
+    if (dropouts.size() != 0)
     {
-        printf("\t--- error: can't dropout first or last layer (%llu == %llu) ---\n", dropouts.size(), layers.size() - 2);
-        return;
+        if (dropouts.size() > layers.size() - 2)
+        {
+            printf("\t--- error: can't dropout first or last layer (%llu == %llu) ---\n", dropouts.size(), layers.size() - 2);
+            return;
+        }
+
+        if (dropouts.size() < layers.size() - 2)
+        {
+            dropouts.resize(layers.size() - 2);
+        }
     }
+
 
     if (batch_size < 1)
         batch_size = 1;

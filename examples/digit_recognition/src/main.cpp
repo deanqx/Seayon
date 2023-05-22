@@ -22,7 +22,7 @@ int main()
 	constexpr float steps_per_epoch = 0.9f;
 	constexpr float learning_rate = 0.001f;
 
-	std::vector<float> dropouts { 0.0f, 0.0f };
+	std::vector<float> dropouts { };
 	std::vector<int> layout = { 784, 16, 16, 10 };
 	std::vector<ActivFunc> funcs = { ActivFunc::SIGMOID, ActivFunc::SIGMOID, ActivFunc::SIGMOID };
 	model m(layout, funcs, 2, "../../../../examples/digit_recognition/logs");
