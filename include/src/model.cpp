@@ -10,7 +10,7 @@ size_t seayon::model::save(std::vector<char>& buffer) const
     const uint32_t _logLenght = logfolder.size();
     std::vector<uint32_t> layout(layers.size());
     std::vector<ActivFunc> a(layers.size() - 1);
-    uint32_t parameters_size = sizeof(int32_t) + (layers.size() + 2) * sizeof(uint32_t) + a.size() * sizeof(ActivFunc) + _logLenght * sizeof(char);
+    uint32_t parameters_size = 4 * sizeof(int32_t) + layers.size() * sizeof(uint32_t) + a.size() * sizeof(ActivFunc) + _logLenght * sizeof(char);
 
     std::vector<size_t> nSize(layers.size());
     std::vector<size_t> wSize(layers.size());
@@ -89,10 +89,10 @@ void seayon::model::load(const char* buffer)
 
     const char* pointer = buffer;
 
-    uint32_t parameters_size{};
+    uint32_t parameters_size;
 
     memcpy(&parameters_size, pointer, sizeof(uint32_t));
-    pointer += sizeof(uint32_t) + parameters_size;
+    pointer += parameters_size;
 
     for (int i = 1; i < layers.size(); ++i)
     {
