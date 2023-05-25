@@ -131,15 +131,15 @@ public:
                 file->flush();
             }
 
-            if (kbhit() && getch() == 'q')
-            {
-                return true;
-            }
-
             if (callback)
             {
                 if (callback(parent, epoch, l1, l2, traindata, testdata))
                     return true;
+            }
+
+            if (kbhit() && getch() == 'q')
+            {
+                return true;
             }
 
             lastLogAt = epoch;

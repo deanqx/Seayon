@@ -82,7 +82,7 @@ namespace seayon
         /**
          * Randomizes order of samples (slow should not be used regularly)
          */
-        void shuffle();
+        void shuffle(int seed);
         void combine(dataset& from);
         void split(dataset& into, const float splitoff);
     };
@@ -285,7 +285,7 @@ namespace seayon
             const dataset& testdata,
             int epochs = 1,
             int batch_size = 1,
-            int verbose = 1,
+            int verbose = 2,
             bool shuffle = true,
             float steps_per_epoch = 1.0f,
             float learning_rate = 0.001f,

@@ -41,7 +41,7 @@ void seayon::model::fit(const dataset& traindata,
     if (batch_size < 1)
         batch_size = 1;
 
-    const bool val_loss = (traindata.samples.size() != testdata.samples.size());
+    const bool val_loss = (traindata.samples.size() != testdata.samples.size() || testdata.samples.size() == 0);
     const int batch_count = (float)(traindata.samples.size() / batch_size) * steps_per_epoch;
     const int sampleCount = batch_size * batch_count;
 
@@ -55,7 +55,7 @@ void seayon::model::fit(const dataset& traindata,
             printf("testdata           Disabled\n");
         printf("epochs             %i\n", epochs);
         printf("threads            %i\n", batch_size);
-        printf("iterations         %i <- %i\n", batch_count, sampleCount);
+        printf("iterations         %i <- %llu (%.0f%%)\n", batch_count, traindata.samples.size(), (float)batch_count * 100.0f / (float)traindata.samples.size());
         printf("shuffle            %s\n", shuffle ? "True" : "False");
         printf("steps per epoch    %.1f%%\n", steps_per_epoch * 100.0f);
         printf("learning rate      %f\n", learning_rate);

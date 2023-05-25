@@ -199,10 +199,9 @@ void seayon::dataset::normalize(const float max, const float min)
     }
 }
 
-void seayon::dataset::shuffle()
+void seayon::dataset::shuffle(int seed)
 {
-    std::random_device rd;
-    std::shuffle(samples.begin(), samples.end(), std::mt19937(rd()));
+    std::shuffle(samples.begin(), samples.end(), std::mt19937(seed));
 }
 
 void seayon::dataset::combine(dataset& from)
