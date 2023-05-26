@@ -206,21 +206,18 @@ std::vector<seayon::dataset::sample> seayon::dataset::denormalized(const float m
     std::vector<sample> out;
     out.reserve(samples.size());
 
-    for (int i = 0; i < out.size(); ++i)
-    {
-        out.emplace_back(xsize, ysize);
-    }
-
     for (int i = 0; i < samples.size(); ++i)
     {
+        out.emplace_back(xsize, ysize);
+
         for (int k = 0; k < xsize; ++k)
         {
-            out[i].x[k] = (samples[i].x[k] - min) / range;
+            out[i].x[k] = samples[i].x[k] * range + min;
         }
 
         for (int k = 0; k < ysize; ++k)
         {
-            out[i].y[k] = (samples[i].y[k] - min) / range;
+            out[i].y[k] = samples[i].x[k] * range + min;
         }
     }
 
