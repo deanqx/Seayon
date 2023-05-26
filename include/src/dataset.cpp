@@ -199,6 +199,34 @@ void seayon::dataset::normalize(const float max, const float min)
     }
 }
 
+std::vector<seayon::dataset::sample> seayon::dataset::denormalized(const float max, const float min) const
+{
+    const float range = max - min;
+
+    std::vector<sample> out;
+    out.reserve(samples.size());
+
+    for (int i = 0; i < out.size(); ++i)
+    {
+        out.emplace_back(xsize, ysize);
+    }
+
+    for (int i = 0; i < samples.size(); ++i)
+    {
+        for (int k = 0; k < xsize; ++k)
+        {
+            out[i].x[k] = (samples[i].x[k] - min) / range;
+        }
+
+        for (int k = 0; k < ysize; ++k)
+        {
+            out[i].y[k] = (samples[i].y[k] - min) / range;
+        }
+    }
+
+    return out;
+}
+
 void seayon::dataset::shuffle(int seed)
 {
     std::shuffle(samples.begin(), samples.end(), std::mt19937(seed));

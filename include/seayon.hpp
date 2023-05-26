@@ -79,6 +79,7 @@ namespace seayon
          * @param min Lowest value in dataset (use this->min_value())
          */
         void normalize(float max, float min);
+        std::vector<sample> denormalized(float max, float min) const;
         /**
          * Randomizes order of samples (slow should not be used regularly)
          */
