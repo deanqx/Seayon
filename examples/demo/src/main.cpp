@@ -40,8 +40,8 @@ int main()
 	// testdata | sample (printo: Prints only the output layer to the console)
 	// m.printo(data, 1);
 
-	m.print_one(data, 0);
-	m.print_one(data, 1);
+	m.printo(data, 0, true);
+	m.printo(data, 1, true);
 
 	// training and test data | Training data shuffle is disabled | 20 epochs
 	m.fit(data, data, 20, 1, 1, false, -1, 0.1f);
@@ -56,8 +56,8 @@ int main()
 
 	printf("%f | %f\n", data[0].x[0], data[0].x[1]);
 
-	m.print_one(data, 0);
-	m.print_one(data, 1);
+	m.printo(data, 0, true);
+	m.printo(data, 1, true);
 
 	// std::vector<char> buffer;
 	// m.save(buffer);
@@ -72,8 +72,8 @@ int main()
 
 	printf("equals: %i seed: %i\n", m.equals(m2), para.seed);
 
-	m.print_one(data, 0);
-	m.print_one(data, 1);
+	m.printo(data, 0, true);
+	m.printo(data, 1, true);
 
 	return 0;
 }

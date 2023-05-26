@@ -13,16 +13,16 @@
 
 namespace seayon
 {
-    float Sigmoid(const float z);
-    float dSigmoid(const float a);
-    float Tanh(const float z);
-    float dTanh(const float a);
-    float ReLu(const float z);
-    float dReLu(const float a);
-    float LeakyReLu(const float z);
-    float dLeakyReLu(const float a);
+    float Sigmoid(float z);
+    float dSigmoid(float a);
+    float Tanh(float z);
+    float dTanh(float a);
+    float ReLu(float z);
+    float dReLu(float a);
+    float LeakyReLu(float z);
+    float dLeakyReLu(float a);
 
-    typedef float(*ActivFunc_t)(const float);
+    typedef float(*ActivFunc_t)(float);
     enum class ActivFunc
     {
         LINEAR,
@@ -56,10 +56,10 @@ namespace seayon
         const int xsize;
         const int ysize;
 
-        dataset(const int inputSize, const int outputSize);
-        dataset(const int inputSize, const int outputSize, const int newsize);
+        dataset(int inputSize, int outputSize);
+        dataset(int inputSize, int outputSize, int newsize);
         dataset(std::vector<std::vector<float>>& inputs, std::vector<std::vector<float>>& outputs);
-        void resize(const int newsize);
+        void resize(int newsize);
         inline const sample& operator[](const int index) const;
         size_t save(std::vector<char>& out_buffer) const;
         size_t save_file(const char* path) const;
@@ -78,13 +78,13 @@ namespace seayon
          * @param max Highest value in dataset (use this->max_value())
          * @param min Lowest value in dataset (use this->min_value())
          */
-        void normalize(const float max, const float min);
+        void normalize(float max, float min);
         /**
          * Randomizes order of samples (slow should not be used regularly)
          */
         void shuffle(int seed);
         void combine(dataset& from);
-        void split(dataset& into, const float splitoff);
+        void split(dataset& into, float splitoff);
     };
 
     struct model_parameters
@@ -119,7 +119,7 @@ namespace seayon
             std::vector<float> biases;
             std::vector<float> weights;
 
-            layer(const int PREVIOUS, const int NEURONS, const ActivFunc func, std::mt19937& gen);
+            layer(int PREVIOUS, int NEURONS, ActivFunc func, std::mt19937& gen);
         };
 
         int seed;
@@ -183,7 +183,7 @@ namespace seayon
          * @param min Lowest value in dataset (use this->max())
          * @return Denormalized output layer
          */
-        std::vector<float> denormalized(const float max, const float min) const;
+        void denormalize(float max, float min);
         /**
          * Calculates network's outputs (aka predict)
          * @return Pointer to output layer/array
@@ -257,19 +257,12 @@ namespace seayon
          */
         float print(const dataset& data, int sample);
         // Prints only the output layer. pulse() should be called before
-        void printo();
+        void printo(bool oneline = false);
         /**
          * Prints only the output layer with the loss() and the accruacy()
          * @return difference value "diff()"
          */
-        float printo(const dataset& data, const int sample);
-        // Prints output layer in one line. pulse() should be called before
-        void print_one();
-        /**
-         * Prints output layer in one line
-         * @return difference value "diff()"
-         */
-        float print_one(const dataset& data, const int sample);
+        float printo(const dataset& data, int sample, bool oneline = false);
 
         typedef bool(*step_callback_t)(model& main, int epoch, float l, float val_l, const dataset& traindata, const dataset& testdata);
         /**

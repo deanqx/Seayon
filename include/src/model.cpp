@@ -171,22 +171,17 @@ bool seayon::model::equals(model& second)
     return equal;
 }
 
-std::vector<float> seayon::model::denormalized(const float max, const float min) const
+void seayon::model::denormalize(const float max, const float min)
 {
-    const layer& last = layers[layers.size() - 1];
     const float range = max - min;
 
-    std::vector<float> out(last.nCount);
-
-    for (int i = 0; i < last.nCount; ++i)
+    for (int i = 0; i < layers.back().nCount; ++i)
     {
-        out[i] = last.neurons[i] * range + min;
+        layers.back().neurons[i] = layers.back().neurons[i] * range + min;
     }
-
-    return out;
 }
 
 bool seayon::model::check(const dataset& data) const
 {
-    return layers[0].nCount == xsize && layers[layers.size() - 1].nCount == ysize;
+    return layers[0].nCount == xsize && layers.back().nCount == ysize;
 }

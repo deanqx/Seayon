@@ -117,7 +117,7 @@ void seayon::model::print()
     printf("-----------------------------------------------\n\n");
 }
 
-float seayon::model::print(const dataset& data, int sample)
+float seayon::model::print(const dataset& data, const int sample)
 {
     pulse(data[sample].x.data());
     print();
@@ -125,79 +125,72 @@ float seayon::model::print(const dataset& data, int sample)
     return evaluate(data);
 }
 
-void seayon::model::printo()
+void seayon::model::printo(const bool oneline)
 {
-    HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    int normalColor = 11;
-
-    int l = layers.size() - 1;
-
-    SetConsoleTextAttribute(cmd, 11);
-    printf("Output Layer:\n");
-
-    size_t largest = std::max_element(layers[l].neurons.begin(), layers[l].neurons.end()) - layers[l].neurons.begin();
-    for (int n = 0; n < layers[l].nCount; ++n)
+    if (oneline)
     {
-        printf("       Neuron[%02i]   ", n);
-        if (l == layers.size() - 1)
-        {
-            if (n == largest)
-                SetConsoleTextAttribute(cmd, 95);
-            else
-                SetConsoleTextAttribute(cmd, 7);
-            printf("%.2f", layers[l].neurons[n]);
-            SetConsoleTextAttribute(cmd, normalColor);
-        }
-        else
-            printf("%.2f", layers[l].neurons[n]);
+        const int lastn = layers.back().nCount - 1;
 
-        if (l > 0)
+        printf("[");
+        for (int i = 0; i < lastn; ++i)
         {
-            if (layers[l].biases[n] <= 0.0f)
+            printf("%.5f, ", layers.back().neurons[i]);
+        }
+        printf("%.5f", layers.back().neurons[lastn]);
+        printf("]\n");
+    }
+    else
+    {
+        HANDLE cmd = GetStdHandle(STD_OUTPUT_HANDLE);
+
+        int normalColor = 11;
+
+        int l = layers.size() - 1;
+
+        SetConsoleTextAttribute(cmd, 11);
+        printf("Output Layer:\n");
+
+        size_t largest = std::max_element(layers[l].neurons.begin(), layers[l].neurons.end()) - layers[l].neurons.begin();
+        for (int n = 0; n < layers[l].nCount; ++n)
+        {
+            printf("       Neuron[%02i]   ", n);
+            if (l == layers.size() - 1)
             {
-                printf("\t(");
-                SetConsoleTextAttribute(cmd, 12);
-                printf("%0.2f", layers[l].biases[n]);
+                if (n == largest)
+                    SetConsoleTextAttribute(cmd, 95);
+                else
+                    SetConsoleTextAttribute(cmd, 7);
+                printf("%.2f", layers[l].neurons[n]);
                 SetConsoleTextAttribute(cmd, normalColor);
-                printf(")\n");
             }
             else
-                printf("\t(%0.2f)\n", layers[l].biases[n]);
+                printf("%.2f", layers[l].neurons[n]);
+
+            if (l > 0)
+            {
+                if (layers[l].biases[n] <= 0.0f)
+                {
+                    printf("\t(");
+                    SetConsoleTextAttribute(cmd, 12);
+                    printf("%0.2f", layers[l].biases[n]);
+                    SetConsoleTextAttribute(cmd, normalColor);
+                    printf(")\n");
+                }
+                else
+                    printf("\t(%0.2f)\n", layers[l].biases[n]);
+            }
+            else
+                printf("\n\n");
         }
-        else
-            printf("\n\n");
+        SetConsoleTextAttribute(cmd, 7);
+        printf("-----------------------------------------------\n\n");
     }
-    SetConsoleTextAttribute(cmd, 7);
-    printf("-----------------------------------------------\n\n");
 }
 
-float seayon::model::printo(const dataset& data, const int sample)
+float seayon::model::printo(const dataset& data, const int sample, const bool oneline)
 {
     pulse(data[sample].x.data());
-    printo();
-
-    return evaluate(data);
-}
-
-void seayon::model::print_one()
-{
-    const layer& last = layers[layers.size() - 1];
-    const int lastn = last.nCount - 1;
-
-    printf("[");
-    for (int i = 0; i < lastn; ++i)
-    {
-        printf("%.5f, ", last.neurons[i]);
-    }
-    printf("%.5f", last.neurons[lastn]);
-    printf("]\n");
-}
-
-float seayon::model::print_one(const dataset& data, const int sample)
-{
-    pulse(data[sample].x.data());
-    print_one();
+    printo(oneline);
 
     return evaluate(data);
 }
