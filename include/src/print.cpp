@@ -4,7 +4,7 @@
 #include <windows.h>
 #endif
 
-void seayon::model::whatsetup()
+void seayon::model::summary()
 {
     int paras = 0;
     for (int i = 1; i < layers.size(); ++i)

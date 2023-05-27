@@ -244,7 +244,7 @@ namespace seayon
          * @return percentage, higher means better
          */
         float accruacy(const dataset& data);
-        void whatsetup();
+        void summary();
         /**
          * Prints all rating functions
          * @return difference value "diff()"
